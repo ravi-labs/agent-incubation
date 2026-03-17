@@ -66,7 +66,6 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
 
 if TYPE_CHECKING:
     from foundry.scaffold.base import BaseAgent

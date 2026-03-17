@@ -123,7 +123,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from foundry.gateway import MockGatewayConnector
+from foundry.gateway import HttpGateway
 from foundry.observability import OutcomeTracker
 from foundry.policy.effects import FinancialEffect
 from foundry.scaffold import BaseAgent, load_manifest
@@ -176,9 +176,8 @@ def build_agent() -> {class_name}:
     audit = JsonlAuditSink("audit.jsonl")
     tower = ControlTower(policy=policy, approver=approver, audit=audit)
 
-    gateway = MockGatewayConnector({{
-        # TODO: add mock data sources
-    }})
+    # TODO: replace with your real API base URL
+    gateway = HttpGateway("https://your-internal-api.example.com")
 
     tracker = OutcomeTracker(path="outcomes.jsonl")
 
