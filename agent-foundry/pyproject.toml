@@ -41,7 +41,39 @@ dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "ruff>=0.1.0",
+    "mypy>=1.0.0",
 ]
+
+# ── Orchestration frameworks ──────────────────────────────────────────────────
+# Teams use these INSIDE execute() for LLM reasoning and multi-step flows.
+# The foundry core remains framework-agnostic; these are opt-in per team.
+
+langchain = [
+    # LLM abstraction, tool calling wrappers, RAG chains
+    "langchain-core>=0.2.0",
+    "langchain>=0.2.0",
+    "langchain-community>=0.2.0",
+]
+langgraph = [
+    # Stateful multi-step agent state machines (recommended for complex agents)
+    "langgraph>=0.2.0",
+    "agent-foundry[langchain]",
+]
+strands = [
+    # AWS Strands Agents — Bedrock-native agent SDK
+    "strands-agents>=0.1.0",
+    "strands-agents-tools>=0.1.0",
+]
+
+# ── AWS deployment ────────────────────────────────────────────────────────────
+aws = [
+    # Lambda handler + Bedrock Agent Core adapter
+    "boto3>=1.34.0",
+    "botocore>=1.34.0",
+    "agent-foundry[strands]",
+]
+
+# ── Infrastructure ────────────────────────────────────────────────────────────
 redis = [
     "redis[hiredis]>=5.0.0",
 ]
@@ -53,8 +85,11 @@ otel = [
 encryption = [
     "cryptography>=41.0.0",
 ]
+
+# ── Bundles ───────────────────────────────────────────────────────────────────
 enterprise = [
-    "agent-foundry[redis,otel,encryption]",
+    # Everything for a fully governed, production-grade deployment
+    "agent-foundry[redis,otel,encryption,langgraph,aws]",
 ]
 
 [project.urls]

@@ -831,5 +831,139 @@ def effects_show(effect_name: str):
         ))
 
 
+# ─── foundry deploy ───────────────────────────────────────────────────────────
+
+@cli.group()
+def deploy():
+    """Package and deploy agents to AWS Lambda, ECS Fargate, or Bedrock Agent Core."""
+
+
+@deploy.command("schema")
+@click.argument("manifest_path", default="manifest.yaml")
+@click.option("--output", "-o", default=None, help="Write schema to this file (default: stdout)")
+@click.option("--upload-to-s3", default=None, help="s3://bucket/key — upload schema to S3")
+def deploy_schema(manifest_path: str, output: str | None, upload_to_s3: str | None):
+    """
+    Generate an OpenAPI 3.0 Action Group schema for Bedrock Agent Core.
+
+    Derives the schema from the agent manifest's declared effects.
+    Tier 4+ effects (Output, Persistence, System) become API operations.
+
+    Example:
+        foundry deploy schema
+        foundry deploy schema --output schema.json
+        foundry deploy schema --upload-to-s3 s3://my-bucket/agents/watchdog/schema.json
+    """
+    import json as _json
+
+    path = Path(manifest_path)
+    manifest = _load_manifest_safe(path)
+
+    try:
+        from foundry.deploy.bedrock import generate_action_schema, upload_schema_to_s3
+    except ImportError:
+        click.echo(click.style(
+            "✗ AWS extras not installed. Run: pip install 'agent-foundry[aws]'", fg="red"
+        ), err=True)
+        sys.exit(1)
+
+    schema = generate_action_schema(manifest)
+    schema_json = _json.dumps(schema, indent=2)
+
+    if upload_to_s3:
+        if not upload_to_s3.startswith("s3://"):
+            click.echo(click.style("✗ --upload-to-s3 must be an s3:// URI", fg="red"), err=True)
+            sys.exit(1)
+        parts = upload_to_s3[5:].split("/", 1)
+        bucket, key = parts[0], parts[1] if len(parts) > 1 else "schema.json"
+        uri = upload_schema_to_s3(schema, bucket, key)
+        click.echo(click.style(f"✓ Schema uploaded to {uri}", fg="green"))
+    elif output:
+        Path(output).write_text(schema_json)
+        click.echo(click.style(f"✓ Schema written to {output}", fg="green"))
+    else:
+        click.echo(schema_json)
+
+    op_count = len(schema.get("paths", {}))
+    if not upload_to_s3:
+        click.echo(
+            click.style(f"\n  {op_count} operations generated from {manifest.agent_id}", fg="cyan"),
+            err=True,
+        )
+
+
+@deploy.command("package")
+@click.argument("manifest_path", default="manifest.yaml")
+@click.option("--target", type=click.Choice(["lambda", "ecs", "bedrock"]), default="ecs")
+def deploy_package(manifest_path: str, target: str):
+    """
+    Show packaging instructions for the specified deployment target.
+
+    Example:
+        foundry deploy package --target ecs
+        foundry deploy package --target bedrock
+        foundry deploy package --target lambda
+    """
+    path = Path(manifest_path)
+    manifest = _load_manifest_safe(path)
+
+    click.echo(click.style(f"Deploy: {manifest.agent_id} → {target.upper()}", bold=True))
+    click.echo()
+
+    if target == "lambda":
+        click.echo("  1. Build the Lambda deployment package:")
+        click.echo(f"     pip install 'agent-foundry[aws]' -t ./package/")
+        click.echo(f"     cp -r src/ ./package/")
+        click.echo(f"     cp manifest.yaml policy.yaml policies/ ./package/")
+        click.echo(f"     cd package && zip -r ../function.zip .")
+        click.echo()
+        click.echo("  2. In your handler.py:")
+        click.echo("     from foundry.deploy.lambda_handler import make_handler")
+        click.echo(f"     from your_module import {manifest.agent_id.replace('-', '_').title().replace('_', '')}Agent")
+        click.echo("     handler = make_handler(YourAgentClass)")
+        click.echo()
+        click.echo("  3. Set Lambda handler to: handler.handler")
+
+    elif target == "ecs":
+        click.echo("  1. Build the container image:")
+        click.echo(f"     docker build -t {manifest.agent_id}:latest \\")
+        click.echo(f"       --build-arg AGENT_MODULE=your_module \\")
+        click.echo(f"       --build-arg AGENT_CLASS=YourAgentClass \\")
+        click.echo(f"       -f agent-foundry/deploy/Dockerfile .")
+        click.echo()
+        click.echo("  2. Push to ECR:")
+        click.echo(f"     aws ecr create-repository --repository-name {manifest.agent_id}")
+        click.echo(f"     docker tag {manifest.agent_id}:latest <ECR_URI>/{manifest.agent_id}:latest")
+        click.echo(f"     docker push <ECR_URI>/{manifest.agent_id}:latest")
+        click.echo()
+        click.echo("  3. Register ECS task def:")
+        click.echo("     Edit agent-foundry/deploy/ecs-task-def.json with your values")
+        click.echo("     aws ecs register-task-definition --cli-input-json file://ecs-task-def.json")
+
+    elif target == "bedrock":
+        from foundry.lifecycle.stages import LifecycleStage
+        if manifest.lifecycle_stage not in (LifecycleStage.GOVERN, LifecycleStage.SCALE):
+            click.echo(click.style(
+                f"  ⚠ Bedrock Agent Core is recommended for GOVERN/SCALE stage agents only.",
+                fg="yellow"
+            ))
+            click.echo(f"    Current stage: {manifest.lifecycle_stage.value}")
+            click.echo()
+
+        click.echo("  1. Generate Action Group schema:")
+        click.echo(f"     foundry deploy schema --upload-to-s3 s3://my-bucket/agents/{manifest.agent_id}/schema.json")
+        click.echo()
+        click.echo("  2. Deploy Lambda function (see --target lambda)")
+        click.echo()
+        click.echo("  3. Register in Bedrock Agent Core:")
+        click.echo("     See agent-foundry/deploy/bedrock-agent-core.md for full setup")
+        click.echo()
+        click.echo(click.style(
+            "  Note: Tollgate policy enforcement runs inside your Lambda —\n"
+            "  Bedrock cannot bypass ERISA/DOL policy rules.",
+            fg="cyan"
+        ))
+
+
 if __name__ == "__main__":
     cli()

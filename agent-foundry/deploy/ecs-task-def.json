@@ -1,0 +1,67 @@
+{
+  "_comment": "ECS Fargate task definition template for a Foundry agent.",
+  "_usage": [
+    "Replace all <PLACEHOLDER> values before registering.",
+    "Register: aws ecs register-task-definition --cli-input-json file://ecs-task-def.json",
+    "Tip: set FOUNDRY_ENV=production only after agents reach Govern/Scale stage."
+  ],
+
+  "family": "<AGENT_ID>-foundry",
+  "taskRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/foundry-agent-task-role",
+  "executionRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/foundry-agent-execution-role",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+
+  "containerDefinitions": [
+    {
+      "name": "<AGENT_ID>",
+      "image": "<ECR_REPO_URI>/<AGENT_ID>:latest",
+      "essential": true,
+
+      "environment": [
+        { "name": "FOUNDRY_ENV",           "value": "sandbox" },
+        { "name": "FOUNDRY_MANIFEST_PATH", "value": "/app/manifest.yaml" },
+        { "name": "FOUNDRY_POLICY_DIR",    "value": "/app/policies/" },
+        { "name": "FOUNDRY_LOG_LEVEL",     "value": "INFO" },
+        { "name": "AGENT_MODULE",          "value": "<PYTHON_MODULE>" },
+        { "name": "AGENT_CLASS",           "value": "<AGENT_CLASS>" }
+      ],
+
+      "secrets": [
+        {
+          "_comment": "Store sensitive config in SSM Parameter Store or Secrets Manager",
+          "name":      "SOME_API_KEY",
+          "valueFrom": "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/foundry/<AGENT_ID>/api-key"
+        }
+      ],
+
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":         "/foundry/agents/<AGENT_ID>",
+          "awslogs-region":        "<REGION>",
+          "awslogs-stream-prefix": "agent"
+        }
+      },
+
+      "healthCheck": {
+        "command":     ["CMD-SHELL", "foundry agent validate /app/manifest.yaml || exit 1"],
+        "interval":    30,
+        "timeout":     10,
+        "retries":     3,
+        "startPeriod": 15
+      },
+
+      "readonlyRootFilesystem": true,
+      "user": "1001:1001"
+    }
+  ],
+
+  "tags": [
+    { "key": "foundry:agent-id",        "value": "<AGENT_ID>" },
+    { "key": "foundry:lifecycle-stage", "value": "sandbox" },
+    { "key": "foundry:owner",           "value": "<TEAM_NAME>" }
+  ]
+}
