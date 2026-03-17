@@ -1,35 +1,48 @@
 """
 Retirement Trajectory Intervention Agent — Example Implementation
 
-This is a reference implementation showing how to build a Foundry agent
-on top of BaseAgent. It demonstrates:
+Demonstrates two modes:
+  - Algorithmic (default): pure Python scoring + template-based message drafting.
+  - Bedrock LLM (set USE_BEDROCK=1): Claude writes the intervention message
+    via BedrockLLMClient, routed through the policy engine like any other effect.
+
+This is the canonical reference for:
   - Loading a manifest from YAML
-  - Wiring up ControlTower with the financial services policy
+  - Wiring ControlTower with financial services policy
   - Using Gateway for data access
   - Running effects through the policy engine
+  - Calling Claude via Bedrock inside run_effect() using BedrockLLMClient
   - Logging outcomes for ROI tracking
 
 Run this example:
-    python examples/retirement_trajectory/agent.py
+    python examples/retirement_trajectory/agent.py           # algorithmic drafting
+    USE_BEDROCK=1 python examples/retirement_trajectory/agent.py  # Claude drafting
 """
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 from foundry.gateway import MockGatewayConnector
-from foundry.lifecycle.stages import LifecycleStage
 from foundry.observability import OutcomeTracker
 from foundry.policy.effects import FinancialEffect
 from foundry.scaffold import BaseAgent, load_manifest
 from foundry.tollgate import (
-    AgentContext,
     AutoApprover,
     ControlTower,
     JsonlAuditSink,
     YamlPolicyEvaluator,
 )
-from foundry.tollgate.types import AgentContext
+
+# BedrockLLMClient is optional — only needed when USE_BEDROCK=1
+# Install: pip install "agent-foundry[aws]"
+USE_BEDROCK = os.environ.get("USE_BEDROCK", "0") == "1"
+if USE_BEDROCK:
+    try:
+        from foundry.integrations.bedrock_llm import BedrockLLMClient
+    except ImportError:
+        raise ImportError("Run: pip install 'agent-foundry[aws]' to use Bedrock LLM")
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -139,9 +152,17 @@ class RetirementTrajectoryAgent(BaseAgent):
       1. Reads participant data and cohort benchmarks via Gateway
       2. Computes a retirement trajectory risk score
       3. Drafts a personalized intervention if the participant is at-risk
+         — either via algorithmic template OR Claude via Bedrock (USE_BEDROCK=1)
       4. Sends the intervention (subject to policy engine approval)
       5. Logs outcomes for ROI tracking
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Wire up Bedrock LLM client when USE_BEDROCK=1
+        # BedrockLLMClient routes every Claude call through run_effect() so it
+        # is policy-enforced, audit-logged, and counted against the manifest.
+        self.llm = BedrockLLMClient(agent=self) if USE_BEDROCK else None
 
     async def execute(self, participant_ids: list[str]) -> dict:
         results = {"processed": 0, "at_risk": 0, "interventions_sent": 0, "errors": 0}
@@ -196,15 +217,50 @@ class RetirementTrajectoryAgent(BaseAgent):
         logger.info("At-risk participant: %s (replacement: %s%%)", pid, score["income_replacement_pct"])
 
         # Step 4: Draft intervention (ALLOW — internal)
-        draft = await self.run_effect(
-            effect=FinancialEffect.INTERVENTION_DRAFT,
-            tool="message_generator",
-            action="draft",
-            params={"participant_id": pid, "score": score},
-            intent_action="draft_intervention",
-            intent_reason=f"Generate personalized intervention for at-risk participant {pid}",
-            exec_fn=lambda: draft_intervention_message(participant, score),
-        )
+        # Mode A: algorithmic template (default, no LLM dependency)
+        # Mode B: Claude via Bedrock (USE_BEDROCK=1) — personalised, empathetic prose
+        if self.llm is not None:
+            # ── Bedrock / Claude path ─────────────────────────────────────────
+            # run_effect() is called INSIDE BedrockLLMClient.generate() —
+            # the LLM call is policy-enforced just like any other effect.
+            llm_text = await self.llm.generate(
+                effect=FinancialEffect.INTERVENTION_DRAFT,
+                intent_action="draft_intervention",
+                intent_reason=f"Generate personalised retirement intervention for participant {pid}",
+                system=(
+                    "You are a retirement planning assistant at a regulated financial services firm. "
+                    "Write clear, empathetic, jargon-free messages. Never give specific investment advice. "
+                    "Always include a disclaimer that projections are estimates, not guarantees."
+                ),
+                prompt=(
+                    f"Write a 2-3 sentence retirement savings nudge for {participant['name']}, "
+                    f"age {participant['age']}, currently on track to replace "
+                    f"{score['income_replacement_pct']}% of their income (target: 70–80%). "
+                    f"Their current contribution rate is {participant['contrib_rate']*100:.0f}%. "
+                    f"Suggest increasing it by 2 percentage points. "
+                    f"Tone: warm, encouraging, not alarming."
+                ),
+                max_tokens=256,
+                temperature=0.4,
+            )
+            draft = {
+                "participant_id": pid,
+                "message_type":   "projection" if score["income_replacement_pct"] < 55 else "informational",
+                "body":           llm_text,
+                "channel":        "email",
+                "generated_by":   "bedrock-claude",
+            }
+        else:
+            # ── Algorithmic path (default) ────────────────────────────────────
+            draft = await self.run_effect(
+                effect=FinancialEffect.INTERVENTION_DRAFT,
+                tool="message_generator",
+                action="draft",
+                params={"participant_id": pid, "score": score},
+                intent_action="draft_intervention",
+                intent_reason=f"Generate personalized intervention for at-risk participant {pid}",
+                exec_fn=lambda: draft_intervention_message(participant, score),
+            )
 
         # Step 5: Send intervention (ASK by default — policy engine decides)
         await self.run_effect(
