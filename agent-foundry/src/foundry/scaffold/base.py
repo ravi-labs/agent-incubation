@@ -56,7 +56,7 @@ from foundry.tollgate.types import AgentContext
 if TYPE_CHECKING:
     from foundry.memory.buffer import ConversationBuffer
     from foundry.memory.store import FoundryMemoryStore
-    from foundry.tools.registry import ToolRegistry
+    from foundry.tools.registry import AgentToolRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -86,20 +86,20 @@ class BaseAgent(ABC):
             tracker:  Optional outcome tracker for ROI measurement.
             memory:   Optional ConversationBuffer (short-term) or FoundryMemoryStore
                       (long-term) — also settable as self.memory after init.
-            tools:    Optional ToolRegistry — also settable as self.tools after init.
+            tools:    Optional AgentToolRegistry — also settable as self.tools after init.
 
         Quick setup example::
 
             from foundry.memory.buffer import ConversationBuffer
-            from foundry.tools.registry import ToolRegistry
+            from foundry.tools.registry import AgentToolRegistry
 
             class MyAgent(BaseAgent):
                 def __init__(self, manifest, tower, gateway, tracker=None):
                     super().__init__(
                         manifest, tower, gateway, tracker,
                         memory=ConversationBuffer(max_turns=20),
-                        tools=ToolRegistry(self),   # tools registered in __init__ body
                     )
+                    self.tools = AgentToolRegistry(self)
                     self.tools.register_all(self)   # auto-discover @governed_tool methods
         """
         self.manifest = manifest

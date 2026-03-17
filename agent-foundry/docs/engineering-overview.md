@@ -56,12 +56,12 @@ All agent actions are modelled as `FinancialEffect` values arranged in a 6-tier 
 
 | Tier | Category | Default | Examples |
 |------|----------|---------|---------|
-| 1 | Data Access | ALLOW | `data.participant.read`, `knowledge.base.retrieve` |
-| 2 | Compute & Analysis | ALLOW | `risk.score.compute`, `data.analysis.run` |
-| 3 | Internal Draft | ALLOW | `intervention.draft`, `finding.generate` |
+| 1 | Data Access | ALLOW | `participant.data.read`, `knowledge.base.retrieve` |
+| 2 | Compute & Analysis | ALLOW | `risk.score.compute`, `compliance.evaluate` |
+| 3 | Internal Draft | ALLOW | `intervention.draft`, `finding.draft` |
 | 4 | Output / External | ASK | `participant.communication.send`, `bedrock.agent.invoke` |
-| 5 | State Change | ASK | `account.transaction.execute`, `policy.override` |
-| 6 | System Control | DENY | `agent.promote`, `system.config.change` |
+| 5 | Persistence | ALLOW | `audit.log.write`, `intervention.log.write` |
+| 6 | System Control | DENY | `agent.promote`, `policy.rule.modify` |
 
 Effects are declared in the `AgentManifest`. An agent cannot invoke an undeclared effect — the attempt raises `PermissionError` before it ever reaches the policy engine.
 

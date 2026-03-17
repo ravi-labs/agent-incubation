@@ -421,6 +421,11 @@ _EFFECT_META: dict[FinancialEffect, EffectMeta] = {
 }
 
 
+# Public alias — importable as `from foundry.policy.effects import EFFECT_METADATA`
+# Used by integrations (LangChain toolkit, eval framework, docs generation).
+EFFECT_METADATA: dict["FinancialEffect", EffectMeta] = _EFFECT_META
+
+
 def effect_meta(effect: FinancialEffect) -> EffectMeta:
     """Return metadata for a given FinancialEffect."""
     return _EFFECT_META[effect]

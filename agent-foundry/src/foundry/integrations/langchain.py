@@ -287,14 +287,18 @@ class FoundryToolkit:
         exclude = set(exclude_effects or [])
         tools: list[FoundryTool] = []
 
-        for effect_value in agent.manifest.allowed_effects:
-            if effect_value in exclude:
-                continue
+        for effect in agent.manifest.allowed_effects:
+            # allowed_effects contains FinancialEffect instances (not raw strings).
+            # Normalise defensively: accept both FinancialEffect and str values.
+            if not isinstance(effect, FinancialEffect):
+                try:
+                    effect = FinancialEffect(effect)
+                except ValueError:
+                    logger.debug("Skipping unknown effect: %s", effect)
+                    continue
 
-            try:
-                effect = FinancialEffect(effect_value)
-            except ValueError:
-                logger.debug("Skipping unknown effect: %s", effect_value)
+            effect_value = effect.value
+            if effect_value in exclude or effect in exclude:
                 continue
 
             meta = EFFECT_METADATA.get(effect)

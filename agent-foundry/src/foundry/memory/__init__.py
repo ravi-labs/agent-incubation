@@ -12,11 +12,20 @@ Install:
     pip install "agent-foundry[aws]"     # FoundryMemoryStore with DynamoDB backend
 """
 from foundry.memory.buffer import ConversationBuffer, Message
-from foundry.memory.store import FoundryMemoryStore, MemoryEntry
+from foundry.memory.store import (
+    DynamoDBMemoryBackend,
+    FoundryMemoryStore,
+    LocalJsonStore,
+    MemoryBackend,
+    MemoryEntry,
+)
 
 __all__ = [
     "ConversationBuffer",
     "Message",
     "FoundryMemoryStore",
     "MemoryEntry",
+    "MemoryBackend",
+    "LocalJsonStore",
+    "DynamoDBMemoryBackend",
 ]

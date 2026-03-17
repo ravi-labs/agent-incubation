@@ -161,9 +161,14 @@ def governed_tool(
 # ── Registry ───────────────────────────────────────────────────────────────────
 
 
-class ToolRegistry:
+class AgentToolRegistry:
     """
     Registry of governed tools attached to a BaseAgent.
+
+    Renamed from ``ToolRegistry`` to avoid collision with
+    ``foundry.tollgate.ToolRegistry`` (which is Tollgate's internal
+    resource-type registry, a different concept). A backward-compatible
+    ``ToolRegistry`` alias is exported from this module.
 
     All tool invocations go through agent.run_effect() so every call is:
       - Policy-enforced (declared effect must be in manifest)
@@ -342,4 +347,9 @@ class ToolRegistry:
         return len(self._tools)
 
     def __repr__(self) -> str:
-        return f"ToolRegistry(agent={self._agent.manifest.agent_id!r}, tools={len(self)})"
+        return f"AgentToolRegistry(agent={self._agent.manifest.agent_id!r}, tools={len(self)})"
+
+
+# Backward-compatible alias — keeps existing code working while avoiding
+# the name collision with foundry.tollgate.ToolRegistry.
+ToolRegistry = AgentToolRegistry

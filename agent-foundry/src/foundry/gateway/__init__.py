@@ -1,3 +1,17 @@
-from .base import DataRequest, DataResponse, GatewayConnector, MockGatewayConnector
+from .base import (
+    DataRequest,
+    DataResponse,
+    GatewayConnector,
+    HttpGateway,
+    MockGatewayConnector,
+    MultiGateway,
+)
 
-__all__ = ["GatewayConnector", "DataRequest", "DataResponse", "MockGatewayConnector"]
+__all__ = [
+    "GatewayConnector",
+    "DataRequest",
+    "DataResponse",
+    "MockGatewayConnector",
+    "HttpGateway",
+    "MultiGateway",
+]

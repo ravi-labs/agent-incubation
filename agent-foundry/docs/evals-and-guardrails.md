@@ -106,7 +106,7 @@ scenarios = [
     EvalScenario(
         name                   = 'high_risk_flagged_correctly',
         inputs                 = {'participant_id': 'p-high-risk'},
-        expect_effects_allowed = ['risk.score.compute', 'finding.generate'],
+        expect_effects_allowed = ['risk.score.compute', 'finding.draft'],
         expect_output_fn       = lambda out: out.get('risk_score', 0) > 0.7,
         tags                   = ['regression'],
     ),
@@ -115,7 +115,7 @@ scenarios = [
     EvalScenario(
         name                   = 'full_analysis_under_5s',
         inputs                 = {'participant_id': 'p-001', 'full_analysis': True},
-        expect_effects_allowed = ['data.participant.read', 'risk.score.compute'],
+        expect_effects_allowed = ['participant.data.read', 'risk.score.compute'],
         expect_output_contains = {'risk_score', 'finding'},
         max_latency_ms         = 5000,
         tags                   = ['performance'],

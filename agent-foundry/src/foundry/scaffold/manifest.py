@@ -88,6 +88,22 @@ class AgentManifest:
         """Check whether an effect is in this agent's declared scope."""
         return effect in self.allowed_effects
 
+    @classmethod
+    def from_yaml(cls, path: "str | Path") -> "AgentManifest":
+        """
+        Load an AgentManifest from a YAML file.
+
+        Convenience classmethod that delegates to the module-level
+        ``load_manifest()`` function. Used by the Lambda handler and CLI.
+
+        Args:
+            path: Path to the manifest YAML file.
+
+        Returns:
+            Parsed and validated AgentManifest.
+        """
+        return load_manifest(path)
+
     def to_dict(self) -> dict:
         return {
             "agent_id": self.agent_id,

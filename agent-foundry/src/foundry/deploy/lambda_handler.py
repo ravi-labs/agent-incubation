@@ -142,8 +142,22 @@ class _FoundryLambdaHandler:
         tower = ControlTower(policy=policy, approver=approver, audit=audit)
 
         # ── Gateway ───────────────────────────────────────────────────────────
-        from foundry.gateway.base import GatewayConnector
-        gateway = GatewayConnector()
+        # GatewayConnector is a Protocol — instantiate a real connector.
+        # Production deployments should override this by passing a pre-built
+        # connector via agent_kwargs (e.g. make_handler(MyAgent, gateway=my_gw)).
+        # If the caller already provided one, use it; otherwise fall back to
+        # MockGatewayConnector (safe for sandbox; warns in production).
+        if "gateway" in self._agent_kwargs:
+            gateway = self._agent_kwargs.pop("gateway")
+        else:
+            from foundry.gateway.base import MockGatewayConnector
+            if environment == "production":
+                logger.warning(
+                    "foundry_warning No gateway provided to make_handler() — "
+                    "using MockGatewayConnector in production. "
+                    "Pass gateway=YourConnector() to make_handler() for real data access."
+                )
+            gateway = MockGatewayConnector()
 
         # ── Outcome tracker ───────────────────────────────────────────────────
         from foundry.observability import OutcomeTracker

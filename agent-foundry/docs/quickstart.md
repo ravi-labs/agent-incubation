@@ -86,12 +86,12 @@ All agent actions are governed by `FinancialEffect` declarations. The ControlTow
 
 | Tier | Category | Default | Example Effects |
 |------|----------|---------|-----------------|
-| 1 | Data Access (Read) | `ALLOW` | `data.participant.read`, `knowledge.base.retrieve` |
-| 2 | Compute & Analysis | `ALLOW` | `risk.score.compute`, `data.analysis.run` |
-| 3 | Internal Draft | `ALLOW` | `intervention.draft`, `finding.generate` |
+| 1 | Data Access (Read) | `ALLOW` | `participant.data.read`, `knowledge.base.retrieve` |
+| 2 | Compute & Analysis | `ALLOW` | `risk.score.compute`, `compliance.evaluate` |
+| 3 | Internal Draft | `ALLOW` | `intervention.draft`, `finding.draft` |
 | 4 | Output / External | `ASK` | `participant.communication.send`, `bedrock.agent.invoke` |
-| 5 | State Change | `ASK` | `account.transaction.execute`, `policy.override` |
-| 6 | System Control | `DENY` | `agent.promote`, `system.config.change` |
+| 5 | Persistence | `ALLOW` | `audit.log.write`, `intervention.log.write` |
+| 6 | System Control | `DENY` | `agent.promote`, `policy.rule.modify` |
 
 ### 2.2  Running an Effect
 
