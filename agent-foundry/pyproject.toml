@@ -35,6 +35,7 @@ dependencies = [
 
 [project.scripts]
 foundry = "foundry.cli.main:cli"
+foundry-audit = "foundry.observability.audit_report:main"
 
 [project.optional-dependencies]
 dev = [
