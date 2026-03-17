@@ -1,0 +1,85 @@
+# Integration test policy
+# ──────────────────────────────────────────────────────────────────────────────
+# Used by tests/integration/test_full_pipeline.py.
+#
+# Three tiers:
+#   ALLOW  — low-risk reads and computations
+#   ASK    — participant communication requires human review
+#   DENY   — anything that overwrites live participant data or account state
+
+rules:
+
+  # ── Tier 1: reads and computations are always permitted ────────────────────
+  - resource_type: "participant.data.read"
+    decision: ALLOW
+    reason: "Read-only participant data access"
+
+  - resource_type: "risk.score.compute"
+    decision: ALLOW
+    reason: "Risk scoring is a safe computation"
+
+  - resource_type: "intervention.draft"
+    decision: ALLOW
+    reason: "Drafting is internal with no external side effects"
+
+  - resource_type: "audit.log.write"
+    decision: ALLOW
+    reason: "Audit logging is always permitted"
+
+  - resource_type: "fund.performance.read"
+    decision: ALLOW
+    reason: "Fund performance data is read-only"
+
+  - resource_type: "fund.fees.read"
+    decision: ALLOW
+    reason: "Fund fee data is read-only"
+
+  - resource_type: "compliance.evaluate"
+    decision: ALLOW
+    reason: "Compliance evaluation is a safe computation"
+
+  - resource_type: "finding.draft"
+    decision: ALLOW
+    reason: "Drafting a compliance finding is internal"
+
+  - resource_type: "compliance.finding.emit.low"
+    decision: ALLOW
+    reason: "Low-severity findings auto-emit to monitoring dashboard"
+
+  - resource_type: "human.review.queue.add"
+    decision: ALLOW
+    reason: "Adding to review queue is always permitted"
+
+  - resource_type: "finding.log.write"
+    decision: ALLOW
+    reason: "Writing finding logs is always permitted"
+
+  - resource_type: "intervention.log.write"
+    decision: ALLOW
+    reason: "Writing intervention logs is always permitted"
+
+  # ── Tier 2: communication/emission requires human review ──────────────────
+  - resource_type: "participant.communication.send"
+    decision: ASK
+    reason: >
+      Sending communications has regulatory implications.
+      Route through human review.
+
+  - resource_type: "compliance.finding.emit.high"
+    decision: ASK
+    reason: >
+      High-severity findings may trigger ERISA reporting obligations.
+      Route to compliance officer before emission.
+
+  # ── Tier 3: direct data writes are never permitted by agents ──────────────
+  - resource_type: "participant.data.write"
+    decision: DENY
+    reason: >
+      Agents may never overwrite participant records directly.
+      All participant data changes must be initiated by a human administrator.
+
+  - resource_type: "account.transaction.execute"
+    decision: DENY
+    reason: >
+      Agents may never execute financial transactions.
+      Transactions require human authorisation via the plan administrator.

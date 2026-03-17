@@ -1,0 +1,24 @@
+# tollgate/.gitignore
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+dist/
+build/
+*.egg
+*.egg-info/
+.eggs/
+*.whl
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+*.jsonl
+*.sqlite
+*.sqlite3
