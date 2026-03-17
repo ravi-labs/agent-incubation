@@ -199,3 +199,135 @@ class BaseAgent(ABC):
                 event_type=event_type,
                 data=data,
             )
+
+    # ── LangChain Runnable protocol ────────────────────────────────────────────
+    #
+    # These methods make every BaseAgent composable in LCEL pipelines using the
+    # | operator WITHOUT needing to import FoundryRunnable explicitly:
+    #
+    #     chain = some_retriever | my_foundry_agent | output_parser
+    #     result = chain.invoke({"fund_id": "FUND001"})
+    #
+    # The implementation is intentionally lightweight — it delegates to
+    # execute() and does not pull in langchain-core as a hard dependency.
+    # langchain-core is only needed for the | operator (__or__ / __ror__).
+    #
+    # If langchain-core is not installed, invoke/ainvoke still work fine as
+    # standalone methods; only the | chaining operator will raise ImportError.
+
+    def invoke(self, input: Any, config: Any = None, **kwargs: Any) -> Any:
+        """
+        LangChain Runnable.invoke() — synchronously execute the agent.
+
+        Args:
+            input:  dict of execute() kwargs, or a str / list (normalised).
+            config: Optional LangChain RunnableConfig (unused internally).
+
+        Returns:
+            Whatever agent.execute() returns.
+
+        Usage (standalone):
+            result = agent.invoke({"fund_id": "FUND001", "plan_id": "PLAN001"})
+
+        Usage (LCEL):
+            chain = retriever | agent | parser
+            result = chain.invoke({"fund_id": "FUND001"})
+        """
+        import asyncio
+        agent_kwargs = self._normalise_runnable_input(input)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    fut = pool.submit(asyncio.run, self.execute(**agent_kwargs))
+                    return fut.result()
+            return loop.run_until_complete(self.execute(**agent_kwargs))
+        except RuntimeError:
+            return asyncio.run(self.execute(**agent_kwargs))
+
+    async def ainvoke(self, input: Any, config: Any = None, **kwargs: Any) -> Any:
+        """
+        LangChain Runnable.ainvoke() — asynchronously execute the agent.
+
+        Args:
+            input:  dict of execute() kwargs, or a str / list.
+            config: Optional LangChain RunnableConfig (unused internally).
+        """
+        agent_kwargs = self._normalise_runnable_input(input)
+        return await self.execute(**agent_kwargs)
+
+    def stream(self, input: Any, config: Any = None, **kwargs: Any):
+        """
+        LangChain Runnable.stream() — synchronously stream agent output.
+
+        If the agent implements execute_stream() (async generator), yields
+        each chunk. Otherwise yields the full invoke() result as one item.
+        """
+        import asyncio
+        agent_kwargs = self._normalise_runnable_input(input)
+
+        if hasattr(self, "execute_stream"):
+            async def _collect() -> list:
+                return [c async for c in self.execute_stream(**agent_kwargs)]
+            try:
+                chunks = asyncio.run(_collect())
+            except RuntimeError:
+                loop = asyncio.get_event_loop()
+                chunks = loop.run_until_complete(_collect())
+            yield from chunks
+        else:
+            yield self.invoke(input, config, **kwargs)
+
+    async def astream(self, input: Any, config: Any = None, **kwargs: Any):
+        """
+        LangChain Runnable.astream() — asynchronously stream agent output.
+
+        If the agent implements execute_stream() (async generator), yields
+        each chunk as produced. Otherwise yields the full ainvoke() result.
+        """
+        agent_kwargs = self._normalise_runnable_input(input)
+        if hasattr(self, "execute_stream"):
+            async for chunk in self.execute_stream(**agent_kwargs):
+                yield chunk
+        else:
+            result = await self.execute(**agent_kwargs)
+            yield result
+
+    def __or__(self, other: Any) -> Any:
+        """
+        LCEL pipe: agent | next_step
+
+        Returns a LangChain RunnableSequence if langchain-core is installed,
+        otherwise raises ImportError with installation instructions.
+        """
+        try:
+            from langchain_core.runnables import RunnableSequence
+            return RunnableSequence(self, other)
+        except ImportError as exc:
+            raise ImportError(
+                "Install langchain-core to use LCEL pipe composition: "
+                "pip install 'agent-foundry[langchain]'"
+            ) from exc
+
+    def __ror__(self, other: Any) -> Any:
+        """LCEL pipe: prev_step | agent"""
+        try:
+            from langchain_core.runnables import RunnableSequence
+            return RunnableSequence(other, self)
+        except ImportError as exc:
+            raise ImportError(
+                "Install langchain-core to use LCEL pipe composition: "
+                "pip install 'agent-foundry[langchain]'"
+            ) from exc
+
+    @staticmethod
+    def _normalise_runnable_input(input: Any) -> dict:
+        """Convert LangChain Runnable input to execute() kwargs."""
+        if isinstance(input, dict):
+            return input
+        if isinstance(input, str):
+            return {"input": input}
+        if isinstance(input, list):
+            return {"messages": input}
+        return {"input": input}

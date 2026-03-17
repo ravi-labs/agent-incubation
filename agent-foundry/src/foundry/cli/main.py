@@ -965,5 +965,120 @@ def deploy_package(manifest_path: str, target: str):
         ))
 
 
+@deploy.command("register")
+@click.argument("manifest_path", default="manifest.yaml")
+@click.option("--lambda-arn",       required=True,  help="ARN of the Lambda function for the action group")
+@click.option("--role-arn",         required=True,  help="ARN of the IAM role Bedrock will assume")
+@click.option("--schema-bucket",    required=True,  help="S3 bucket for the OpenAPI schema")
+@click.option("--schema-key",       default=None,   help="S3 key for schema (default: agents/<agent_id>/schema.json)")
+@click.option("--model",            default="anthropic.claude-3-5-sonnet-20241022-v2:0",
+              help="Bedrock foundation model ID")
+@click.option("--alias",            default="production", help="Agent alias name (default: production)")
+@click.option("--no-alias",         is_flag=True,   default=False, help="Skip alias creation")
+@click.option("--region",           default=None,   help="AWS region (default: from environment)")
+@click.option("--dry-run",          is_flag=True,   default=False, help="Print what would happen without calling AWS")
+def deploy_register(
+    manifest_path: str,
+    lambda_arn: str,
+    role_arn: str,
+    schema_bucket: str,
+    schema_key: str | None,
+    model: str,
+    alias: str,
+    no_alias: bool,
+    region: str | None,
+    dry_run: bool,
+):
+    """
+    Register or update an agent in Amazon Bedrock Agent Core.
+
+    This command:
+      1. Generates the OpenAPI Action Group schema from the manifest
+      2. Uploads it to S3
+      3. Creates (or updates) the Bedrock Agent
+      4. Associates the Lambda function as an Action Group
+      5. Prepares the agent (DRAFT → PREPARED)
+      6. Creates a stable alias
+
+    Example:
+        foundry deploy register \\
+            --lambda-arn arn:aws:lambda:us-east-1:123:function:fiduciary-watchdog \\
+            --role-arn arn:aws:iam::123:role/foundry-bedrock-fiduciary-watchdog-role \\
+            --schema-bucket my-foundry-bucket
+    """
+    import json as _json
+
+    path     = Path(manifest_path)
+    manifest = _load_manifest_safe(path)
+
+    try:
+        from foundry.deploy.bedrock import generate_action_schema, register_bedrock_agent
+    except ImportError:
+        click.echo(click.style(
+            "✗ AWS extras not installed. Run: pip install 'agent-foundry[aws]'", fg="red"
+        ), err=True)
+        sys.exit(1)
+
+    from foundry.lifecycle.stages import LifecycleStage
+    if manifest.lifecycle_stage not in (LifecycleStage.GOVERN, LifecycleStage.SCALE):
+        click.echo(click.style(
+            f"  ⚠  Bedrock Agent Core is recommended for GOVERN/SCALE stage agents.\n"
+            f"     Current stage: {manifest.lifecycle_stage.value}",
+            fg="yellow",
+        ))
+
+    _schema_key = schema_key or f"agents/{manifest.agent_id}/schema.json"
+    schema = generate_action_schema(manifest)
+    op_count = len(schema.get("paths", {}))
+
+    click.echo(click.style(f"Registering: {manifest.agent_id} @ {manifest.version}", bold=True))
+    click.echo(f"  Lambda ARN:     {lambda_arn}")
+    click.echo(f"  IAM role:       {role_arn}")
+    click.echo(f"  Schema:         s3://{schema_bucket}/{_schema_key}  ({op_count} operations)")
+    click.echo(f"  Model:          {model}")
+    click.echo(f"  Alias:          {alias if not no_alias else '(none)'}")
+    click.echo()
+
+    if dry_run:
+        click.echo(click.style("  [dry-run] No AWS calls made.", fg="yellow"))
+        click.echo()
+        click.echo("Schema preview:")
+        click.echo(_json.dumps(schema, indent=2)[:2000])
+        return
+
+    try:
+        result = register_bedrock_agent(
+            manifest=manifest,
+            lambda_arn=lambda_arn,
+            agent_role_arn=role_arn,
+            schema_s3_bucket=schema_bucket,
+            schema_s3_key=_schema_key,
+            foundation_model=model,
+            region=region,
+            create_alias=not no_alias,
+            alias_name=alias,
+        )
+
+        click.echo(click.style("✓ Bedrock Agent registered successfully", fg="green"))
+        click.echo()
+        click.echo(f"  Bedrock Agent ID:  {result['agent_id']}")
+        click.echo(f"  Agent ARN:         {result['agent_arn']}")
+        click.echo(f"  Schema URI:        {result['schema_uri']}")
+        if "alias_id" in result:
+            click.echo(f"  Alias ID:          {result['alias_id']}")
+            click.echo(f"  Alias ARN:         {result['alias_arn']}")
+
+        click.echo()
+        click.echo(click.style(
+            "  Tollgate policy enforcement is active inside the Lambda —\n"
+            "  Bedrock cannot bypass ERISA/DOL compliance rules.",
+            fg="cyan",
+        ))
+
+    except Exception as exc:
+        click.echo(click.style(f"✗ Registration failed: {exc}", fg="red"), err=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()

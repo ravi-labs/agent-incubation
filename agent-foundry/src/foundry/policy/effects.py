@@ -70,6 +70,7 @@ class FinancialEffect(str, Enum):
     FUND_FEES_READ              = "fund.fees.read"
     EMPLOYER_FEED_READ          = "employer.feed.read"
     MARKET_DATA_READ            = "market.data.read"
+    KNOWLEDGE_BASE_RETRIEVE     = "knowledge.base.retrieve"   # Bedrock KB RAG retrieval
 
     # ─── TIER 2: Computation ──────────────────────────────────────────────
     RISK_SCORE_COMPUTE          = "risk.score.compute"
@@ -90,6 +91,7 @@ class FinancialEffect(str, Enum):
     RECOMMENDATION_DELIVER          = "recommendation.deliver"
     ADVISOR_ESCALATION_TRIGGER      = "advisor.escalation.trigger"
     HUMAN_REVIEW_QUEUE_ADD          = "human.review.queue.add"
+    BEDROCK_AGENT_INVOKE            = "bedrock.agent.invoke"     # Delegate to another Bedrock Agent
 
     # ─── TIER 5: Persistence ──────────────────────────────────────────────
     AUDIT_LOG_WRITE             = "audit.log.write"
@@ -183,6 +185,14 @@ _EFFECT_META: dict[FinancialEffect, EffectMeta] = {
         base_effect=Effect.READ,
         default_decision=DefaultDecision.ALLOW,
         description="Read market indices and benchmark data.",
+        requires_human_review=False,
+    ),
+    FinancialEffect.KNOWLEDGE_BASE_RETRIEVE: EffectMeta(
+        effect=FinancialEffect.KNOWLEDGE_BASE_RETRIEVE,
+        tier=EffectTier.DATA_ACCESS,
+        base_effect=Effect.READ,
+        default_decision=DefaultDecision.ALLOW,
+        description="Retrieve relevant passages from an Amazon Bedrock Knowledge Base for RAG.",
         requires_human_review=False,
     ),
 
@@ -301,6 +311,17 @@ _EFFECT_META: dict[FinancialEffect, EffectMeta] = {
         base_effect=Effect.NOTIFY,
         default_decision=DefaultDecision.ALLOW,
         description="Add an item to the human compliance review queue.",
+        requires_human_review=False,
+    ),
+    FinancialEffect.BEDROCK_AGENT_INVOKE: EffectMeta(
+        effect=FinancialEffect.BEDROCK_AGENT_INVOKE,
+        tier=EffectTier.OUTPUT,
+        base_effect=Effect.WRITE,
+        default_decision=DefaultDecision.ASK,
+        description=(
+            "Delegate a task to another Amazon Bedrock Agent via invoke_agent. "
+            "The delegate agent may take further external actions; ASK by default."
+        ),
         requires_human_review=False,
     ),
 

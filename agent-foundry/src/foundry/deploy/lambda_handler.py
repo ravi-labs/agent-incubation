@@ -219,7 +219,14 @@ class _FoundryLambdaHandler:
           2. EventBridge:         {"detail-type": "...", "detail": {...}}
           3. Scheduled EventBridge: {"source": "aws.events", ...}
           4. SQS trigger:         {"Records": [{"body": "{...}"}]}
-          5. Bedrock Agent Core:  {"actionGroup": "...", "function": "...", "parameters": [...]}
+          5. Bedrock Agent Core (API-based):
+             {"actionGroup": "...", "apiPath": "/...", "httpMethod": "POST",
+              "parameters": [...], "requestBody": {...},
+              "sessionAttributes": {...}, "promptSessionAttributes": {...}}
+          6. Bedrock Agent Core (Function-based):
+             {"actionGroup": "...", "function": "...",
+              "parameters": [...],
+              "sessionAttributes": {...}, "promptSessionAttributes": {...}}
         """
         import asyncio
 
@@ -232,50 +239,138 @@ class _FoundryLambdaHandler:
         request_id = getattr(context, "aws_request_id", "local")
         agent_id   = self._agent.manifest.agent_id
 
-        logger.info(
-            "foundry_invoke agent=%s request_id=%s cold_start=%s",
-            agent_id, request_id, cold_start,
-        )
+        is_bedrock = "actionGroup" in event
 
-        kwargs = self._normalise_event(event)
+        logger.info(
+            "foundry_invoke agent=%s request_id=%s cold_start=%s bedrock=%s",
+            agent_id, request_id, cold_start, is_bedrock,
+        )
 
         try:
             loop = asyncio.new_event_loop()
-            result = loop.run_until_complete(self._agent.execute(**kwargs))
-            loop.close()
 
-            duration_ms = round((time.monotonic() - start_time) * 1000)
-            logger.info(
-                "foundry_complete agent=%s request_id=%s duration_ms=%d",
-                agent_id, request_id, duration_ms,
-            )
+            if is_bedrock:
+                result = loop.run_until_complete(
+                    self._invoke_bedrock(event, context, loop)
+                )
+            else:
+                kwargs = self._normalise_event(event)
+                result = loop.run_until_complete(self._agent.execute(**kwargs))
+                loop.close()
 
-            return {
-                "statusCode": 200,
-                "agent":      agent_id,
-                "request_id": request_id,
-                "result":     result,
-            }
+                duration_ms = round((time.monotonic() - start_time) * 1000)
+                logger.info(
+                    "foundry_complete agent=%s request_id=%s duration_ms=%d",
+                    agent_id, request_id, duration_ms,
+                )
+                result = {
+                    "statusCode": 200,
+                    "agent":      agent_id,
+                    "request_id": request_id,
+                    "result":     result,
+                }
 
         except PermissionError as exc:
             logger.error("foundry_permission_denied agent=%s: %s", agent_id, exc)
-            return {"statusCode": 403, "error": "permission_denied", "message": str(exc)}
+            result = {"statusCode": 403, "error": "permission_denied", "message": str(exc)}
 
         except Exception as exc:  # noqa: BLE001
             logger.error(
                 "foundry_error agent=%s: %s\n%s",
                 agent_id, exc, traceback.format_exc(),
             )
-            return {"statusCode": 500, "error": type(exc).__name__, "message": str(exc)}
+            result = {"statusCode": 500, "error": type(exc).__name__, "message": str(exc)}
+
+        return result
+
+    async def _invoke_bedrock(self, event: dict, context: Any, loop: Any) -> dict:
+        """
+        Handle a Bedrock Agent Core invocation with proper event parsing,
+        session attribute extraction, and response formatting.
+
+        Maps Tollgate decisions to Bedrock responses:
+          ALLOW    → 200 SUCCESS
+          ASK      → 202 REPROMPT (confirmation request to user)
+          DENY     → 403 FAILURE
+          Error    → 500 FAILURE
+        """
+        from foundry.deploy.bedrock import BedrockAgentAdapter, BedrockEventParser
+
+        try:
+            from foundry.tollgate.exceptions import TollgateDenied, TollgateDeferred
+            _has_tollgate_exceptions = True
+        except ImportError:
+            _has_tollgate_exceptions = False
+
+        agent_id = self._agent.manifest.agent_id
+
+        # ── Parse Bedrock event ───────────────────────────────────────────────
+        try:
+            parsed = BedrockEventParser.parse(event)
+        except ValueError as exc:
+            logger.error("bedrock_parse_error agent=%s: %s", agent_id, exc)
+            return {
+                "messageVersion": "1.0",
+                "response": {
+                    "actionGroup":    event.get("actionGroup", "unknown"),
+                    "httpStatusCode": 400,
+                    "responseBody": {"application/json": {"body": json.dumps({"error": str(exc)})}},
+                },
+            }
+
+        adapter = BedrockAgentAdapter(self._agent.manifest)
+
+        logger.info(
+            "foundry_bedrock_invoke agent=%s action_group=%s operation=%s "
+            "session_keys=%s type=%s",
+            agent_id, parsed.action_group, parsed.operation,
+            list(parsed.session.keys()), parsed.invocation_type,
+        )
+
+        # ── Execute ───────────────────────────────────────────────────────────
+        try:
+            result = await self._agent.execute(**parsed.kwargs)
+            return adapter.format_response(parsed, result)
+
+        except PermissionError as exc:
+            # Tollgate DENY or kill switch
+            logger.warning(
+                "foundry_bedrock_denied agent=%s operation=%s: %s",
+                agent_id, parsed.operation, exc,
+            )
+            return adapter.format_error(parsed, exc, status_code=403)
+
+        except Exception as exc:
+            # Check if this is a TollgateDeferred (ASK decision pending review)
+            if _has_tollgate_exceptions:
+                try:
+                    from foundry.tollgate.exceptions import TollgateDeferred
+                    if isinstance(exc, TollgateDeferred):
+                        logger.info(
+                            "foundry_bedrock_ask agent=%s operation=%s",
+                            agent_id, parsed.operation,
+                        )
+                        return adapter.format_confirmation_request(
+                            parsed,
+                            message=(
+                                f"This action requires human approval: {parsed.operation}. "
+                                f"A review request has been submitted. "
+                                f"Please confirm once the review is complete."
+                            ),
+                            metadata={"operation": parsed.operation, "agent": agent_id},
+                        )
+                except ImportError:
+                    pass
+
+            logger.error(
+                "foundry_bedrock_error agent=%s operation=%s: %s\n%s",
+                agent_id, parsed.operation, exc, traceback.format_exc(),
+            )
+            return adapter.format_error(parsed, exc, status_code=500)
 
     @staticmethod
     def _normalise_event(event: dict) -> dict:
-        """Normalise various Lambda event shapes into execute() kwargs."""
-
-        # Bedrock Agent Core action group
-        if "actionGroup" in event:
-            params = {p["name"]: p["value"] for p in event.get("parameters", [])}
-            return {"action": event.get("function", "execute"), **params}
+        """Normalise non-Bedrock Lambda event shapes into execute() kwargs."""
 
         # SQS — single-item batches recommended
         if "Records" in event:
@@ -298,3 +393,145 @@ class _FoundryLambdaHandler:
 
         # Direct invocation — pass through
         return event
+
+
+# ── Lambda Response Streaming ───────────────────────────────────────────────────
+
+
+def make_streaming_handler(agent_class: type, **agent_kwargs: Any):
+    """
+    Create a Lambda Response Streaming handler for the given agent class.
+
+    Lambda Response Streaming lets your function progressively return data
+    to the caller as it is produced, rather than buffering the full result.
+
+    This handler calls agent.execute_stream() if it exists (should return an
+    async generator of JSON-serialisable chunks), otherwise falls back to
+    agent.execute() and returns a single chunk.
+
+    Usage — in your agent repo, create handler.py:
+
+        from foundry.deploy.lambda_handler import make_streaming_handler
+        from my_agents.streaming_agent import StreamingAgent
+
+        streaming_handler = make_streaming_handler(StreamingAgent)
+        # Configure Lambda with InvokeMode: RESPONSE_STREAM
+
+    Your agent can implement execute_stream() to support true streaming:
+
+        class StreamingAgent(BaseAgent):
+            async def execute_stream(self, **kwargs):
+                async for chunk in self._generate_chunks(**kwargs):
+                    yield chunk          # each chunk is JSON-serialisable
+
+            async def execute(self, **kwargs):
+                return [c async for c in self.execute_stream(**kwargs)]
+
+    The streaming handler sends each chunk as a newline-delimited JSON (NDJSON)
+    byte sequence, compatible with most streaming consumers.
+
+    Args:
+        agent_class:    A BaseAgent subclass.
+        **agent_kwargs: Extra kwargs forwarded to agent_class.__init__().
+
+    Returns:
+        A _FoundryStreamingHandler with a .handler(event, context, response_stream)
+        method compatible with Lambda's streaming invocation.
+    """
+    return _FoundryStreamingHandler(agent_class, **agent_kwargs)
+
+
+class _FoundryStreamingHandler(_FoundryLambdaHandler):
+    """
+    Lambda Response Streaming handler — sends NDJSON chunks progressively.
+
+    Inherits cold-start wiring from _FoundryLambdaHandler. The handler()
+    method signature extends the standard Lambda handler with response_stream.
+
+    Deployment notes:
+        - The Lambda function must be configured with InvokeMode: RESPONSE_STREAM
+          in the function URL configuration or via the CLI:
+            aws lambda put-function-event-invoke-config ...
+        - Use awslambdaric >= 1.1.0 which provides the streaming response_stream
+          context manager via @streaming_response decorator.
+        - Memory: streaming handlers need at least 256 MB for stable throughput.
+
+    The response_stream protocol:
+        response_stream.write(bytes)  — write a byte chunk
+        response_stream.close()       — signal completion (called automatically)
+    """
+
+    def streaming_handler(self, event: dict, context: Any, response_stream: Any) -> None:
+        """
+        Lambda Response Streaming entry point.
+
+        Writes NDJSON (newline-delimited JSON) to response_stream.
+        Each line is a complete JSON object — either a data chunk or an error.
+
+        Format:
+            {"type": "chunk",    "data": <any>, "index": 0}
+            {"type": "chunk",    "data": <any>, "index": 1}
+            ...
+            {"type": "complete", "agent": "...", "total_chunks": N}
+
+        Errors:
+            {"type": "error", "error": "...", "message": "..."}
+        """
+        import asyncio
+
+        cold_start = self._agent is None
+        if cold_start:
+            self._init_agent()
+
+        kwargs   = self._normalise_event(event)
+        agent_id = self._agent.manifest.agent_id
+
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(
+                self._stream_to_response(kwargs, agent_id, response_stream)
+            )
+        finally:
+            loop.close()
+
+    async def _stream_to_response(
+        self,
+        kwargs: dict,
+        agent_id: str,
+        response_stream: Any,
+    ) -> None:
+        """Write agent output chunks to the Lambda response stream."""
+        index = 0
+
+        def _write_chunk(obj: Any) -> None:
+            nonlocal index
+            line = json.dumps({"type": "chunk", "data": obj, "index": index}, default=str)
+            response_stream.write((line + "\n").encode())
+            index += 1
+
+        try:
+            if hasattr(self._agent, "execute_stream"):
+                # Agent supports native async streaming
+                async for chunk in self._agent.execute_stream(**kwargs):
+                    _write_chunk(chunk)
+            else:
+                # Fallback: run execute() and return single chunk
+                result = await self._agent.execute(**kwargs)
+                _write_chunk(result)
+
+            # Final completion event
+            done = json.dumps({
+                "type":         "complete",
+                "agent":        agent_id,
+                "total_chunks": index,
+            })
+            response_stream.write((done + "\n").encode())
+
+        except PermissionError as exc:
+            err = json.dumps({"type": "error", "error": "permission_denied", "message": str(exc)})
+            response_stream.write((err + "\n").encode())
+
+        except Exception as exc:  # noqa: BLE001
+            logger.error("foundry_stream_error agent=%s: %s", agent_id, exc)
+            err = json.dumps({"type": "error", "error": type(exc).__name__, "message": str(exc)})
+            response_stream.write((err + "\n").encode())
