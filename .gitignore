@@ -1,39 +1,44 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-dist/
-build/
-.eggs/
-*.whl
-*.egg
+# ─────────────────────────────────────────────────────────────────────────────
+# Root .gitignore — agent-incubation mono-repo
+#
+# This file covers repo-wide noise. Each subfolder has its own .gitignore
+# for technology-specific patterns.
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Testing / coverage
-.pytest_cache/
-.coverage
-htmlcov/
-.ruff_cache/
-
-# macOS
+# ── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store
 .AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
 
-# IDE
+# ── Windows ──────────────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Linux ────────────────────────────────────────────────────────────────────
+*~
+
+# ── IDEs / editors ───────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Secrets / env
+# ── Secrets — never commit credentials ──────────────────────────────────────
 .env
 .env.*
+!.env.example
 *.pem
 *.key
-
-# Jupyter
-.ipynb_checkpoints/
+*.p12
+*.pfx
+secrets/
+credentials/

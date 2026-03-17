@@ -1,0 +1,19 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# deck/.gitignore — HTML presentation files
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Node (if a build step is ever added) ─────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+dist/
+
+# ── Generated / exported variants ────────────────────────────────────────────
+# PDF exports of slides — regenerate from HTML source
+*.pdf
+
+# Minified output (if a build pipeline is added later)
+*.min.js
+*.min.css

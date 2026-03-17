@@ -1,0 +1,21 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# agent-registry/.gitignore — governance catalog (manifests only)
+#
+# This directory contains YAML manifests and the generated registry.yaml.
+# Almost nothing here should be ignored — it's deliberately minimal.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Python (for local scripts / catalog generation) ──────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ── Scratch / local validation runs ──────────────────────────────────────────
+# Temporary files written by foundry validate during local review
+*.tmp
+.validation_cache/
+
+# ── Editor backup files ───────────────────────────────────────────────────────
+*.orig
+*.bak
