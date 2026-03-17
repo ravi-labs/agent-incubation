@@ -43,7 +43,7 @@ Usage:
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from foundry.gateway.base import GatewayConnector
 from foundry.observability.tracker import OutcomeTracker
@@ -52,6 +52,11 @@ from foundry.policy.effects import FinancialEffect
 from foundry.scaffold.manifest import AgentManifest
 from foundry.tollgate.tower import ControlTower
 from foundry.tollgate.types import AgentContext
+
+if TYPE_CHECKING:
+    from foundry.memory.buffer import ConversationBuffer
+    from foundry.memory.store import FoundryMemoryStore
+    from foundry.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +75,8 @@ class BaseAgent(ABC):
         tower: ControlTower,
         gateway: GatewayConnector,
         tracker: OutcomeTracker | None = None,
+        memory: "ConversationBuffer | FoundryMemoryStore | None" = None,
+        tools: "ToolRegistry | None" = None,
     ):
         """
         Args:
@@ -77,11 +84,30 @@ class BaseAgent(ABC):
             tower:    Configured Tollgate ControlTower (policy + audit).
             gateway:  Data access connector (reads data via declared permissions).
             tracker:  Optional outcome tracker for ROI measurement.
+            memory:   Optional ConversationBuffer (short-term) or FoundryMemoryStore
+                      (long-term) — also settable as self.memory after init.
+            tools:    Optional ToolRegistry — also settable as self.tools after init.
+
+        Quick setup example::
+
+            from foundry.memory.buffer import ConversationBuffer
+            from foundry.tools.registry import ToolRegistry
+
+            class MyAgent(BaseAgent):
+                def __init__(self, manifest, tower, gateway, tracker=None):
+                    super().__init__(
+                        manifest, tower, gateway, tracker,
+                        memory=ConversationBuffer(max_turns=20),
+                        tools=ToolRegistry(self),   # tools registered in __init__ body
+                    )
+                    self.tools.register_all(self)   # auto-discover @governed_tool methods
         """
         self.manifest = manifest
-        self.tower = tower
-        self.gateway = gateway
-        self.tracker = tracker
+        self.tower    = tower
+        self.gateway  = gateway
+        self.tracker  = tracker
+        self.memory   = memory
+        self.tools    = tools
         self._builder = EffectRequestBuilder(manifest_version=manifest.manifest_version)
         self._agent_ctx = AgentContext(
             agent_id=manifest.agent_id,

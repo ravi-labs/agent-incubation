@@ -80,6 +80,10 @@ cdk = [
 ]
 
 # ── Infrastructure ────────────────────────────────────────────────────────────
+http = [
+    # Async HTTP client for HttpGateway (REST data connectors)
+    "httpx>=0.27.0",
+]
 redis = [
     "redis[hiredis]>=5.0.0",
 ]
@@ -96,8 +100,8 @@ encryption = [
 enterprise = [
     # Everything for a fully governed, production-grade AWS deployment:
     # LangGraph orchestration + AWS backends (DDB, SQS, Secrets Manager, Bedrock)
-    # + Redis + OpenTelemetry + encryption
-    "agent-foundry[redis,otel,encryption,langgraph,aws,strands]",
+    # + HTTP gateway + Redis + OpenTelemetry + encryption
+    "agent-foundry[http,redis,otel,encryption,langgraph,aws,strands]",
 ]
 
 [project.urls]
