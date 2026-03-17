@@ -1,0 +1,100 @@
+name: Registry CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'registry/**'
+
+jobs:
+  validate-manifests:
+    name: Validate Submitted Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install agent-foundry
+        run: pip install agent-foundry
+
+      - name: Validate all manifests in registry/
+        run: |
+          failed=0
+          for manifest in registry/*/manifest.yaml; do
+            echo "──────────────────────────────────────"
+            echo "Validating: $manifest"
+            if ! foundry agent validate "$manifest" --strict; then
+              echo "FAILED: $manifest"
+              failed=$((failed + 1))
+            fi
+          done
+          echo "──────────────────────────────────────"
+          if [ $failed -gt 0 ]; then
+            echo "$failed manifest(s) failed validation"
+            exit 1
+          fi
+          echo "All manifests valid"
+
+  check-registry-structure:
+    name: Check Registry Directory Structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify each agent directory has a manifest
+        run: |
+          failed=0
+          for dir in registry/*/; do
+            if [ ! -f "${dir}manifest.yaml" ]; then
+              echo "Missing manifest.yaml in: $dir"
+              failed=$((failed + 1))
+            fi
+          done
+          if [ $failed -gt 0 ]; then
+            exit 1
+          fi
+          echo "All agent directories have manifest.yaml"
+
+  regenerate-catalog:
+    name: Regenerate Registry Catalog
+    runs-on: ubuntu-latest
+    needs: [validate-manifests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install agent-foundry
+        run: pip install agent-foundry
+
+      - name: Regenerate registry.yaml
+        run: |
+          python -c "
+          from foundry.registry.catalog import build_catalog
+          catalog = build_catalog('registry/')
+          catalog.save('registry.yaml')
+          summary = catalog.summary()
+          print(f'Catalog regenerated: {summary[\"total\"]} agents, {summary[\"production\"]} in production')
+          "
+
+      - name: Commit updated catalog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add registry.yaml
+          if git diff --staged --quiet; then
+            echo "No catalog changes"
+          else
+            git commit -m "chore: regenerate registry catalog [skip ci]"
+            git push
+          fi

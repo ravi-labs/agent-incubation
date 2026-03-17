@@ -1,0 +1,264 @@
+# ERISA / DOL / FINRA Policy Overlay — Agent Foundry
+# ─────────────────────────────────────────────────────────────────────────────
+# This file contains regulatory-specific policy rules layered ON TOP of
+# defaults.yaml. Rules here cannot be overridden by individual agent
+# policy files — they are platform-wide compliance mandates.
+#
+# Regulatory basis:
+#   ERISA §404(a): Fiduciary duty of prudence and loyalty
+#   ERISA §406:    Prohibited transactions
+#   DOL Reg §2550: Procedural prudence requirements
+#   FINRA Rule 2111: Suitability obligations
+#   DOL AI Guidance (2024): Requirements for AI-assisted fiduciary decisions
+#
+# Rule precedence (highest to lowest):
+#   1. erisa.yaml (this file) — regulatory floor, immutable
+#   2. defaults.yaml          — platform defaults
+#   3. agent policy.yaml      — per-agent overrides (within allowed bounds)
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: "1.0.0"
+effective_date: "2024-01-01"
+regulatory_basis:
+  - "ERISA §404(a)(1)(B) — prudent person standard"
+  - "ERISA §406(b) — prohibited self-dealing transactions"
+  - "DOL Reg §2550.404a-1 — investment duties"
+  - "FINRA Rule 2111 — suitability"
+  - "DOL AI Fiduciary Guidance (2024)"
+
+# ─── Hard Denies — These can NEVER be overridden ──────────────────────────────
+# These represent ERISA §406 prohibited transactions and actions that would
+# violate fiduciary duty if performed autonomously by an AI agent.
+
+hard_denies:
+
+  - resource_type: "account.transaction.execute"
+    decision: DENY
+    immutable: true
+    regulatory_basis: "ERISA §406(b)(1) — self-dealing prohibition"
+    reason: >
+      No AI agent may execute a financial transaction on a participant's
+      account. Transactions require human authorization and cannot be
+      delegated to automated systems without explicit participant consent
+      and regulatory approval. This is an absolute prohibition.
+
+  - resource_type: "participant.data.write"
+    decision: DENY
+    immutable: true
+    regulatory_basis: "ERISA §404(a) — duty of care; GLBA — data accuracy"
+    reason: >
+      AI agents must not modify participant records directly. Participant
+      data changes require human review to ensure accuracy and prevent
+      erroneous modifications that could affect retirement outcomes.
+      All data modifications must flow through audited human-controlled systems.
+
+  - resource_type: "plan.data.write"
+    decision: DENY
+    immutable: true
+    regulatory_basis: "ERISA §402 — plan document requirements"
+    reason: >
+      Plan configuration changes (contribution rates, investment menus,
+      eligibility rules) are plan document amendments under ERISA §402.
+      They require plan sponsor authorization and fiduciary sign-off.
+      No agent may modify plan parameters without human approval.
+
+  - resource_type: "policy.rule.modify"
+    decision: DENY
+    immutable: true
+    regulatory_basis: "DOL AI Guidance (2024) — human oversight requirement"
+    reason: >
+      AI agents may not modify their own compliance policy rules at runtime.
+      Policy changes require human review and must go through the platform
+      governance process. Self-modification of policy controls would
+      undermine the entire compliance framework.
+
+  - resource_type: "agent.promote"
+    decision: DENY
+    immutable: true
+    regulatory_basis: "DOL AI Guidance (2024) — deployment controls"
+    reason: >
+      Agents may not self-promote from sandbox to production. Promotion
+      must be approved by the compliance officer through the governance
+      review (Stage 5) and executed by the lifecycle manager, not the agent.
+
+
+# ─── Heightened Scrutiny — Output Effects ─────────────────────────────────────
+# These rules apply to Tier 4 (Output/External) effects where agent actions
+# reach real participants or trigger regulatory reporting obligations.
+
+output_controls:
+
+  - resource_type: "participant.communication.send"
+    decision: ASK
+    immutable: false  # Agent policy.yaml may tighten to DENY; cannot loosen to ALLOW
+    minimum_decision: ASK
+    regulatory_basis: "FINRA Rule 2210 — communications with the public"
+    reason: >
+      Communications to participants about retirement accounts are subject
+      to FINRA Rule 2210 suitability and content standards. All automated
+      participant communications require pre-approval or batch review by a
+      registered representative unless the communication is purely informational
+      (account statement, contribution confirmation). Personalized advice
+      communications require human review in all cases.
+    conditions:
+      - if_metadata_contains:
+          key: "message_type"
+          values: ["advice", "recommendation", "projection"]
+        then: ASK
+      - if_metadata_contains:
+          key: "message_type"
+          values: ["informational", "confirmation"]
+        then: ALLOW
+
+  - resource_type: "compliance.finding.emit.high"
+    decision: ASK
+    immutable: true
+    regulatory_basis: "ERISA §412 — bonding; ERISA §502 — civil enforcement"
+    reason: >
+      High-severity compliance findings may trigger plan correction obligations,
+      ERISA §502 liability, or DOL reporting requirements. These must be reviewed
+      by a qualified ERISA professional before being formally emitted. The agent
+      may draft and queue the finding, but formal emission requires human approval.
+
+  - resource_type: "advisor.escalation.trigger"
+    decision: ASK
+    immutable: false
+    minimum_decision: ASK
+    regulatory_basis: "FINRA Rule 2111 — suitability; ERISA §404(a)"
+    reason: >
+      Escalating a participant to an advisor initiates a suitability evaluation.
+      The escalation must be warranted by the participant's situation and
+      consistent with their investment profile. Automated escalations require
+      human confirmation to prevent inappropriate routing or unnecessary
+      participant anxiety.
+
+
+# ─── Fiduciary Computation Standards ──────────────────────────────────────────
+# Requirements for the computation tier under ERISA's prudent person standard.
+
+computation_standards:
+
+  - resource_type: "risk.score.compute"
+    decision: ALLOW
+    regulatory_basis: "ERISA §404(a)(1)(B) — prudent expert standard"
+    requirements:
+      - "Model must be explainable — scores must have human-readable reasoning"
+      - "Model must be validated against historical outcomes before production use"
+      - "Scores must not incorporate protected class attributes (age as sole factor, disability)"
+      - "Model version must be logged in audit trail for every score produced"
+    reason: >
+      Risk scoring is permitted and encouraged under ERISA's prudent expert standard
+      as it supports informed fiduciary decision-making. However, models must meet
+      DOL procedural prudence requirements: documented methodology, regular review,
+      and explainability. Models relying solely on age may trigger ADEA concerns.
+
+  - resource_type: "scenario.model.execute"
+    decision: ALLOW
+    regulatory_basis: "DOL Reg §2550.404a-1(b)(1)(ii) — consideration of alternatives"
+    requirements:
+      - "Scenarios must be based on reasonable actuarial assumptions"
+      - "Assumption set and model version must be captured in audit trail"
+      - "Scenario outputs presented to participants must include disclosure of assumptions"
+    reason: >
+      Plan design scenario modeling is a core fiduciary tool for demonstrating
+      consideration of alternatives under DOL Reg §2550.404a-1. Scenarios must
+      use documented, actuarially reasonable assumptions and the assumption set
+      must be preserved for audit purposes.
+
+  - resource_type: "compliance.evaluate"
+    decision: ALLOW
+    regulatory_basis: "ERISA §404(a) — ongoing monitoring duty"
+    reason: >
+      Automated compliance evaluation supports the plan fiduciary's ongoing
+      monitoring obligations under ERISA §404(a). Automated flagging does not
+      replace human judgment but supports it. All findings must be reviewed
+      by a qualified ERISA professional before action is taken.
+
+
+# ─── Audit Requirements ───────────────────────────────────────────────────────
+# ERISA requires plan fiduciaries to maintain records for a minimum of 6 years
+# (ERISA §107). These rules ensure audit logging is always enforced.
+
+audit_requirements:
+
+  - resource_type: "audit.log.write"
+    decision: ALLOW
+    immutable: true
+    regulatory_basis: "ERISA §107 — record retention (6 years)"
+    reason: >
+      Audit logging is always permitted and required. It may not be disabled
+      or blocked by any policy override. Every Tier 4 (Output) and Tier 3
+      (Draft that is subsequently delivered) effect must have a corresponding
+      audit log entry capturing: agent_id, effect, params, intent, decision,
+      timestamp, policy_version, and manifest_version.
+
+  mandatory_for_tiers: [3, 4, 5, 6]
+  retention_years: 6
+  required_fields:
+    - agent_id
+    - effect
+    - decision
+    - timestamp
+    - policy_version
+    - manifest_version
+    - intent_action
+    - intent_reason
+
+
+# ─── Data Access Restrictions ─────────────────────────────────────────────────
+# GLBA and ERISA privacy requirements restrict how participant data is handled.
+
+data_access_restrictions:
+
+  - applies_to: "participant.data.read"
+    regulatory_basis: "GLBA — financial privacy; ERISA §404(a)"
+    restrictions:
+      - "Participant data may only be accessed for the specific agent's declared purpose"
+      - "Data may not be cross-referenced with non-plan data sources without disclosure"
+      - "Individual PII may not be included in model training datasets"
+      - "Data access must be logged at the record level, not just the batch level"
+      - "Agents must declare minimum necessary data access principle"
+
+  - applies_to: "participant.cohort.read"
+    regulatory_basis: "GLBA — aggregate data standards"
+    restrictions:
+      - "Cohort data must be genuinely aggregated (minimum cohort size: 10 participants)"
+      - "Re-identification risk must be evaluated before cohort data is used in outputs"
+
+  - applies_to: "employer.feed.read"
+    regulatory_basis: "ERISA §3(16) — plan administrator obligations"
+    restrictions:
+      - "Employer feed data (terminations, new hires) is sensitive and may trigger COBRA/portability obligations"
+      - "Agent actions triggered by employer feed data must be logged with the triggering event"
+      - "Agents must not act on employer feed data without confirming it against the plan record"
+
+
+# ─── Prohibited Patterns ──────────────────────────────────────────────────────
+# Patterns that agents must never implement, regardless of effect declarations.
+
+prohibited_patterns:
+
+  - pattern: "investment_advice_without_review"
+    description: >
+      An agent may not provide specific investment recommendations (buy/sell/hold
+      specific securities or funds) to participants without human advisor review.
+      Generic diversification guidance is permitted; specific fund recommendations
+      are not. Violates ERISA §404(a) fiduciary duty if suitability is not assessed.
+
+  - pattern: "contribution_rate_auto_change"
+    description: >
+      An agent may not automatically change a participant's contribution rate
+      without explicit participant consent (affirmative opt-in or signed authorization).
+      Auto-escalation features are participant-directed, not agent-directed.
+
+  - pattern: "bulk_communication_without_sample_review"
+    description: >
+      Bulk participant communications (>100 recipients) must include a sample
+      review step where a human reviewer approves a sample before the batch is sent.
+      No agent may bypass this review step for large-scale outreach.
+
+  - pattern: "model_outputs_presented_as_guarantees"
+    description: >
+      Agent-generated projections, scores, and recommendations must include
+      appropriate disclosures that they are estimates, not guarantees. Presenting
+      model outputs as guaranteed outcomes violates FINRA Rule 2210.

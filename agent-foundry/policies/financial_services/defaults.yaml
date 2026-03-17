@@ -1,0 +1,251 @@
+# Agent Foundry — Default Financial Services Policy
+# ─────────────────────────────────────────────────
+# This policy defines the default ALLOW/ASK/DENY decisions for every
+# effect in the FinancialEffect taxonomy. Individual agents layer their
+# own policy on top (more restrictive rules first).
+#
+# Rule matching uses Tollgate's resource_type field, which carries
+# the FinancialEffect value (e.g., "participant.data.read").
+#
+# Compliance attestation:
+#   Reviewed by: [compliance_officer]
+#   Date:        [YYYY-MM-DD]
+#   Regulatory scope: ERISA, DOL, FINRA, AML/KYC
+
+version: "1.0.0"
+
+rules:
+
+  # ─── TIER 1: Data Access — ALLOW ────────────────────────────────────────
+  - id: t1-participant-data-read
+    resource_type: "participant.data.read"
+    effect: "read"
+    decision: ALLOW
+    reason: "Tier 1 data access. Permitted for declared agents within manifest scope."
+
+  - id: t1-participant-activity-read
+    resource_type: "participant.activity.read"
+    effect: "read"
+    decision: ALLOW
+    reason: "Behavioral signal access. No PII, permitted within scope."
+
+  - id: t1-participant-cohort-read
+    resource_type: "participant.cohort.read"
+    effect: "read"
+    decision: ALLOW
+    reason: "Aggregated cohort data. No individual PII."
+
+  - id: t1-plan-data-read
+    resource_type: "plan.data.read"
+    effect: "read"
+    decision: ALLOW
+    reason: "Plan configuration read access. Permitted within scope."
+
+  - id: t1-plan-demographics-read
+    resource_type: "plan.demographics.read"
+    effect: "read"
+    decision: ALLOW
+    reason: "Plan-level demographic distributions. No individual PII."
+
+  - id: t1-fund-performance-read
+    resource_type: "fund.performance.read"
+    effect: "read"
+    decision: ALLOW
+    reason: "Fund performance data. Public/internal market data."
+
+  - id: t1-fund-fees-read
+    resource_type: "fund.fees.read"
+    effect: "read"
+    decision: ALLOW
+    reason: "Fund expense ratio data. Required for fiduciary analysis."
+
+  - id: t1-employer-feed-read
+    resource_type: "employer.feed.read"
+    effect: "read"
+    decision: ALLOW
+    reason: "Employer HR/payroll feed. Permitted for life event detection."
+
+  - id: t1-market-data-read
+    resource_type: "market.data.read"
+    effect: "read"
+    decision: ALLOW
+    reason: "Public market data. No restrictions."
+
+  # ─── TIER 2: Computation — ALLOW ─────────────────────────────────────────
+  - id: t2-risk-score
+    resource_type: "risk.score.compute"
+    effect: "read"
+    decision: ALLOW
+    reason: "Internal computation. No external consequence."
+
+  - id: t2-scenario-model
+    resource_type: "scenario.model.execute"
+    effect: "read"
+    decision: ALLOW
+    reason: "Code Interpreter scenario modeling. Internal, no external output."
+
+  - id: t2-compliance-evaluate
+    resource_type: "compliance.evaluate"
+    effect: "read"
+    decision: ALLOW
+    reason: "Regulatory threshold evaluation. Internal computation."
+
+  - id: t2-life-event-score
+    resource_type: "life.event.score"
+    effect: "read"
+    decision: ALLOW
+    reason: "Life event probability scoring. Internal, no participant impact."
+
+  # ─── TIER 3: Draft / Internal — ALLOW ────────────────────────────────────
+  - id: t3-intervention-draft
+    resource_type: "intervention.draft"
+    effect: "write"
+    decision: ALLOW
+    reason: "Draft only. No participant exposure until send is approved."
+
+  - id: t3-outreach-draft
+    resource_type: "outreach.draft"
+    effect: "write"
+    decision: ALLOW
+    reason: "Draft only. Content staged for review before delivery."
+
+  - id: t3-finding-draft
+    resource_type: "finding.draft"
+    effect: "write"
+    decision: ALLOW
+    reason: "Draft only. Compliance finding staged before emission."
+
+  - id: t3-recommendation-draft
+    resource_type: "recommendation.draft"
+    effect: "write"
+    decision: ALLOW
+    reason: "Draft only. Recommendation staged for RM delivery."
+
+  # ─── TIER 4: Output / External ───────────────────────────────────────────
+  # Participant communications: ASK (human approval required)
+  - id: t4-participant-comms-send
+    resource_type: "participant.communication.send"
+    effect: "notify"
+    decision: ASK
+    reason: >
+      Participant-facing communication. Requires human approval before delivery.
+      All participant messages must be reviewed to ensure accuracy and compliance
+      with ERISA fiduciary communication standards.
+
+  # Low-severity findings: ALLOW (auto-surface to dashboard)
+  - id: t4-finding-emit-low
+    resource_type: "compliance.finding.emit.low"
+    effect: "notify"
+    decision: ALLOW
+    reason: "Low-severity finding. Auto-surfaced to compliance dashboard for awareness."
+
+  # High-severity findings: ASK (compliance officer review required)
+  - id: t4-finding-emit-high
+    resource_type: "compliance.finding.emit.high"
+    effect: "notify"
+    decision: ASK
+    reason: >
+      High-severity compliance finding. Requires compliance officer review before
+      emission to plan sponsor or DOL records. This includes any finding that
+      recommends fund removal, plan design change, or regulatory escalation.
+
+  # Internal recommendations: ALLOW (RM-facing, not participant-facing)
+  - id: t4-recommendation-deliver
+    resource_type: "recommendation.deliver"
+    effect: "notify"
+    decision: ALLOW
+    reason: "Internal RM delivery. Not participant-facing. Permitted without approval."
+
+  # Advisor escalation: ASK
+  - id: t4-advisor-escalation
+    resource_type: "advisor.escalation.trigger"
+    effect: "notify"
+    decision: ASK
+    reason: "Triggers routing to human advisor or call center. Requires approval."
+
+  # Human review queue: ALLOW
+  - id: t4-human-review-queue
+    resource_type: "human.review.queue.add"
+    effect: "notify"
+    decision: ALLOW
+    reason: "Adding to human review queue is always permitted."
+
+  # ─── TIER 5: Persistence — ALLOW ─────────────────────────────────────────
+  - id: t5-audit-log
+    resource_type: "audit.log.write"
+    effect: "write"
+    decision: ALLOW
+    reason: "Audit logging is always permitted. Required for all agents."
+
+  - id: t5-intervention-log
+    resource_type: "intervention.log.write"
+    effect: "write"
+    decision: ALLOW
+    reason: "Intervention logging required for ROI tracking and compliance."
+
+  - id: t5-finding-log
+    resource_type: "finding.log.write"
+    effect: "write"
+    decision: ALLOW
+    reason: "Compliance finding log required for ERISA audit trail."
+
+  - id: t5-outcome-log
+    resource_type: "outcome.log.write"
+    effect: "write"
+    decision: ALLOW
+    reason: "Outcome logging required for success metric measurement."
+
+  - id: t5-followup-schedule
+    resource_type: "followup.schedule"
+    effect: "write"
+    decision: ALLOW
+    reason: "Follow-up scheduling permitted within declared agent scope."
+
+  # ─── TIER 6: System Control — DENY ───────────────────────────────────────
+  - id: t6-agent-suspend
+    resource_type: "agent.suspend"
+    effect: "write"
+    decision: ASK
+    reason: "Agent suspension requires operator approval."
+
+  - id: t6-agent-promote
+    resource_type: "agent.promote"
+    effect: "write"
+    decision: DENY
+    reason: >
+      HARD DENY. Agent promotion from sandbox to production is exclusively
+      controlled by the lifecycle manager, not by agents themselves.
+      Separation of duties is required.
+
+  - id: t6-policy-modify
+    resource_type: "policy.rule.modify"
+    effect: "write"
+    decision: DENY
+    reason: >
+      HARD DENY. Policy rules cannot be modified by agents at runtime.
+      All policy changes must go through the governance review process.
+
+  # ─── Hard Denies: Financial Operations ───────────────────────────────────
+  - id: hard-deny-participant-write
+    resource_type: "participant.data.write"
+    effect: "write"
+    decision: DENY
+    reason: >
+      HARD DENY. Agents are never permitted to modify participant records directly.
+      All participant data changes must go through authorized human workflows.
+
+  - id: hard-deny-plan-write
+    resource_type: "plan.data.write"
+    effect: "write"
+    decision: DENY
+    reason: >
+      HARD DENY. Agents are never permitted to modify plan configuration directly.
+      Plan design changes require sponsor authorization and fiduciary review.
+
+  - id: hard-deny-transaction
+    resource_type: "account.transaction.execute"
+    effect: "write"
+    decision: DENY
+    reason: >
+      HARD DENY. No agent in this system may initiate or execute financial
+      transactions. This is an absolute restriction with no override path.

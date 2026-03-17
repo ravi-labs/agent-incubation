@@ -1,0 +1,14 @@
+# Policy overrides — Example Agent
+# ─────────────────────────────────────────────────────────────────────────────
+# Layered on top of agent-foundry's defaults.yaml and erisa.yaml.
+# Only add rules that differ from the defaults.
+# You can TIGHTEN defaults (stricter) but never LOOSEN them.
+# ─────────────────────────────────────────────────────────────────────────────
+
+rules: []
+  # Example: tighten communication.send to always require review
+  # - resource_type: "participant.communication.send"
+  #   decision: ASK
+  #   reason: "Our agent sends advice-adjacent content — always require review"
+  #   when:
+  #     manifest_version: "example-agent@*"

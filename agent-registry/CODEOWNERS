@@ -1,0 +1,25 @@
+# CODEOWNERS — agent-registry
+# ─────────────────────────────────────────────────────────────────────────────
+# These rules determine who must review and approve each registry PR.
+#
+# Format: <pattern>  <@github-handle or @org/team>
+#
+# Rules:
+#   - All manifest PRs require compliance-team review
+#   - registry.yaml and CI changes require platform-team review
+#   - Individual agent directories have domain-specific owners
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Platform infrastructure — platform team owns all
+registry.yaml                   @ravi-labs/platform-team
+.github/                        @ravi-labs/platform-team
+
+# All manifest submissions require compliance review (in addition to domain owners)
+registry/*/manifest.yaml        @ravi-labs/compliance-team
+
+# Domain-specific ownership — teams own their own agent manifests
+# (compliance team is always an additional required reviewer)
+registry/retirement-trajectory/ @ravi-labs/participant-outcomes-team
+registry/fiduciary-watchdog/    @ravi-labs/compliance-and-fiduciary-team
+registry/life-event-anticipation/ @ravi-labs/participant-experience-team
+registry/plan-design-optimizer/ @ravi-labs/relationship-management-team

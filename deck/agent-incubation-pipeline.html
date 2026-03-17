@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Incubation Pipeline</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #0B1D3A;
+      --navy-mid: #122444;
+      --navy-light: #1A3160;
+      --gold: #C9A84C;
+      --gold-light: #E0C36A;
+      --gold-dim: rgba(201,168,76,0.15);
+      --white: #FFFFFF;
+      --off-white: #F4F6FA;
+      --gray: #8A99B0;
+      --gray-light: #D0D8E8;
+      --text: #E8EDF5;
+      --text-dim: #8A99B0;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.35);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ───── HEADER ───── */
+    header {
+      padding: 48px 60px 36px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .header-left {}
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+    header h1 {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.15;
+      color: var(--white);
+    }
+    header h1 span { color: var(--gold); }
+    .header-sub {
+      margin-top: 10px;
+      font-size: 15px;
+      color: var(--text-dim);
+      max-width: 520px;
+      line-height: 1.6;
+    }
+    .header-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 8px;
+      padding: 14px 20px;
+      text-align: center;
+      min-width: 160px;
+      flex-shrink: 0;
+    }
+    .header-badge .badge-num {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--gold);
+      line-height: 1;
+    }
+    .header-badge .badge-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ───── MAIN ───── */
+    main {
+      padding: 48px 60px 80px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ───── PIPELINE SECTION ───── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 24px;
+    }
+
+    .pipeline {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin-bottom: 0;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .stage {
+      flex: 1;
+      min-width: 150px;
+      background: var(--navy-mid);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-right: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      padding: 28px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .stage:first-child { border-radius: var(--radius) 0 0 0; }
+    .stage:last-child  { border-right: 1px solid rgba(255,255,255,0.08); border-radius: 0 var(--radius) 0 0; }
+
+    .stage:hover,
+    .stage.active {
+      background: var(--navy-light);
+      border-color: rgba(201,168,76,0.4);
+      z-index: 1;
+    }
+    .stage.active { border-bottom-color: var(--gold) !important; }
+
+    /* arrow connector */
+    .stage:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-top: 16px solid transparent;
+      border-bottom: 16px solid transparent;
+      border-left: 14px solid var(--navy-light);
+      z-index: 2;
+      filter: drop-shadow(1px 0 0 rgba(255,255,255,0.06));
+    }
+    .stage.active:not(:last-child)::after { border-left-color: var(--navy-light); }
+
+    .stage-num {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 1.5px;
+    }
+    .stage-icon {
+      font-size: 22px;
+      line-height: 1;
+      margin: 2px 0;
+    }
+    .stage-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.2;
+    }
+    .stage-tagline {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+    .stage-indicator {
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: transparent;
+      border-radius: 0;
+      transition: background 0.2s;
+    }
+    .stage.active .stage-indicator { background: var(--gold); }
+
+    /* ───── DETAIL PANEL ───── */
+    .detail-panel {
+      background: var(--navy-mid);
+      border: 1px solid rgba(201,168,76,0.25);
+      border-top: 2px solid var(--gold);
+      border-radius: 0 0 var(--radius) var(--radius);
+      padding: 36px 40px;
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+    .detail-panel.visible { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 32px;
+    }
+
+    .detail-col h3 {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 14px;
+    }
+    .detail-col p {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+    .detail-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .detail-col ul li {
+      font-size: 13.5px;
+      color: var(--text);
+      line-height: 1.5;
+      padding-left: 16px;
+      position: relative;
+    }
+    .detail-col ul li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--gold);
+      font-size: 12px;
+    }
+
+    .use-case-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .chip {
+      background: rgba(201,168,76,0.1);
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: var(--gold-light);
+      font-weight: 500;
+    }
+
+    /* ───── DIVIDER ───── */
+    .divider {
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+      margin: 56px 0;
+    }
+
+    /* ───── USE CASES ───── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+
+    .use-case-card {
+      background: var(--navy-mid);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .use-case-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--card-color, var(--gold));
+      opacity: 0.6;
+    }
+    .use-case-card:hover { border-color: rgba(201,168,76,0.3); transform: translateY(-2px); box-shadow: var(--shadow); }
+
+    .card-claim {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--card-color, var(--gold));
+      line-height: 1.4;
+      margin-bottom: 10px;
+      font-style: italic;
+      opacity: 0.9;
+    }
+    .card-explore {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--card-color, var(--gold));
+      text-decoration: none;
+      letter-spacing: 0.5px;
+      transition: gap 0.2s;
+    }
+    .card-explore:hover { gap: 10px; }
+    .use-case-card:hover .card-explore { gap: 10px; }
+    .card-domain {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--card-color, var(--gold));
+      margin-bottom: 10px;
+      opacity: 0.9;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.3;
+      margin-bottom: 10px;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .card-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .meta-pill {
+      background: rgba(255,255,255,0.06);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--gray);
+      font-weight: 500;
+    }
+    .meta-pill.green { background: rgba(72,199,142,0.12); color: #48C78E; }
+    .meta-pill.blue  { background: rgba(72,145,232,0.12); color: #4891E8; }
+
+    /* ───── PAIN POINTS / PILLARS ───── */
+    .pillars {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .pillar {
+      background: var(--navy-mid);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+    }
+    .pillar-icon { font-size: 28px; margin-bottom: 14px; }
+    .pillar h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 8px;
+    }
+    .pillar p {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+    .pillar-badge {
+      display: inline-block;
+      margin-top: 14px;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gold);
+    }
+
+    /* ───── FOOTER ───── */
+    footer {
+      border-top: 1px solid rgba(255,255,255,0.07);
+      padding: 28px 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+    footer .footer-logo { font-weight: 700; font-size: 13px; color: var(--white); letter-spacing: 0.5px; }
+    footer .footer-note { font-style: italic; }
+
+    /* ───── RESPONSIVE ───── */
+    @media (max-width: 900px) {
+      header, main, footer { padding-left: 24px; padding-right: 24px; }
+      header { flex-direction: column; align-items: flex-start; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .cards-grid, .pillars { grid-template-columns: 1fr; }
+      .pipeline { flex-direction: column; }
+      .stage:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+      .stage:last-child  { border-radius: 0; border-right: 1px solid rgba(255,255,255,0.08); }
+      .stage:not(:last-child)::after { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="header-left">
+    <div class="eyebrow">Agent Incubation Framework · Financial Services</div>
+    <h1>From Idea to <span>Live Agent</span><br/>A Repeatable Pipeline</h1>
+    <p class="header-sub">
+      A structured 6-stage process for discovering, building, governing, and scaling AI agents
+      across retirement, wealth, and private markets — with measurable ROI at every gate.
+    </p>
+  </div>
+  <div style="display:flex;gap:12px;flex-shrink:0;">
+    <div class="header-badge">
+      <div class="badge-num">6</div>
+      <div class="badge-label">Stages</div>
+    </div>
+    <div class="header-badge">
+      <div class="badge-num">3</div>
+      <div class="badge-label">Domains</div>
+    </div>
+    <div class="header-badge">
+      <div class="badge-num">2–4<span style="font-size:16px;font-weight:500">wk</span></div>
+      <div class="badge-label">POC Sprint</div>
+    </div>
+  </div>
+</header>
+
+<!-- ─── MAIN ─── -->
+<main>
+
+  <!-- Pipeline -->
+  <div class="section-label">The Pipeline — click any stage to explore</div>
+  <div class="pipeline" id="pipeline">
+
+    <div class="stage" data-stage="0" onclick="selectStage(0)">
+      <div class="stage-num">01</div>
+      <div class="stage-icon">🔍</div>
+      <div class="stage-name">Discover</div>
+      <div class="stage-tagline">Idea → Validated opportunity</div>
+      <div class="stage-indicator"></div>
+    </div>
+
+    <div class="stage" data-stage="1" onclick="selectStage(1)">
+      <div class="stage-num">02</div>
+      <div class="stage-icon">🗺️</div>
+      <div class="stage-name">Shape</div>
+      <div class="stage-tagline">Opportunity → Scoped POC</div>
+      <div class="stage-indicator"></div>
+    </div>
+
+    <div class="stage" data-stage="2" onclick="selectStage(2)">
+      <div class="stage-num">03</div>
+      <div class="stage-icon">⚙️</div>
+      <div class="stage-name">Build</div>
+      <div class="stage-tagline">Scoped POC → Working agent</div>
+      <div class="stage-indicator"></div>
+    </div>
+
+    <div class="stage" data-stage="3" onclick="selectStage(3)">
+      <div class="stage-num">04</div>
+      <div class="stage-icon">📊</div>
+      <div class="stage-name">Validate</div>
+      <div class="stage-tagline">Working agent → Proven value</div>
+      <div class="stage-indicator"></div>
+    </div>
+
+    <div class="stage" data-stage="4" onclick="selectStage(4)">
+      <div class="stage-num">05</div>
+      <div class="stage-icon">🛡️</div>
+      <div class="stage-name">Govern</div>
+      <div class="stage-tagline">Proven value → Approved for production</div>
+      <div class="stage-indicator"></div>
+    </div>
+
+    <div class="stage" data-stage="5" onclick="selectStage(5)">
+      <div class="stage-num">06</div>
+      <div class="stage-icon">🚀</div>
+      <div class="stage-name">Scale</div>
+      <div class="stage-tagline">Approved → Live & monitored</div>
+      <div class="stage-indicator"></div>
+    </div>
+
+  </div>
+
+  <!-- Detail Panel -->
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-grid">
+      <div class="detail-col">
+        <h3>What happens here</h3>
+        <p id="detail-what"></p>
+      </div>
+      <div class="detail-col">
+        <h3>Key questions &amp; outputs</h3>
+        <ul id="detail-outputs"></ul>
+      </div>
+      <div class="detail-col">
+        <h3>Example use cases</h3>
+        <div class="use-case-chips" id="detail-chips"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Example Agents -->
+  <div class="section-label" style="margin-bottom:28px;">Agents in incubation — click to explore</div>
+  <div class="cards-grid">
+
+    <div class="use-case-card" style="--card-color:#4891E8; cursor:pointer;" onclick="window.location.href='agent-retirement-trajectory.html'">
+      <div class="card-title">Retirement Trajectory Intervention Agent</div>
+      <div class="card-claim">"Personalized retirement interventions for millions of participants simultaneously — something no human team could ever match."</div>
+      <div class="card-desc">Continuously monitors behavioral signals — missed contributions, allocation drift, age-to-balance ratio — and autonomously delivers plain-language interventions before it's too late to change outcomes.</div>
+      <div class="card-meta">
+        <span class="meta-pill blue">Behavioral signals</span>
+        <span class="meta-pill green">Contribution rate uplift</span>
+        <span class="meta-pill">Multi-participant scale</span>
+      </div>
+      <a class="card-explore">Explore agent →</a>
+    </div>
+
+    <div class="use-case-card" style="--card-color:#E85E48; cursor:pointer;" onclick="window.location.href='agent-fiduciary-watchdog.html'">
+      <div class="card-title">Fiduciary Watchdog Agent</div>
+      <div class="card-claim">"Real-time fiduciary oversight at scale — currently impossible without this."</div>
+      <div class="card-desc">Runs continuously against investment lineups, fee standards, participation rates, and DOL/ERISA thresholds. When something drifts, it drafts a plain-language finding and recommended remediation — the memo a compliance officer would spend hours writing.</div>
+      <div class="card-meta">
+        <span class="meta-pill" style="background:rgba(232,94,72,0.12);color:#E85E48;">ERISA / DOL</span>
+        <span class="meta-pill green">Continuous vs quarterly</span>
+        <span class="meta-pill">Policy-layer governed</span>
+      </div>
+      <a class="card-explore">Explore agent →</a>
+    </div>
+
+    <div class="use-case-card" style="--card-color:#48C78E; cursor:pointer;" onclick="window.location.href='agent-life-event.html'">
+      <div class="card-title">Life Event Anticipation Agent</div>
+      <div class="card-claim">"Converts a reactive service model into a proactive one — at a scale no call center team can achieve."</div>
+      <div class="card-desc">Monitors plan activity, employer feeds, age milestones, and beneficiary changes to anticipate life events before they happen. A participant who terminates employment gets a rollover conversation initiated within hours — not when they call six months later.</div>
+      <div class="card-meta">
+        <span class="meta-pill" style="background:rgba(72,199,142,0.12);color:#48C78E;">Multi-agent</span>
+        <span class="meta-pill green">Hours vs months to respond</span>
+        <span class="meta-pill">Signal → Outreach → Track</span>
+      </div>
+      <a class="card-explore">Explore agent →</a>
+    </div>
+
+    <div class="use-case-card" style="--card-color:#A875E0; cursor:pointer;" onclick="window.location.href='agent-plan-design-optimizer.html'">
+      <div class="card-title">Plan Design Optimizer Agent</div>
+      <div class="card-claim">"Continuously and dynamically models optimal plan design for every sponsor — never possible before."</div>
+      <div class="card-desc">Analyzes a sponsor's own participant demographics, contribution behavior, and income distribution — then models the impact of design changes and produces a projected outcome recommendation a relationship manager can take directly into a client conversation.</div>
+      <div class="card-meta">
+        <span class="meta-pill" style="background:rgba(168,117,224,0.12);color:#A875E0;">Code Interpreter</span>
+        <span class="meta-pill green">+11pt income replacement</span>
+        <span class="meta-pill">Per-plan modeling</span>
+      </div>
+      <a class="card-explore">Explore agent →</a>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Why this framework -->
+  <div class="section-label" style="margin-bottom:28px;">Why this framework addresses your biggest gaps</div>
+  <div class="pillars">
+
+    <div class="pillar">
+      <div class="pillar-icon">🗂️</div>
+      <h3>No clear process from idea → agent</h3>
+      <p>The 6 stages create a repeatable, institutional process with defined entry criteria and exit gates — so any team can run a POC using the same playbook.</p>
+      <div class="pillar-badge">Addressed in Stages 1–3</div>
+    </div>
+
+    <div class="pillar">
+      <div class="pillar-icon">📈</div>
+      <h3>Measuring ROI of agents</h3>
+      <p>Stage 4 (Validate) is purpose-built around ROI proof — every agent runs alongside the existing process before go-live, with time, accuracy, and cost metrics captured explicitly.</p>
+      <div class="pillar-badge">Addressed in Stage 4</div>
+    </div>
+
+    <div class="pillar">
+      <div class="pillar-icon">🏛️</div>
+      <h3>Governance &amp; regulatory exposure</h3>
+      <p>Stage 5 (Govern) is a dedicated gate for compliance, risk, and regulatory review — ERISA, AML/KYC, fiduciary standards — before any agent touches production data or clients.</p>
+      <div class="pillar-badge">Addressed in Stage 5</div>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>
+  <span class="footer-logo">Agent Incubation Framework · Financial Services</span>
+  <span class="footer-note">Internal use — Leadership review · 2026</span>
+</footer>
+
+<script>
+  const stages = [
+    {
+      what: "Identify and qualify high-value automation opportunities. Teams submit ideas through a structured intake form. Each idea is scored on business impact, data availability, technical feasibility, and regulatory exposure before any resources are committed.",
+      outputs: [
+        "What is the current process, and who does it today?",
+        "What is the volume and frequency of the task?",
+        "What data is required, and is it available?",
+        "Output: Go / No-Go scorecard"
+      ],
+      chips: ["Plan enrollment opportunities", "Client communication tasks", "Compliance monitoring gaps", "Document-heavy workflows", "LP reporting pain points"]
+    },
+    {
+      what: "Turn a validated opportunity into a scoped POC definition. Define the agent's boundaries: what it can and cannot do, which tools it uses, what success looks like, and what human oversight is required. Produce a one-page brief before writing a single line of code.",
+      outputs: [
+        "What does the agent do — and what does it hand off to a human?",
+        "What does 'good' look like after 30 days?",
+        "What data access and integrations are required?",
+        "Output: Agent brief + success metrics"
+      ],
+      chips: ["Scope definition doc", "Success metric baseline", "Integration checklist", "Human-in-loop map", "Resource estimate"]
+    },
+    {
+      what: "Build the simplest version of the agent that proves the concept. Time-boxed 2–4 week sprint with a small team (1–2 engineers + domain expert). All work happens in a sandboxed environment — no production data, no live client exposure.",
+      outputs: [
+        "Does the agent perform the target task end-to-end?",
+        "What edge cases and failure modes were discovered?",
+        "Does it meet the accuracy bar defined in Stage 2?",
+        "Output: Working agent in sandbox + test log"
+      ],
+      chips: ["Sandboxed environment", "Synthetic test data", "Accuracy baseline testing", "Edge case log", "Demo-ready build"]
+    },
+    {
+      what: "Run the agent alongside the existing human process for 2–4 weeks. Measure what actually changed: time saved, error rate, throughput, and user satisfaction. This stage produces the ROI evidence leadership needs to approve production deployment.",
+      outputs: [
+        "How does agent output compare to the current process?",
+        "What is the fully-loaded time and cost saving?",
+        "What is the error rate, and where does it fail?",
+        "Output: ROI report + go/no-go recommendation"
+      ],
+      chips: ["Side-by-side comparison", "Time & cost metrics", "Error rate analysis", "User feedback survey", "ROI one-pager for leadership"]
+    },
+    {
+      what: "Formal review by compliance, risk, legal, and technology. For financial services, this is not optional — ERISA, FINRA, AML/KYC, and fiduciary standards must be assessed before any agent touches production data or interacts with clients. Governance approval is the gate to production.",
+      outputs: [
+        "Does the agent create any regulatory exposure? (ERISA, FINRA, AML)",
+        "What is the data privacy and security posture?",
+        "Is human oversight sufficient for the agent's output?",
+        "Output: Governance sign-off document + monitoring requirements"
+      ],
+      chips: ["ERISA review", "FINRA / SEC assessment", "AML / KYC audit", "Data privacy checklist", "Model risk review", "Human override protocols"]
+    },
+    {
+      what: "Deploy to production with monitoring, alerting, and a feedback loop in place. The agent is handed off to an operations owner who is responsible for its ongoing performance. Learnings from production feed back into Stage 1 to spawn the next generation of ideas.",
+      outputs: [
+        "Who owns the agent in production, and what are their responsibilities?",
+        "What are the alerting thresholds for drift or failure?",
+        "How are improvements captured and fed back into the pipeline?",
+        "Output: Live agent + runbook + quarterly review cadence"
+      ],
+      chips: ["Production deployment", "Monitoring dashboard", "Ops runbook", "Quarterly performance review", "Feedback → Stage 1 loop"]
+    }
+  ];
+
+  function selectStage(idx) {
+    const stageEls = document.querySelectorAll('.stage');
+    const panel = document.getElementById('detail-panel');
+
+    stageEls.forEach((el, i) => {
+      el.classList.toggle('active', i === idx);
+    });
+
+    const s = stages[idx];
+    document.getElementById('detail-what').textContent = s.what;
+
+    const list = document.getElementById('detail-outputs');
+    list.innerHTML = s.outputs.map(o => `<li>${o}</li>`).join('');
+
+    const chips = document.getElementById('detail-chips');
+    chips.innerHTML = s.chips.map(c => `<span class="chip">${c}</span>`).join('');
+
+    panel.classList.add('visible');
+    setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+  }
+
+  // Open first stage by default
+  selectStage(0);
+</script>
+
+</body>
+</html>

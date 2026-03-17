@@ -1,0 +1,30 @@
+# Policy — Plan Design Optimizer Agent
+# ─────────────────────────────────────────────────────────────────────────────
+# This agent only reads data, runs internal models, and delivers recommendations
+# to internal relationship managers (not participants directly). All Tier 1–3
+# effects are ALLOW. The recommendation delivery to RMs is also ALLOW since it
+# is internal and does not constitute participant-directed advice.
+# ─────────────────────────────────────────────────────────────────────────────
+
+rules:
+
+  # Recommendation delivery to internal RMs is permitted without additional
+  # human approval — the RM is the human in the loop for client decisions.
+  - resource_type: "recommendation.deliver"
+    decision: ALLOW
+    reason: >
+      Delivering plan design scenario recommendations to a relationship manager
+      is an internal analytical output, not participant-facing advice. The RM
+      reviews and decides whether to present the recommendation to the plan sponsor.
+      The RM is the human review layer. Auto-deliver is appropriate.
+    when:
+      manifest_version: "plan-design-optimizer@*"
+
+  # Scenario modeling is purely computational — always allow.
+  - resource_type: "scenario.model.execute"
+    decision: ALLOW
+    reason: >
+      Plan design scenario modeling is an internal computation with no external
+      impact. Results feed into recommendation drafts, not participant accounts.
+    when:
+      manifest_version: "plan-design-optimizer@*"

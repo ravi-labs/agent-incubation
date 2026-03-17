@@ -1,0 +1,59 @@
+# Agent Manifest — Life Event Anticipation Agent
+# ──────────────────────────────────────────────────────────────────────────────
+# Detects behavioral signals that predict a participant has experienced or is
+# about to experience a major life event (job change, marriage, new child,
+# approaching retirement). Routes each detected event to the appropriate
+# outreach path — automated outreach for informational events, advisor
+# escalation for complex financial decisions.
+
+agent_id: life-event-anticipation
+version: "0.1.0"
+owner: participant-experience-team
+description: >
+  Monitors participant behavioral signals (employer HR feeds, login patterns,
+  allocation changes, beneficiary updates) to probabilistically detect life events
+  before participants proactively contact us. Scores each signal against a life
+  event model and routes detected events to the right response: informational
+  outreach (automated, low-touch), advisor escalation (high-touch, human review),
+  or a watch queue (monitor and re-evaluate). Designed to reach participants at
+  moments of maximum relevance before they make costly uninformed decisions.
+
+lifecycle_stage: SHAPE
+environment: sandbox
+status: active
+
+team_repo: https://github.com/ravi-labs/participant-experience-agents
+foundry_version: ">=0.1.0"
+
+allowed_effects:
+  - participant.data.read
+  - participant.activity.read
+  - employer.feed.read
+  - life.event.score
+  - outreach.draft
+  - participant.communication.send
+  - advisor.escalation.trigger
+  - human.review.queue.add
+  - followup.schedule
+  - outcome.log.write
+  - audit.log.write
+
+data_access:
+  - participant.data
+  - participant.activity
+  - employer.feed
+
+policy_path: examples/life_event_anticipation/policy.yaml
+
+success_metrics:
+  - "Detected life event → first outreach latency < 48 hours"
+  - "Advisor-escalated participants show higher plan satisfaction scores at 90 days"
+  - "Leakage events (loans, hardship withdrawals) decrease by ≥15% in detected cohort"
+  - "Outreach open rate ≥ 40% (vs. 18% baseline for generic campaign emails)"
+  - "False positive rate (outreach sent for non-events) < 8%"
+
+tags:
+  - life-events
+  - participant-engagement
+  - proactive-outreach
+  - advisor-routing

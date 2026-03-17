@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Validate all agent manifests
+        run: |
+          for manifest in agents/*/manifest.yaml; do
+            echo "Validating: $manifest"
+            foundry agent validate "$manifest"
+          done
+
+      - name: Run tests
+        run: pytest agents/ -v --tb=short
+
+  # Registry submission gate — runs on PR to main
+  # Ensures the agent is ready for registry submission
+  registry-readiness:
+    name: Registry Readiness Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Strict manifest validation
+        run: |
+          for manifest in agents/*/manifest.yaml; do
+            foundry agent validate "$manifest" --strict
+          done

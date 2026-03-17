@@ -1,0 +1,39 @@
+# Agent Manifest — Example Agent
+# ──────────────────────────────────────────────────────────────────────────────
+# Replace everything below with your agent's actual details.
+# Run: foundry agent validate --strict   before opening a registry PR.
+
+agent_id: example-agent          # Unique slug. Becomes the registry directory name.
+version: "0.1.0"
+owner: your-team-name            # Your team's name in CODEOWNERS
+description: >
+  Replace this with a clear 1–3 sentence description of what the agent does,
+  what problem it solves, who benefits, and how it acts autonomously.
+
+lifecycle_stage: DISCOVER        # Start here. Promote as you progress.
+environment: sandbox
+status: active
+
+team_repo: https://github.com/your-org/your-team-agents
+foundry_version: ">=0.1.0"
+
+# Declare the minimum set of effects you actually need.
+# Run: foundry effects list   to browse all available effects.
+allowed_effects:
+  - participant.data.read
+  - audit.log.write
+
+# Named data sources this agent may access via Gateway.
+data_access:
+  - participant.data
+
+# Path to your local policy overrides (relative to project root).
+policy_path: agents/example-agent/policy.yaml
+
+# What does success look like at 30 days?
+# Be specific and measurable — these are reviewed at Stage 5 governance.
+success_metrics:
+  - "TODO: Define your primary success metric"
+
+tags:
+  - example

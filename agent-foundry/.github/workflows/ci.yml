@@ -1,0 +1,175 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'examples/**'
+      - 'policies/**'
+      - 'pyproject.toml'
+
+jobs:
+  # ─── Lint ──────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff
+        run: ruff check src/ tests/ examples/
+
+  # ─── Tests ─────────────────────────────────────────────────────────────────
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install agent-foundry with dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: .pytest_cache/
+
+  # ─── Manifest Validation ───────────────────────────────────────────────────
+  validate-manifests:
+    name: Validate Example Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install agent-foundry
+        run: pip install -e ".[dev]"
+
+      - name: Validate all example manifests
+        run: |
+          for manifest in examples/*/manifest.yaml; do
+            echo "Validating: $manifest"
+            foundry agent validate "$manifest" --strict
+          done
+
+  # ─── Example Agents (Dry Run) ──────────────────────────────────────────────
+  smoke-test-examples:
+    name: Smoke Test Example Agents
+    runs-on: ubuntu-latest
+    needs: [test, validate-manifests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install agent-foundry
+        run: pip install -e ".[dev]"
+
+      - name: Run Retirement Trajectory example
+        run: python examples/retirement_trajectory/agent.py
+
+      - name: Run Fiduciary Watchdog example
+        run: python examples/fiduciary_watchdog/agent.py
+
+      - name: Run Life Event Anticipation example
+        run: python examples/life_event_anticipation/agent.py
+
+      - name: Run Plan Design Optimizer example
+        run: python examples/plan_design_optimizer/agent.py
+
+  # ─── Policy Validation ─────────────────────────────────────────────────────
+  validate-policies:
+    name: Validate Policy YAML Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate policy YAML syntax
+        run: |
+          python -c "
+          import yaml, sys, pathlib
+          errors = []
+          for f in pathlib.Path('.').rglob('*.yaml'):
+            if '.git' in str(f):
+              continue
+            try:
+              yaml.safe_load(f.read_text())
+            except yaml.YAMLError as e:
+              errors.append(f'{f}: {e}')
+          if errors:
+            for e in errors:
+              print(f'YAML Error: {e}')
+            sys.exit(1)
+          print(f'All YAML files valid')
+          "
+
+  # ─── Build Package ─────────────────────────────────────────────────────────
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build
+        run: pip install build
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Verify package contents
+        run: |
+          pip install dist/*.whl
+          python -c "import foundry; print('foundry version:', foundry.__version__)"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

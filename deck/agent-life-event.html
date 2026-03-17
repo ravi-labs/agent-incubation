@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Life Event Anticipation Agent</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #0B1D3A; --navy-mid: #122444; --navy-light: #1A3160;
+      --accent: #48C78E; --accent-dim: rgba(72,199,142,0.12); --accent-border: rgba(72,199,142,0.3);
+      --gold: #C9A84C; --white: #FFFFFF;
+      --gray: #8A99B0; --text: #E8EDF5; --text-dim: #8A99B0;
+      --radius: 12px;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--navy); color: var(--text); min-height: 100vh; }
+
+    nav { padding: 20px 60px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; }
+    .back-link { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--text-dim); text-decoration: none; transition: color 0.2s; }
+    .back-link:hover { color: var(--accent); }
+    .nav-badge { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border); padding: 4px 12px; border-radius: 20px; }
+
+    .hero { padding: 64px 60px 56px; border-bottom: 1px solid rgba(255,255,255,0.07); max-width: 900px; }
+    .hero-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+    .hero h1 { font-size: 42px; font-weight: 800; line-height: 1.1; color: var(--white); margin-bottom: 20px; }
+    .hero-claim { font-size: 18px; font-weight: 500; color: var(--text-dim); line-height: 1.6; font-style: italic; border-left: 3px solid var(--accent); padding-left: 20px; max-width: 720px; }
+
+    main { padding: 56px 60px 80px; max-width: 1200px; margin: 0 auto; }
+    .section { margin-bottom: 64px; }
+    .section-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 24px; }
+    .section p { font-size: 15px; color: var(--text-dim); line-height: 1.8; max-width: 760px; }
+
+    .before-after { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px; }
+    .ba-card { background: var(--navy-mid); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); padding: 28px 24px; }
+    .ba-card.after { border-color: var(--accent-border); }
+    .ba-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+    .ba-card:not(.after) .ba-label { color: var(--gray); }
+    .ba-card.after .ba-label { color: var(--accent); }
+    .ba-card h3 { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 10px; }
+    .ba-card p { font-size: 13.5px; color: var(--text-dim); line-height: 1.7; }
+
+    /* EVENT CARDS */
+    .events-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 24px; }
+    .event-card { background: var(--navy-mid); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); padding: 24px 20px; }
+    .event-card .event-icon { font-size: 28px; margin-bottom: 12px; }
+    .event-card h4 { font-size: 14px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
+    .event-card .signal { font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
+    .event-card p { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+
+    /* MULTI-AGENT ARCHITECTURE */
+    .multi-agent {
+      display: flex; flex-direction: column; gap: 0; margin-top: 24px;
+    }
+    .agent-row {
+      display: flex; align-items: center; gap: 20px;
+      background: var(--navy-mid); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius); padding: 24px 28px; margin-bottom: 4px;
+      position: relative;
+    }
+    .agent-row.highlight { border-color: var(--accent-border); }
+    .agent-row:not(:last-child)::after {
+      content: '↓'; position: absolute; bottom: -18px; left: 50%;
+      transform: translateX(-50%); font-size: 16px; color: var(--accent); opacity: 0.5;
+    }
+    .agent-num { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--accent); min-width: 24px; }
+    .agent-icon { font-size: 22px; flex-shrink: 0; }
+    .agent-body { flex: 1; }
+    .agent-body h4 { font-size: 14px; font-weight: 700; color: var(--white); margin-bottom: 4px; }
+    .agent-body p { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+    .agent-tag { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; background: var(--accent-dim); border: 1px solid var(--accent-border); border-radius: 6px; padding: 3px 8px; color: var(--accent); flex-shrink: 0; }
+
+    /* TIMELINE EXAMPLE */
+    .timeline { margin-top: 24px; display: flex; flex-direction: column; gap: 0; }
+    .timeline-item { display: flex; gap: 20px; align-items: flex-start; padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-time { min-width: 80px; font-size: 11px; font-weight: 600; color: var(--accent); padding-top: 2px; }
+    .timeline-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 5px; opacity: 0.6; }
+    .timeline-content h4 { font-size: 14px; font-weight: 600; color: var(--white); margin-bottom: 4px; }
+    .timeline-content p { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+
+    .proof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+    .proof-card { background: var(--navy-mid); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); padding: 24px 20px; text-align: center; }
+    .proof-metric { font-size: 32px; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 8px; }
+    .proof-label { font-size: 12px; font-weight: 600; color: var(--white); margin-bottom: 6px; }
+    .proof-desc { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+
+    footer { border-top: 1px solid rgba(255,255,255,0.07); padding: 24px 60px; display: flex; align-items: center; justify-content: space-between; color: var(--text-dim); font-size: 12px; }
+    footer a { color: var(--accent); text-decoration: none; font-weight: 500; }
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 900px) {
+      nav, .hero, main, footer { padding-left: 24px; padding-right: 24px; }
+      .before-after, .events-grid, .proof-grid { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="back-link" href="agent-incubation-pipeline.html">← Back to pipeline</a>
+  <div class="nav-badge">Agent Incubation</div>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">Agent 03 · Participant Engagement</div>
+  <h1>Life Event Anticipation<br/>Agent</h1>
+  <p class="hero-claim">"Converts a reactive service model into a proactive one — at a scale no call center team can achieve."</p>
+</div>
+
+<main>
+
+  <div class="section">
+    <div class="section-label">The problem today</div>
+    <div class="before-after">
+      <div class="ba-card">
+        <div class="ba-label">Before</div>
+        <h3>We react when participants call</h3>
+        <p>Right now, life event guidance only happens when a participant initiates contact — usually months after the event, when options may be more limited. A participant who terminates employment might call about their rollover six months later. A new parent might never update beneficiaries at all. The service model is entirely reactive.</p>
+      </div>
+      <div class="ba-card after">
+        <div class="ba-label">After</div>
+        <h3>We reach them at exactly the right moment</h3>
+        <p>The agent monitors signals continuously. When it detects a life event — or anticipates one is imminent — it initiates the right conversation within hours. The participant gets relevant, actionable guidance at the moment it matters most, without ever having to call in.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Life events the agent detects and acts on</div>
+    <div class="events-grid">
+      <div class="event-card">
+        <div class="event-icon">💼</div>
+        <h4>Job termination</h4>
+        <div class="signal">Signal: employer data feed termination record</div>
+        <p>Rollover conversation initiated within hours of termination. Participant receives options, timelines, and a guided decision flow before assets go dormant.</p>
+      </div>
+      <div class="event-card">
+        <div class="event-icon">👶</div>
+        <h4>New dependent / family change</h4>
+        <div class="signal">Signal: beneficiary update or employer HR feed</div>
+        <p>Prompts beneficiary review, contribution adjustment, and life insurance coverage check — all contextualized to the participant's current financial picture.</p>
+      </div>
+      <div class="event-card">
+        <div class="event-icon">🎂</div>
+        <h4>Age milestones</h4>
+        <div class="signal">Signal: participant age data</div>
+        <p>At 50, 55, 59½, and 62 — catch-up contribution eligibility, Medicare, Social Security strategy, and RMD planning conversations are surfaced proactively.</p>
+      </div>
+      <div class="event-card">
+        <div class="event-icon">📊</div>
+        <h4>Large allocation or contribution shift</h4>
+        <div class="signal">Signal: unusual plan activity pattern</div>
+        <p>Sudden behavioral changes often signal a life event in progress. The agent investigates context before crafting a relevant outreach — not a generic alert.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">How it works — three specialized agents in sequence</div>
+    <div class="multi-agent">
+      <div class="agent-row highlight" style="margin-bottom:20px;">
+        <div class="agent-num">A1</div>
+        <div class="agent-icon">📡</div>
+        <div class="agent-body">
+          <h4>Signal Monitor Agent</h4>
+          <p>Continuously ingests plan activity, employer data feeds, age milestones, and beneficiary changes. Clusters signals into probable life event patterns and scores confidence.</p>
+        </div>
+        <div class="agent-tag">Always on</div>
+      </div>
+      <div class="agent-row" style="margin-bottom:20px;">
+        <div class="agent-num">A2</div>
+        <div class="agent-icon">✍️</div>
+        <div class="agent-body">
+          <h4>Outreach Generator Agent</h4>
+          <p>When a life event is detected, generates personalized outreach content — tailored to the specific event, the participant's account context, and their communication history. Drafts the message and selects the channel.</p>
+        </div>
+        <div class="agent-tag">Triggered</div>
+      </div>
+      <div class="agent-row highlight">
+        <div class="agent-num">A3</div>
+        <div class="agent-icon">🔁</div>
+        <div class="agent-body">
+          <h4>Follow-Through Tracker Agent</h4>
+          <p>Monitors whether the participant took action after outreach. If not, escalates with a follow-up sequence. Feeds outcome data back to improve event detection and message effectiveness.</p>
+        </div>
+        <div class="agent-tag">Feedback loop</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Example scenario — job termination response timeline</div>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-time">T+0 hrs</div>
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <h4>Signal detected</h4>
+          <p>Employer data feed indicates participant termination. Signal Monitor Agent scores confidence at 97%.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-time">T+2 hrs</div>
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <h4>Outreach generated and delivered</h4>
+          <p>"Hi Jordan — it looks like you may have recently left your employer. Your retirement account balance of $84,200 has a few options you'll want to consider in the next 60 days. Here's a quick guide to help you decide what's right for you."</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-time">T+72 hrs</div>
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <h4>No action — follow-up triggered</h4>
+          <p>Participant hasn't opened the message. Follow-Through Tracker escalates with a second touchpoint and a simplified one-action CTA.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-time">T+5 days</div>
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <h4>Action taken — loop complete</h4>
+          <p>Participant initiates rollover. Outcome recorded. Signal model updated with confirmed event pattern.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">What success looks like — proof points</div>
+    <div class="proof-grid">
+      <div class="proof-card">
+        <div class="proof-metric">Hours</div>
+        <div class="proof-label">Response time vs. months</div>
+        <div class="proof-desc">Time from life event signal to first participant touchpoint drops from months (reactive) to hours (proactive).</div>
+      </div>
+      <div class="proof-card">
+        <div class="proof-metric">↑ %</div>
+        <div class="proof-label">Rollover &amp; action rate</div>
+        <div class="proof-desc">Share of participants who take relevant action (rollover, beneficiary update, contribution change) within 30 days of a life event.</div>
+      </div>
+      <div class="proof-card">
+        <div class="proof-metric">↓ Vol</div>
+        <div class="proof-label">Inbound call volume</div>
+        <div class="proof-desc">Reduction in reactive inbound calls for life event–related questions, as proactive outreach answers them before participants need to call.</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <a href="agent-incubation-pipeline.html">← Back to pipeline</a>
+  <span>Agent Incubation Framework · 2026</span>
+</footer>
+
+</body>
+</html>
