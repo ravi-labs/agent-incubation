@@ -426,9 +426,89 @@ _EFFECT_META: dict[FinancialEffect, EffectMeta] = {
 EFFECT_METADATA: dict["FinancialEffect", EffectMeta] = _EFFECT_META
 
 
-def effect_meta(effect: FinancialEffect) -> EffectMeta:
-    """Return metadata for a given FinancialEffect."""
-    return _EFFECT_META[effect]
+def effect_meta(effect) -> EffectMeta:
+    """Return metadata for a given effect from any registered domain taxonomy.
+
+    Uses type-directed lookup to avoid cross-enum value collisions: different
+    domain enums (ITSMEffect, ComplianceEffect) can share string values while
+    mapping to different EffectMeta entries. The lookup matches both the value
+    AND the enum type.
+    """
+    effect_cls_name = type(effect).__name__
+
+    def _type_safe_lookup(registry: dict) -> "EffectMeta | None":
+        """Return entry where key type AND value both match the effect."""
+        for k, v in registry.items():
+            if type(k).__name__ == effect_cls_name and k == effect:
+                return v
+        return None
+
+    # FinancialEffect (fast path — most common)
+    if effect_cls_name == "FinancialEffect":
+        meta = _type_safe_lookup(_EFFECT_META)
+        if meta:
+            return meta
+
+    # HealthcareEffect
+    if effect_cls_name == "HealthcareEffect":
+        try:
+            from .healthcare_effects import HEALTHCARE_EFFECT_METADATA
+            meta = _type_safe_lookup(HEALTHCARE_EFFECT_METADATA)
+            if meta:
+                return meta
+        except ImportError:
+            pass
+
+    # LegalEffect
+    if effect_cls_name == "LegalEffect":
+        try:
+            from .legal_effects import LEGAL_EFFECT_METADATA
+            meta = _type_safe_lookup(LEGAL_EFFECT_METADATA)
+            if meta:
+                return meta
+        except ImportError:
+            pass
+
+    # ITSMEffect
+    if effect_cls_name == "ITSMEffect":
+        try:
+            from .itsm_effects import ITSM_EFFECT_METADATA
+            meta = _type_safe_lookup(ITSM_EFFECT_METADATA)
+            if meta:
+                return meta
+        except ImportError:
+            pass
+
+    # ComplianceEffect
+    if effect_cls_name == "ComplianceEffect":
+        try:
+            from .compliance_effects import COMPLIANCE_EFFECT_METADATA
+            meta = _type_safe_lookup(COMPLIANCE_EFFECT_METADATA)
+            if meta:
+                return meta
+        except ImportError:
+            pass
+
+    # Fallback: unknown effect class — try all registries (forward compatibility)
+    for loader in [
+        lambda: _EFFECT_META,
+        lambda: __import__("foundry.policy.healthcare_effects", fromlist=["HEALTHCARE_EFFECT_METADATA"]).HEALTHCARE_EFFECT_METADATA,
+        lambda: __import__("foundry.policy.legal_effects", fromlist=["LEGAL_EFFECT_METADATA"]).LEGAL_EFFECT_METADATA,
+        lambda: __import__("foundry.policy.itsm_effects", fromlist=["ITSM_EFFECT_METADATA"]).ITSM_EFFECT_METADATA,
+        lambda: __import__("foundry.policy.compliance_effects", fromlist=["COMPLIANCE_EFFECT_METADATA"]).COMPLIANCE_EFFECT_METADATA,
+    ]:
+        try:
+            registry = loader()
+            meta = _type_safe_lookup(registry)
+            if meta:
+                return meta
+        except (ImportError, Exception):
+            pass
+
+    raise KeyError(
+        f"No EffectMeta registered for {effect!r} (type: {effect_cls_name}). "
+        f"Ensure the effect is listed in its domain metadata registry."
+    )
 
 
 def effects_by_tier(tier: EffectTier) -> list[FinancialEffect]:

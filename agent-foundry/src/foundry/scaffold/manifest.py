@@ -27,6 +27,27 @@ import yaml
 
 from foundry.lifecycle.stages import LifecycleStage
 from foundry.policy.effects import FinancialEffect
+from foundry.policy.healthcare_effects import HealthcareEffect
+from foundry.policy.legal_effects import LegalEffect
+from foundry.policy.itsm_effects import ITSMEffect
+from foundry.policy.compliance_effects import ComplianceEffect
+
+# All known effect enums — tried in order when parsing manifest YAML.
+# Add new domain taxonomies here to make them available in manifests.
+_EFFECT_ENUMS = (FinancialEffect, HealthcareEffect, LegalEffect, ITSMEffect, ComplianceEffect)
+
+
+def _parse_effect(value: str):
+    """Parse an effect string to its typed enum, trying all known domains."""
+    for enum_cls in _EFFECT_ENUMS:
+        try:
+            return enum_cls(value)
+        except ValueError:
+            continue
+    raise ValueError(
+        f"Unknown effect value {value!r}. "
+        f"Must be a valid FinancialEffect, HealthcareEffect, LegalEffect, or ITSMEffect."
+    )
 
 
 class AgentStatus(str, Enum):
@@ -56,7 +77,7 @@ class AgentManifest:
     owner: str
     description: str
     lifecycle_stage: LifecycleStage
-    allowed_effects: list[FinancialEffect]
+    allowed_effects: list[FinancialEffect | HealthcareEffect | LegalEffect]
     data_access: list[str]
     policy_path: str
     success_metrics: list[str]
@@ -84,9 +105,17 @@ class AgentManifest:
         """Return True if agent is allowed to run. Suspended agents are blocked."""
         return self.status == AgentStatus.ACTIVE
 
-    def allows_effect(self, effect: FinancialEffect) -> bool:
-        """Check whether an effect is in this agent's declared scope."""
-        return effect in self.allowed_effects
+    def allows_effect(self, effect) -> bool:
+        """Check whether an effect is in this agent's declared scope.
+
+        Works with any effect enum (FinancialEffect, HealthcareEffect, LegalEffect)
+        by comparing .value strings so cross-domain comparisons are safe.
+        """
+        effect_val = effect.value if hasattr(effect, "value") else str(effect)
+        return any(
+            (e.value if hasattr(e, "value") else str(e)) == effect_val
+            for e in self.allowed_effects
+        )
 
     @classmethod
     def from_yaml(cls, path: "str | Path") -> "AgentManifest":
@@ -156,7 +185,7 @@ def load_manifest(path: str | Path) -> AgentManifest:
         ) from None
 
     try:
-        effects = [FinancialEffect(e) for e in data["allowed_effects"]]
+        effects = [_parse_effect(e) for e in data["allowed_effects"]]
     except ValueError as e:
         raise ValueError(f"Invalid effect in allowed_effects: {e}") from None
 

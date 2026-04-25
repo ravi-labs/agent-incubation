@@ -76,15 +76,15 @@ class TestToolRequestBuilding:
         assert request.params == params
 
     def test_metadata_is_merged_with_effect_metadata(self, builder):
-        """financial_effect and tier should always be in metadata."""
+        """effect and tier should always be in metadata."""
         request = builder.build(
             effect=FinancialEffect.RISK_SCORE_COMPUTE,
             tool="scorer", action="compute", params={},
         )
-        assert "financial_effect" in request.metadata
+        assert "effect" in request.metadata
         assert "tier" in request.metadata
         assert "requires_human_review" in request.metadata
-        assert request.metadata["financial_effect"] == "risk.score.compute"
+        assert request.metadata["effect"] == "risk.score.compute"
         assert request.metadata["tier"] == EffectTier.COMPUTATION.value
 
     def test_custom_metadata_is_merged(self, builder):
@@ -97,7 +97,7 @@ class TestToolRequestBuilding:
         assert request.metadata["message_type"] == "informational"
         assert request.metadata["campaign_id"] == "c-001"
         # Built-in fields still present
-        assert "financial_effect" in request.metadata
+        assert "effect" in request.metadata
 
     def test_none_metadata_is_safe(self, builder):
         """Passing metadata=None should not raise."""
@@ -105,7 +105,7 @@ class TestToolRequestBuilding:
             effect=FinancialEffect.AUDIT_LOG_WRITE,
             tool="audit", action="write", params={}, metadata=None,
         )
-        assert "financial_effect" in request.metadata
+        assert "effect" in request.metadata
 
 
 class TestIntentBuilding:

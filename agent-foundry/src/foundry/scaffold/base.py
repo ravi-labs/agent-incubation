@@ -130,7 +130,7 @@ class BaseAgent(ABC):
 
     async def run_effect(
         self,
-        effect: FinancialEffect,
+        effect,  # FinancialEffect | HealthcareEffect | LegalEffect
         tool: str,
         action: str,
         params: dict[str, Any],
@@ -197,10 +197,19 @@ class BaseAgent(ABC):
             confidence=confidence,
         )
 
-        # Default exec: return params (useful for draft/log effects)
+        # Wrap exec_fn: ensure it is always an async callable.
+        # Agents may pass a plain synchronous lambda for convenience;
+        # the tower requires an awaitable.
+        import asyncio as _asyncio
+        import inspect as _inspect
+
         if exec_fn is None:
             async def exec_fn():
                 return params
+        elif not _inspect.iscoroutinefunction(exec_fn):
+            _sync_fn = exec_fn
+            async def exec_fn():
+                return _sync_fn()
 
         result = await self.tower.execute_async(
             agent_ctx=self._agent_ctx,
