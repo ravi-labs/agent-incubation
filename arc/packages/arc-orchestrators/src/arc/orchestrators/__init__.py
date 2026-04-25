@@ -27,6 +27,7 @@ from .protocol import OrchestratorProtocol, OrchestratorResult
 
 # Lazy imports — only available if optional deps installed
 def __getattr__(name: str):
+    # Native arc orchestrators
     if name == "LangGraphOrchestrator":
         from .langgraph import LangGraphOrchestrator
         return LangGraphOrchestrator
@@ -36,6 +37,13 @@ def __getattr__(name: str):
     if name == "StrandsOrchestrator":
         from .strands import StrandsOrchestrator
         return StrandsOrchestrator
+    # Migrated from foundry.integrations (module 14)
+    if name in ("FoundryTool", "FoundryToolkit", "FoundryRunnable"):
+        from . import langchain
+        return getattr(langchain, name)
+    if name in ("GraphAgent", "FoundryState"):
+        from . import langgraph_agent
+        return getattr(langgraph_agent, name)
     raise AttributeError(f"module 'arc.orchestrators' has no attribute {name!r}")
 
 __all__ = [
@@ -44,4 +52,7 @@ __all__ = [
     "LangGraphOrchestrator",
     "AgentCoreOrchestrator",
     "StrandsOrchestrator",
+    # Migrated from foundry.integrations
+    "FoundryTool", "FoundryToolkit", "FoundryRunnable",  # langchain.py
+    "GraphAgent", "FoundryState",                         # langgraph_agent.py
 ]

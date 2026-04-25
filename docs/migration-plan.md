@@ -1,6 +1,6 @@
 # Foundry → Arc Migration Plan
 
-**Status:** Phase 2 nearly complete. Modules 1–13 migrated. Only LangChain (14) and Bedrock (15) integrations remain.
+**Status:** Phase 2 module migrations COMPLETE — all 15 modules now shimmed in foundry. Remaining work to delete `agent-foundry/`: port examples to `arc/agents/`, update `agent-team-template/`, drop the agent-foundry dep from arc-core/arc-harness, complete the vendored-tollgate cleanup (Option F).
 
 **Goal:** Move all production functionality from `agent-foundry/src/foundry/` into the appropriate `arc/packages/arc-*/src/arc/...` package, then delete `agent-foundry/`.
 
@@ -134,6 +134,6 @@ Update this section as modules migrate.
 | 10 | lifecycle | **migrated** | 33e6d23 | yes |
 | 11 | cli | **migrated** | (this commit) | yes |
 | 12 | deploy | **migrated** | (this commit) | yes |
-| 13 | eval | **migrated** | (this commit) | yes |
-| 14 | langchain integration | not started | — | yes |
-| 15 | bedrock integrations | not started | — | yes |
+| 13 | eval | **migrated** | 00a2d6c | yes |
+| 14 | langchain integration | **migrated** | (this commit) | yes |
+| 15 | bedrock integrations | **migrated** | (this commit) | yes |

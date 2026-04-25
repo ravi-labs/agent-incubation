@@ -29,6 +29,29 @@ from .pega_case import PegaCaseConnector
 from .pega_knowledge import PegaKnowledgeConnector
 from .servicenow import ServiceNowConnector
 
+
+# Bedrock connectors — migrated from foundry.integrations (module 15).
+# Lazy-loaded because they require boto3 (extras: arc-connectors[aws]).
+def __getattr__(name: str):
+    bedrock_map = {
+        "BedrockKBClient":             ("bedrock_kb",            "BedrockKBClient"),
+        "RetrievedPassage":            ("bedrock_kb",            "RetrievedPassage"),
+        "BedrockLLMClient":            ("bedrock_llm",           "BedrockLLMClient"),
+        "BedrockGuardrailsAdapter":    ("bedrock_guardrails",    "BedrockGuardrailsAdapter"),
+        "GuardrailsMixin":             ("bedrock_guardrails",    "GuardrailsMixin"),
+        "GuardrailIntervention":       ("bedrock_guardrails",    "GuardrailIntervention"),
+        "GuardrailAssessment":         ("bedrock_guardrails",    "GuardrailAssessment"),
+        "BedrockAgentStreamingClient": ("bedrock_agent_client",  "BedrockAgentStreamingClient"),
+        "AgentChunk":                  ("bedrock_agent_client",  "AgentChunk"),
+    }
+    if name in bedrock_map:
+        from importlib import import_module
+        mod_name, attr = bedrock_map[name]
+        mod = import_module(f"arc.connectors.{mod_name}")
+        return getattr(mod, attr)
+    raise AttributeError(f"module 'arc.connectors' has no attribute {name!r}")
+
+
 __all__ = [
     "ArcConnector",
     "OAuthMixin",
@@ -37,4 +60,10 @@ __all__ = [
     "PegaKnowledgeConnector",
     "ServiceNowConnector",
     "MockTicketConnector",
+    # Migrated from foundry.integrations (lazy, requires arc-connectors[aws])
+    "BedrockKBClient", "RetrievedPassage",
+    "BedrockLLMClient",
+    "BedrockGuardrailsAdapter", "GuardrailsMixin",
+    "GuardrailIntervention", "GuardrailAssessment",
+    "BedrockAgentStreamingClient", "AgentChunk",
 ]
