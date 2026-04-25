@@ -84,7 +84,7 @@ Homepage = "https://github.com/ravi-labs/agent-incubation/tree/main/tollgate"
 Repository = "https://github.com/ravi-labs/agent-incubation.git"
 Documentation = "https://github.com/ravi-labs/agent-incubation/tree/main/tollgate#readme"
 Issues = "https://github.com/ravi-labs/agent-incubation/issues"
-"Agent Foundry" = "https://github.com/ravi-labs/agent-incubation/tree/main/agent-foundry"
+"Arc Platform" = "https://github.com/ravi-labs/agent-incubation/tree/main/arc"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tollgate"]

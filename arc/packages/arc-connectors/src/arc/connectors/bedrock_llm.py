@@ -1,14 +1,14 @@
 """
 foundry.integrations.bedrock_llm
 ──────────────────────────────────
-Amazon Bedrock LLM client for agent-foundry.
+Amazon Bedrock LLM client for arc agents.
 
 Routes every Claude invocation through run_effect() so LLM calls are
 policy-enforced, audit-logged, and counted against the agent's declared
 manifest — exactly like any other tool call.
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "arc-connectors[aws]"
 
 Usage inside an agent's execute() or a LangGraph node:
 
@@ -98,7 +98,7 @@ class BedrockLLMClient:
                 import boto3
             except ImportError as exc:
                 raise ImportError(
-                    "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+                    "boto3 is not installed. Run: pip install 'arc-connectors[aws]'"
                 ) from exc
             kwargs: dict[str, Any] = {}
             if self.region:

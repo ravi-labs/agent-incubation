@@ -42,7 +42,7 @@ Graph topology (for a single fund):
                                                        END
 
 Install:
-    pip install "agent-foundry[langgraph]"
+    pip install "arc-orchestrators[langgraph]"
 
 Run locally (sandbox):
     python graph_agent.py

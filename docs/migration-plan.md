@@ -1,6 +1,6 @@
 # Foundry → Arc Migration Plan
 
-**Status:** Phase 2 COMPLETE. Phase 3 first feature (promotion pipeline) COMPLETE. Foundry-endgame slim COMPLETE — `agent-foundry/` is now a back-compat shim package only. Every file under `agent-foundry/src/foundry/` is a thin re-export of `arc.*`; the package's `pyproject.toml` declares the seven `arc-*` packages as runtime dependencies. The 16th outstanding module — `foundry.registry.catalog` — has been migrated to `arc.core.registry`. Durable artifacts that used to live under foundry have moved to top-level homes: `agent-foundry/policies/` → `policies/`, `agent-foundry/deploy/` → `deploy/`, `agent-foundry/docs/` → `docs/foundry-legacy/`. Tests and examples were deleted (arc has equivalents in `arc/packages/*/tests/` and `arc/agents/`).
+**Status:** MIGRATION COMPLETE. `agent-foundry/` has been deleted outright. All 16 modules live natively in `arc-*` packages (15 from Phase 2 + the registry catalog from the foundry-endgame pass). Every install-instruction string and docstring across the codebase has been retargeted from `pip install 'agent-foundry[X]'` and `from foundry.X` to the equivalent `arc-*` extras and `arc.*` paths. The Phase 3 first feature (promotion pipeline) is in `arc.core.lifecycle.pipeline`. Durable artifacts that used to live under foundry have moved to top-level homes: `agent-foundry/policies/` → `policies/`, `agent-foundry/deploy/` → `deploy/`, `agent-foundry/docs/` → `docs/foundry-legacy/`.
 
 **Goal:** Move all production functionality from `agent-foundry/src/foundry/` into the appropriate `arc/packages/arc-*/src/arc/...` package, then delete `agent-foundry/`.
 
@@ -90,22 +90,19 @@ This is the procedure to follow for each row in the table above. Each module = o
 
 ---
 
-## Exit criteria — when can foundry be deleted outright?
+## Original deletion exit criteria — all satisfied
 
-The platform decision (see "Endgame status" above) was to **keep `agent-foundry/`
-as a back-compat shim package** rather than delete it. The original deletion
-exit criteria are listed below for completeness; they are now satisfied — the
-only reason `agent-foundry/` still exists is to keep `from foundry.X import Y`
-imports working and to preserve `pip install 'agent-foundry[aws]'`-style
-install aliases.
+These were the criteria from when foundry was being slimmed to a shim. They
+are kept here for historical record; foundry has now been deleted outright.
 
-- [x] Every file under `agent-foundry/src/foundry/` contains only re-exports from `arc.*`
-- [x] Every test in `agent-foundry/tests/` has an equivalent or replacement in `arc/packages/arc-*/tests/` (foundry tests deleted)
-- [x] Every reference example in `agent-foundry/examples/` has been ported to `arc/agents/` (foundry examples deleted)
-- [x] `arc-core` and `arc-harness` no longer declare `agent-foundry` as a dependency
-- [x] `agent-team-template/` has been updated to import from `arc.*` instead of `foundry.*`
-- [x] CI passes with `agent-foundry/` removed from the test command (foundry CI workflow deleted; arc tests cover the surface)
-- [x] `git grep "from foundry"` and `git grep "import foundry"` return zero results outside `agent-foundry/` itself (modulo prose mentions in markdown)
+- [x] Every file under `agent-foundry/src/foundry/` is gone
+- [x] Every test in `agent-foundry/tests/` has an equivalent or replacement in `arc/packages/arc-*/tests/`
+- [x] Every reference example in `agent-foundry/examples/` has been ported to `arc/agents/`
+- [x] No arc package declares `agent-foundry` as a dependency
+- [x] `agent-team-template/` imports from `arc.*` instead of `foundry.*`
+- [x] CI passes without `agent-foundry/` in the test command
+- [x] `git grep "from foundry"` and `git grep "import foundry"` return zero results
+      outside `docs/foundry-legacy/` (intentional historical content)
 
 ---
 
@@ -142,27 +139,42 @@ Update this section as modules migrate.
 | 15 | bedrock integrations | **migrated** | b1d3e8a | yes |
 | 16 | registry catalog | **migrated** | (this commit) | yes |
 
-## Endgame status
+## Endgame status — deletion complete
 
-Foundry has been slimmed to a pure back-compat shim package:
+`agent-foundry/` no longer exists. The deletion pass (commit history below)
+cleared the last cosmetic dependencies on the package and removed the
+directory wholesale:
 
-- [x] Every file under `agent-foundry/src/foundry/` is a re-export from `arc.*`
-- [x] Tests deleted from `agent-foundry/tests/` (arc has equivalents in `arc/packages/*/tests/`)
-- [x] Reference examples deleted from `agent-foundry/examples/` (arc has equivalents in `arc/agents/`)
-- [x] Vendored tollgate at `agent-foundry/src/foundry/tollgate/` deleted (canonical `tollgate/` is the only copy)
-- [x] `agent-foundry/{docs,deploy,policies}` moved to top-level homes
-- [x] `agent-foundry/.github/workflows/ci.yml` deleted (it ran the deleted test suite)
-- [x] `agent-foundry/pyproject.toml` declares `arc-*` packages as runtime deps
-- [x] `arc-core`, `arc-harness`, `arc-cli` no longer declare `agent-foundry` as a dependency
-- [x] `agent-team-template/` imports from `arc.*`
-- [x] `agent-registry/.github/workflows/ci.yml` imports from `arc.core.registry`
-- [x] `git grep "from foundry"` and `git grep "import foundry"` outside `agent-foundry/` itself are zero (modulo doc strings and prose mentions in markdown)
+- [x] Every `pip install 'agent-foundry[X]'` string in arc and tollgate retargeted
+      to the equivalent extra: `arc-core[aws|http]`, `arc-connectors[aws]`,
+      `arc-orchestrators[langchain|langgraph]`, `arc-runtime[aws]`, `tollgate[aws]`.
+- [x] `arc-core`, `arc-connectors`, `arc-orchestrators`, `arc-runtime` and
+      `tollgate` got the missing `[aws]` / `[http]` / `[langchain]` extras
+      added to their pyprojects so those install instructions actually resolve.
+- [x] `from foundry.X` import examples in `deploy/bedrock-agent-core.md`
+      rewritten to `arc.*`.
+- [x] `deploy/cdk/foundry_stack.py` renamed to `deploy/cdk/arc_stack.py`;
+      `FoundryAgentStack` → `ArcAgentStack`; resource-name prefixes
+      `foundry-{agent}` → `arc-{agent}`; tags `foundry:X` → `arc:X`;
+      env vars `FOUNDRY_X` → `ARC_X` across CDK + Lambda handler + Dockerfile +
+      ECS task def.
+- [x] `foundry_event` magic key in the SQS approver envelope renamed to
+      `arc_event` (with the matching consumer + test updates).
+- [x] Marketing-facing references in `agent-registry/README.md`,
+      `agent-team-template/README.md`, `tollgate/README.md`, root `README.md`
+      and reference agents updated from `agent-foundry` to `arc`.
+- [x] `agent-registry/.github/workflows/ci.yml` installs arc packages from
+      source instead of `pip install agent-foundry`.
+- [x] `git grep "from foundry"` and `git grep "agent-foundry"` outside
+      `docs/foundry-legacy/`, `docs/migration-plan.md`, and the marketing
+      HTML/PPTX (intentionally retained as historical artifacts) are zero.
+- [x] `agent-foundry/` deleted via `git rm -r`.
 
-Foundry continues to exist as a back-compat shim package so legacy
-`from foundry.X import Y` imports keep working and `pip install 'agent-foundry[aws]'`
-instructions in old docs / arc / tollgate error messages still resolve.
+What stays:
 
-If at some future point you want to delete the package outright (because no
-external consumer depends on it), `git rm -r agent-foundry/` is one safe
-commit; the install-time aliases would need to be redirected to `arc-*`
-extras first.
+- `docs/foundry-legacy/` — the original architecture/quickstart docs, kept
+  as historical reference. The banner notes that paths reference the now-
+  deleted `foundry.*` namespace and that concepts map 1:1 to `arc.*`.
+- `docs/marketing/competitive-analysis.html` and
+  `docs/vision/platform-vision.pptx` — written under the original brand
+  name. Branding decisions are out of scope for this code migration.

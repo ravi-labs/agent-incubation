@@ -1,6 +1,6 @@
 # agent-registry
 
-The central manifest registry for all AI agents built on the [agent-foundry](https://github.com/ravi-labs/agent-foundry) platform.
+The central manifest registry for all AI agents built on the [arc](https://github.com/ravi-labs/agent-incubation) platform.
 
 This repo contains **only manifests** — no agent code lives here. Each team's code stays in their own repo. The registry is the governance checkpoint: an agent must be registered here before it can be deployed to production.
 
@@ -18,7 +18,7 @@ This repo contains **only manifests** — no agent code lives here. Each team's 
 ## What This Repo Is NOT
 
 - Agent implementation code (stays in each team's repo)
-- Policy files (shared policies live in `agent-foundry/policies/`)
+- Policy files (shared policies live in `policies/` at the repo root)
 - Runtime infrastructure (deployment pipelines handle that)
 
 ---
@@ -28,7 +28,7 @@ This repo contains **only manifests** — no agent code lives here. Each team's 
 ### Prerequisites
 
 1. Your agent must be at lifecycle stage `GOVERN` or above
-2. Run `foundry agent validate --strict` and confirm it passes
+2. Run `arc agent validate --strict` and confirm it passes
 3. Your team must have a GitHub repo for the agent code
 
 ### Steps
@@ -59,7 +59,7 @@ git push -u origin register/your-agent-id
 Alternatively, use the CLI shortcut:
 
 ```bash
-foundry registry submit --registry-dir ../agent-registry
+arc registry submit --registry-dir ../agent-registry
 ```
 
 ---
@@ -87,7 +87,7 @@ CODEOWNERS                   ← Who reviews which agents
 
 ```bash
 # Using the foundry CLI
-foundry registry list --registry-dir .
+arc registry list --registry-dir .
 
 # View the catalog directly
 cat registry.yaml
@@ -114,7 +114,7 @@ If an agent needs to be immediately halted:
 
 ```bash
 cd path/to/team-repo
-foundry agent suspend --reason "Unexpected output volume"
+arc agent suspend --reason "Unexpected output volume"
 git add manifest.yaml && git commit -m "SUSPEND: your-agent-id — <reason>"
 
 # Open an emergency PR to this registry

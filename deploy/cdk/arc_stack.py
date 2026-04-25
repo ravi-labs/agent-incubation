@@ -1,5 +1,5 @@
 """
-FoundryAgentStack — AWS CDK infrastructure for one Foundry agent.
+ArcAgentStack — AWS CDK infrastructure for one arc agent.
 
 Creates the full AWS resource set needed to run an agent in production:
   - Lambda function (agent execution)
@@ -34,9 +34,9 @@ from aws_cdk import aws_sqs as sqs
 from constructs import Construct
 
 
-class FoundryAgentStack(Stack):
+class ArcAgentStack(Stack):
     """
-    Complete infrastructure stack for one Foundry-incubated agent.
+    Complete infrastructure stack for one arc-incubated agent.
 
     Instantiate once per agent. Teams apply this stack per environment
     (sandbox vs. production) by passing the environment parameter.
@@ -66,9 +66,9 @@ class FoundryAgentStack(Stack):
         removal       = RemovalPolicy.RETAIN if is_production else RemovalPolicy.DESTROY
 
         # ── Tags (applied to all resources in this stack) ─────────────────────
-        cdk.Tags.of(self).add("foundry:agent-id",        agent_id)
-        cdk.Tags.of(self).add("foundry:environment",     environment)
-        cdk.Tags.of(self).add("foundry:managed-by",      "agent-foundry-cdk")
+        cdk.Tags.of(self).add("arc:agent-id",        agent_id)
+        cdk.Tags.of(self).add("arc:environment",     environment)
+        cdk.Tags.of(self).add("arc:managed-by",      "agent-arc-cdk")
 
         # ── VPC ───────────────────────────────────────────────────────────────
         if vpc_id:
@@ -76,11 +76,11 @@ class FoundryAgentStack(Stack):
         else:
             vpc = None  # Lambda without VPC (simpler; use vpc_id for private subnets)
 
-        # ── KMS key (shared encryption for all foundry resources) ─────────────
+        # ── KMS key (shared encryption for all arc resources) ─────────────
         self.key = kms.Key(
-            self, "FoundryKey",
-            alias=f"foundry/{agent_id}",
-            description=f"Foundry agent encryption key — {agent_id}",
+            self, "ArcKey",
+            alias=f"arc/{agent_id}",
+            description=f"arc agent encryption key — {agent_id}",
             enable_key_rotation=True,
             removal_policy=removal,
         )
@@ -88,7 +88,7 @@ class FoundryAgentStack(Stack):
         # ── S3 — audit logs and policy storage ───────────────────────────────
         self.audit_bucket = s3.Bucket(
             self, "AuditBucket",
-            bucket_name=f"foundry-{slug}-audit-{self.account}",
+            bucket_name=f"arc-{slug}-audit-{self.account}",
             encryption=s3.BucketEncryption.KMS,
             encryption_key=self.key,
             versioned=True,
@@ -117,7 +117,7 @@ class FoundryAgentStack(Stack):
         # ── DynamoDB — approval store ─────────────────────────────────────────
         self.approvals_table = dynamodb.Table(
             self, "ApprovalsTable",
-            table_name=f"foundry-{agent_id}-approvals",
+            table_name=f"arc-{agent_id}-approvals",
             partition_key=dynamodb.Attribute(
                 name="approval_id",
                 type=dynamodb.AttributeType.STRING,
@@ -146,7 +146,7 @@ class FoundryAgentStack(Stack):
         # ── SQS — human review queue ──────────────────────────────────────────
         dlq = sqs.Queue(
             self, "ReviewDLQ",
-            queue_name=f"foundry-{agent_id}-review-dlq",
+            queue_name=f"arc-{agent_id}-review-dlq",
             encryption=sqs.QueueEncryption.KMS,
             encryption_master_key=self.key,
             retention_period=Duration.days(14),
@@ -154,7 +154,7 @@ class FoundryAgentStack(Stack):
 
         self.review_queue = sqs.Queue(
             self, "ReviewQueue",
-            queue_name=f"foundry-{agent_id}-review",
+            queue_name=f"arc-{agent_id}-review",
             encryption=sqs.QueueEncryption.KMS,
             encryption_master_key=self.key,
             visibility_timeout=Duration.seconds(approval_timeout + 60),
@@ -168,7 +168,7 @@ class FoundryAgentStack(Stack):
         # ── CloudWatch log group ──────────────────────────────────────────────
         self.log_group = logs.LogGroup(
             self, "LogGroup",
-            log_group_name=f"/foundry/agents/{agent_id}",
+            log_group_name=f"/arc/agents/{agent_id}",
             retention=logs.RetentionDays.THREE_MONTHS,
             encryption_key=self.key,
             removal_policy=removal,
@@ -177,9 +177,9 @@ class FoundryAgentStack(Stack):
         # ── IAM — agent task role ─────────────────────────────────────────────
         self.agent_role = iam.Role(
             self, "AgentRole",
-            role_name=f"foundry-{agent_id}-agent",
+            role_name=f"arc-{agent_id}-agent",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
-            description=f"Foundry agent execution role — {agent_id}",
+            description=f"arc agent execution role — {agent_id}",
         )
 
         # CloudWatch Logs
@@ -198,16 +198,16 @@ class FoundryAgentStack(Stack):
         # S3 — write audit logs
         self.audit_bucket.grant_write(self.agent_role, "audit/*")
 
-        # KMS — encrypt/decrypt all foundry resources
+        # KMS — encrypt/decrypt all arc resources
         self.key.grant_encrypt_decrypt(self.agent_role)
 
-        # Secrets Manager — read agent secrets (pattern: foundry/{agent_id}/*)
+        # Secrets Manager — read agent secrets (pattern: arc/{agent_id}/*)
         self.agent_role.add_to_policy(iam.PolicyStatement(
             sid="AllowSecretsRead",
             actions=["secretsmanager:GetSecretValue"],
             resources=[
                 f"arn:aws:secretsmanager:{self.region}:{self.account}"
-                f":secret:foundry/{agent_id}/*"
+                f":secret:arc/{agent_id}/*"
             ],
         ))
 
@@ -217,7 +217,7 @@ class FoundryAgentStack(Stack):
             actions=["ssm:GetParameter", "ssm:GetParametersByPath"],
             resources=[
                 f"arn:aws:ssm:{self.region}:{self.account}"
-                f":parameter/foundry/{agent_id}/*"
+                f":parameter/arc/{agent_id}/*"
             ],
         ))
 
@@ -238,14 +238,14 @@ class FoundryAgentStack(Stack):
 
         # ── Lambda function ───────────────────────────────────────────────────
         lambda_env: dict[str, str] = {
-            "FOUNDRY_ENV":              environment,
-            "FOUNDRY_MANIFEST_PATH":    "manifest.yaml",
-            "FOUNDRY_POLICY_DIR":       "policies/",
-            "FOUNDRY_LOG_LEVEL":        "INFO",
-            "FOUNDRY_APPROVALS_TABLE":  self.approvals_table.table_name,
-            "FOUNDRY_REVIEW_QUEUE_URL": self.review_queue.queue_url,
-            "FOUNDRY_APPROVAL_TIMEOUT": str(approval_timeout),
-            "FOUNDRY_AUDIT_BUCKET":     self.audit_bucket.bucket_name,
+            "ARC_ENV":              environment,
+            "ARC_MANIFEST_PATH":    "manifest.yaml",
+            "ARC_POLICY_DIR":       "policies/",
+            "ARC_LOG_LEVEL":        "INFO",
+            "ARC_APPROVALS_TABLE":  self.approvals_table.table_name,
+            "ARC_REVIEW_QUEUE_URL": self.review_queue.queue_url,
+            "ARC_APPROVAL_TIMEOUT": str(approval_timeout),
+            "ARC_AUDIT_BUCKET":     self.audit_bucket.bucket_name,
             "AWS_REGION":               self.region,
         }
 
@@ -259,7 +259,7 @@ class FoundryAgentStack(Stack):
 
         self.lambda_fn = lambda_.Function(
             self, "AgentFunction",
-            function_name=f"foundry-{agent_id}",
+            function_name=f"arc-{agent_id}",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="handler.handler",
             code=lambda_.Code.from_asset("../../"),   # agent package directory
@@ -278,7 +278,7 @@ class FoundryAgentStack(Stack):
         if schedule_expression:
             rule = events.Rule(
                 self, "ScheduleRule",
-                rule_name=f"foundry-{agent_id}-schedule",
+                rule_name=f"arc-{agent_id}-schedule",
                 description=f"Scheduled trigger for {agent_id}",
                 schedule=events.Schedule.expression(schedule_expression),
             )

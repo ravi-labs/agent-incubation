@@ -22,4 +22,4 @@ class TestManifest:
 
 
 # TODO: Add tests for your agent's execute() method
-# See examples/ in agent-foundry for patterns
+# See arc/agents/ in the agent-incubation monorepo for patterns

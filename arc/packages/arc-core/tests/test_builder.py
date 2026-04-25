@@ -1,7 +1,5 @@
 """
-Tests for arc.core.policy.EffectRequestBuilder — native after migration
-module 2. Foundry has equivalent coverage via the shim
-(agent-foundry/tests/test_builder.py).
+Tests for arc.core.policy.EffectRequestBuilder.
 
 Validates that:
   - ToolRequests are built with correct resource_type and base effect

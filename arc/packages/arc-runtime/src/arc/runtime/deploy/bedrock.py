@@ -1,7 +1,7 @@
 """
 foundry.deploy.bedrock
 ───────────────────────
-Amazon Bedrock Agent Core adapter for agent-foundry.
+Amazon Bedrock Agent Core adapter for arc agents.
 
 Bedrock Agent Core invokes your agent via Action Groups using one of two
 invocation models:
@@ -31,7 +31,7 @@ This module handles all of the above:
      Action Group, Lambda permission, and alias in one call.
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "arc-runtime[aws]"
 
 Bedrock event shapes handled by BedrockEventParser:
 
@@ -534,7 +534,7 @@ def generate_action_schema(manifest: Any) -> dict:
     agent_id    = manifest.agent_id
     description = (
         f"{manifest.description or agent_id} — "
-        f"managed by agent-foundry incubation platform. "
+        f"managed by the arc agent incubation platform. "
         f"All operations are policy-enforced via Tollgate ControlTower."
     )
 
@@ -635,7 +635,7 @@ def upload_schema_to_s3(schema: dict, bucket: str, key: str) -> str:
         import boto3
     except ImportError as exc:
         raise ImportError(
-            "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+            "boto3 is not installed. Run: pip install 'arc-runtime[aws]'"
         ) from exc
 
     s3   = boto3.client("s3")
@@ -699,7 +699,7 @@ def register_bedrock_agent(
         import boto3
     except ImportError as exc:
         raise ImportError(
-            "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+            "boto3 is not installed. Run: pip install 'arc-runtime[aws]'"
         ) from exc
 
     bedrock_client = boto3.client("bedrock-agent", region_name=region)
@@ -711,7 +711,7 @@ def register_bedrock_agent(
 
     # Step 2 — Create (or retrieve) the Bedrock Agent
     agent_name   = manifest.agent_id
-    description  = manifest.description or f"{manifest.agent_id} — managed by agent-foundry"
+    description  = manifest.description or f"{manifest.agent_id} — managed by arc"
 
     try:
         create_resp = bedrock_client.create_agent(
@@ -721,7 +721,7 @@ def register_bedrock_agent(
             foundationModel=foundation_model,
             instruction=(
                 f"You are {manifest.agent_id}, a governed financial-services agent "
-                f"managed by the agent-foundry incubation platform. "
+                f"managed by the arc agent incubation platform. "
                 f"All actions are policy-enforced by Tollgate ControlTower. "
                 f"Owner: {manifest.owner}."
             ),

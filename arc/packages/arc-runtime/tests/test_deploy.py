@@ -123,11 +123,11 @@ class TestNormaliseEvent:
         result = _FoundryLambdaHandler._normalise_event(event)
         assert result == {"plan_id": "p-999"}
 
-    def test_sqs_foundry_event_wrapped(self):
-        body = json.dumps({"foundry_event": "review_complete", "review_id": "r-1"})
+    def test_sqs_arc_event_wrapped(self):
+        body = json.dumps({"arc_event": "review_complete", "review_id": "r-1"})
         event = {"Records": [{"body": body}]}
         result = _FoundryLambdaHandler._normalise_event(event)
-        # foundry_event present → returns wrapped as {"event": {...}}
+        # arc_event envelope present → returns wrapped as {"event": {...}}
         assert "event" in result
 
     def test_eventbridge_non_dict_detail_wrapped(self):

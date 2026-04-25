@@ -36,13 +36,13 @@ from tollgate import (
 )
 
 # BedrockLLMClient is optional — only needed when USE_BEDROCK=1
-# Install: pip install "agent-foundry[aws]"
+# Install: pip install "arc-connectors[aws]"
 USE_BEDROCK = os.environ.get("USE_BEDROCK", "0") == "1"
 if USE_BEDROCK:
     try:
         from arc.connectors.bedrock_llm import BedrockLLMClient
     except ImportError:
-        raise ImportError("Run: pip install 'agent-foundry[aws]' to use Bedrock LLM")
+        raise ImportError("Run: pip install 'arc-connectors[aws]' to use Bedrock LLM")
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)

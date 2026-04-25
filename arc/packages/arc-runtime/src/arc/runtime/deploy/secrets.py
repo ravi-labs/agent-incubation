@@ -7,7 +7,7 @@ Loads agent credentials, API keys, and sensitive configuration at startup —
 never from environment variables or bundled in the container image.
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "arc-runtime[aws]"
 
 Usage in a Lambda handler or agent init:
 
@@ -65,7 +65,7 @@ class FoundrySecrets:
                 import boto3
             except ImportError as exc:
                 raise ImportError(
-                    "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+                    "boto3 is not installed. Run: pip install 'arc-runtime[aws]'"
                 ) from exc
             kwargs: dict[str, Any] = {}
             if self.region:
@@ -79,7 +79,7 @@ class FoundrySecrets:
                 import boto3
             except ImportError as exc:
                 raise ImportError(
-                    "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+                    "boto3 is not installed. Run: pip install 'arc-runtime[aws]'"
                 ) from exc
             kwargs: dict[str, Any] = {}
             if self.region:

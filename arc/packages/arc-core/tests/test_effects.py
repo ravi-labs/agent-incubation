@@ -1,7 +1,5 @@
 """
-Tests for arc.core.effects — the FinancialEffect taxonomy lives natively in
-arc-core after migration module 1. Foundry has the same coverage via its
-shim modules (agent-foundry/tests/test_effects.py).
+Tests for arc.core.effects — the FinancialEffect taxonomy.
 
 Validates that:
   - All effects have complete metadata

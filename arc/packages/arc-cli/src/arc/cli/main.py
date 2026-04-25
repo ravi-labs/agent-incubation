@@ -55,12 +55,12 @@ status: active
 # Your GitHub/GitLab repo that owns this agent's code.
 team_repo: https://github.com/your-org/your-repo
 
-# The version of agent-foundry this agent targets.
+# The version of arc-core this agent targets.
 foundry_version: ">=0.1.0"
 
 # Effects this agent is permitted to invoke.
 # Start minimal — only add effects you actually need.
-# See: foundry effects list
+# See: arc effects list
 allowed_effects:
   - participant.data.read
   # - risk.score.compute
@@ -112,7 +112,7 @@ AGENT_TEMPLATE = '''\
 """
 {name_title} — Agent Implementation
 
-Built on agent-foundry BaseAgent. All tool calls go through
+Built on arc.core.BaseAgent. All tool calls go through
 ControlTower for policy enforcement and audit logging.
 
 Run this agent:
@@ -206,10 +206,10 @@ if __name__ == "__main__":
 # ─── CLI Groups ───────────────────────────────────────────────────────────────
 
 @click.group()
-@click.version_option(package_name="agent-foundry")
+@click.version_option(package_name="arc-cli")
 def cli():
     """
-    Foundry — the agent incubation platform.
+    Arc — the agent incubation platform.
 
     Build, validate, govern, and register AI agents for financial services.
     """
@@ -862,7 +862,7 @@ def deploy_schema(manifest_path: str, output: str | None, upload_to_s3: str | No
         from arc.runtime.deploy.bedrock import generate_action_schema, upload_schema_to_s3
     except ImportError:
         click.echo(click.style(
-            "✗ AWS extras not installed. Run: pip install 'agent-foundry[aws]'", fg="red"
+            "✗ AWS extras not installed. Run: pip install 'arc-runtime[aws]'", fg="red"
         ), err=True)
         sys.exit(1)
 
@@ -911,7 +911,7 @@ def deploy_package(manifest_path: str, target: str):
 
     if target == "lambda":
         click.echo("  1. Build the Lambda deployment package:")
-        click.echo(f"     pip install 'agent-foundry[aws]' -t ./package/")
+        click.echo(f"     pip install 'arc-runtime[aws]' -t ./package/")
         click.echo(f"     cp -r src/ ./package/")
         click.echo(f"     cp manifest.yaml policy.yaml policies/ ./package/")
         click.echo(f"     cd package && zip -r ../function.zip .")
@@ -1014,7 +1014,7 @@ def deploy_register(
         from arc.runtime.deploy.bedrock import generate_action_schema, register_bedrock_agent
     except ImportError:
         click.echo(click.style(
-            "✗ AWS extras not installed. Run: pip install 'agent-foundry[aws]'", fg="red"
+            "✗ AWS extras not installed. Run: pip install 'arc-runtime[aws]'", fg="red"
         ), err=True)
         sys.exit(1)
 

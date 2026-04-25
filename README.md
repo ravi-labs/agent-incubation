@@ -16,17 +16,16 @@ Identity + Intent + Policy.
 ```
 agent-incubation/
 ├── arc/                  ← THE PLATFORM. Multi-package monorepo, native, fully tested.
-├── agent-foundry/        ← Back-compat shim package. All source files are thin re-exports of arc.*
 ├── agent-registry/       ← Central governance catalog: manifests only, no code
 ├── agent-team-template/  ← Starter template: copy this to bootstrap a new team repo
-├── tollgate/             ← Vendored policy engine (ControlTower, evaluator, circuit breaker)
+├── tollgate/             ← Canonical policy engine (ControlTower, evaluator, circuit breaker)
 ├── policies/             ← Shared policy YAMLs (financial-services, etc.)
 ├── deploy/               ← Container + CDK + ECS deployment artifacts
-└── docs/                 ← Vision, research, marketing, and the migration plan
+└── docs/                 ← Vision, research, marketing, and migration history
     ├── vision/           ← platform vision, project plan, engineering overview
     ├── research/         ← typed-effect-scopes paper
     ├── marketing/        ← competitive analysis, quickstart, interactive deck
-    ├── foundry-legacy/   ← original agent-foundry/docs (concepts apply, paths reference foundry.*)
+    ├── foundry-legacy/   ← legacy architecture docs (paths reference foundry.*; concepts map 1:1 to arc.*)
     └── migration-plan.md ← module-by-module foundry → arc migration history
 ```
 
@@ -43,7 +42,7 @@ Native, self-contained, fully tested. This is what every agent runs on:
 - **arc-runtime** — `RuntimeConfig.from_env()` + `RuntimeBuilder` for production
   wiring; deploy adapters (Lambda, Bedrock, secrets).
 - **arc-cli** — `arc agent new/list/validate/promote/suspend`, audit dashboard,
-  policy/effects browsers. (Legacy `foundry` script still works as an alias.)
+  policy/effects browsers.
 - **arc-eval** — scenario-based evaluation framework.
 - **arc-orchestrators** — common protocol with adapters for LangGraph, AgentCore,
   and Strands so agent code is orchestrator-agnostic; LangChain bridge.
@@ -55,15 +54,6 @@ Native, self-contained, fully tested. This is what every agent runs on:
   contract-review).
 
 See [arc/README.md](arc/README.md) for the package layout and full API.
-
-### `agent-foundry/` — back-compat shim package
-
-The original implementation, slimmed to a re-export layer. Every file under
-`agent-foundry/src/foundry/` is a thin shim that imports from `arc.*`. Existing
-callers of `from foundry.X import Y` keep working; new code should use `arc.*`
-directly. The package's `[aws]`, `[langchain]`, `[langgraph]`, etc. extras
-remain as install-time aliases so legacy `pip install 'agent-foundry[aws]'`
-instructions still install the right transitive deps.
 
 ### `agent-registry/`
 The governance catalog. Teams submit a PR here when an agent is ready for
@@ -78,8 +68,7 @@ agent stub, and tests.
 
 ### `tollgate/`
 The canonical policy engine: ControlTower, YAML policy evaluator, circuit
-breaker, approval primitives. Imported directly by both `arc.*` packages and
-the foundry shim layer (no vendored copy anymore).
+breaker, approval primitives. Imported directly by every `arc.*` package.
 
 ### `policies/`
 Shared policy YAMLs that span teams (e.g., `financial_services/erisa.yaml`).
@@ -93,9 +82,11 @@ CDK stacks for Lambda + Bedrock Agent.
 Planning and stakeholder artifacts — platform vision deck, project plan,
 engineering overview, the typed-effect-scopes research paper, competitive
 analysis, the interactive HTML pipeline deck. Plus the
-[migration plan](docs/migration-plan.md) (module-by-module history of
-foundry → arc) and [foundry-legacy/](docs/foundry-legacy/) (the original
-`agent-foundry/docs/` content, preserved for concept reference).
+[migration plan](docs/migration-plan.md) (module-by-module history of the
+foundry → arc rewrite) and [foundry-legacy/](docs/foundry-legacy/) (the
+original architecture/quickstart docs, preserved for concept reference —
+import paths reference the now-deleted `foundry.*` namespace, but every
+concept maps 1:1 to `arc.*`).
 
 ---
 
@@ -112,9 +103,6 @@ pip install -e arc/packages/arc-eval/
 pip install -e arc/packages/arc-orchestrators/
 pip install -e arc/packages/arc-connectors/
 
-# (Optional) Install the back-compat shim — adds `from foundry.X import Y` support
-pip install -e agent-foundry/
-
 # Browse the effect taxonomy
 arc effects list
 
@@ -127,9 +115,6 @@ python arc/agents/retirement-trajectory/agent.py
 # Validate a manifest
 arc agent validate my-agent/manifest.yaml --strict
 ```
-
-The legacy `foundry` script is still wired up as an alias for `arc`, so older
-docs and shell history keep working.
 
 ---
 
@@ -148,7 +133,7 @@ docs and shell history keep working.
 
 ## Architecture & onboarding
 
-- Platform architecture: [docs/foundry-legacy/platform-architecture.md](docs/foundry-legacy/platform-architecture.md) *(concepts apply identically to arc; import paths reference foundry.*)*
+- Platform architecture: [docs/foundry-legacy/platform-architecture.md](docs/foundry-legacy/platform-architecture.md) *(concepts apply identically to arc; import paths reference the now-deleted `foundry.*` namespace — substitute `arc.*` mentally)*
 - Engineering overview: [docs/vision/engineering-overview.docx](docs/vision/engineering-overview.docx)
 - Team onboarding: [docs/foundry-legacy/team-onboarding.md](docs/foundry-legacy/team-onboarding.md)
 - Effect reference: [docs/foundry-legacy/effects-reference.md](docs/foundry-legacy/effects-reference.md)

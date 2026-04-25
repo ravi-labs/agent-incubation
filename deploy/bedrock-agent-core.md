@@ -9,7 +9,7 @@ Use it for **Scale-stage agents** (lifecycle_stage: SCALE) that have passed
 compliance review. For Discover → Govern stages, deploy to ECS Fargate or Lambda
 so you retain full control over the runtime environment.
 
-## How it works with Foundry
+## How it works with Arc
 
 ```
 Bedrock Agent Core
@@ -18,7 +18,7 @@ Bedrock Agent Core
   ▼
 AWS Lambda (your agent container)
   │
-  │  foundry.deploy.lambda_handler
+  │  arc.runtime.deploy.lambda_handler
   ▼
 BaseAgent.execute()
   │
@@ -40,8 +40,8 @@ the agent — Bedrock cannot bypass the policy engine.
 ### 1. Generate the Action Group schema
 
 ```python
-from foundry.deploy.bedrock import generate_action_schema, upload_schema_to_s3
-from foundry.scaffold.manifest import AgentManifest
+from arc.runtime.deploy.bedrock import generate_action_schema, upload_schema_to_s3
+from arc.core import AgentManifest
 
 manifest = AgentManifest.from_yaml("manifest.yaml")
 schema = generate_action_schema(manifest)
@@ -49,7 +49,7 @@ schema = generate_action_schema(manifest)
 # Upload to S3
 s3_uri = upload_schema_to_s3(
     schema,
-    bucket="your-foundry-schemas-bucket",
+    bucket="your-arc-schemas-bucket",
     key=f"agents/{manifest.agent_id}/schema.json",
 )
 ```
@@ -58,8 +58,8 @@ s3_uri = upload_schema_to_s3(
 
 ```python
 # In your Lambda handler
-from foundry.deploy.lambda_handler import make_handler
-from foundry.deploy.bedrock import BedrockAgentAdapter
+from arc.runtime.deploy.lambda_handler import make_handler
+from arc.runtime.deploy.bedrock import BedrockAgentAdapter
 from my_agents.fiduciary_watchdog import FiduciaryWatchdogAgent
 
 _handler = make_handler(FiduciaryWatchdogAgent)
@@ -83,9 +83,9 @@ bedrock = boto3.client("bedrock-agent")
 # Create the agent
 agent = bedrock.create_agent(
     agentName=manifest.agent_id,
-    description=f"Managed by agent-foundry | owner: {manifest.owner}",
+    description=f"Managed by arc | owner: {manifest.owner}",
     foundationModel="anthropic.claude-3-5-sonnet-20241022-v2:0",
-    agentResourceRoleArn="arn:aws:iam::ACCOUNT:role/foundry-bedrock-agent-role",
+    agentResourceRoleArn="arn:aws:iam::ACCOUNT:role/arc-bedrock-agent-role",
 )
 
 # Add the action group
@@ -100,11 +100,11 @@ bedrock.create_agent_action_group(
 
 ## IAM roles
 
-**foundry-bedrock-agent-role** (Bedrock assumes this):
+**arc-bedrock-agent-role** (Bedrock assumes this):
 - `bedrock:InvokeModel`
 - `lambda:InvokeFunction` on your agent Lambda
 
-**foundry-agent-task-role** (Lambda/ECS runs as this):
+**arc-agent-task-role** (Lambda/ECS runs as this):
 - `ssm:GetParameter` for secrets
 - `logs:CreateLogStream`, `logs:PutLogEvents`
 - Any data access your agent needs (scoped tightly per manifest.data_access)

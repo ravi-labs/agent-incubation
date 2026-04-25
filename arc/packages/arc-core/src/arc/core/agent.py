@@ -280,7 +280,7 @@ class BaseAgent(ABC):
         except ImportError as exc:
             raise ImportError(
                 "Install langchain-core to use LCEL pipe composition: "
-                "pip install 'agent-foundry[langchain]'"
+                "pip install 'arc-orchestrators[langchain]'"
             ) from exc
 
     def __ror__(self, other: Any) -> Any:
@@ -291,7 +291,7 @@ class BaseAgent(ABC):
         except ImportError as exc:
             raise ImportError(
                 "Install langchain-core to use LCEL pipe composition: "
-                "pip install 'agent-foundry[langchain]'"
+                "pip install 'arc-orchestrators[langchain]'"
             ) from exc
 
     @staticmethod

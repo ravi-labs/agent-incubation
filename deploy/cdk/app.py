@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agent Foundry — AWS CDK App
+Arc Platform — AWS CDK App
 
 Deploy the full platform infrastructure for one agent.
 
@@ -21,7 +21,7 @@ Context variables:
 """
 
 import aws_cdk as cdk
-from foundry_stack import FoundryAgentStack
+from arc_stack import ArcAgentStack
 
 app = cdk.App()
 
@@ -32,9 +32,9 @@ approval_timeout = int(app.node.try_get_context("approval_timeout") or "3600")
 vpc_id           = app.node.try_get_context("vpc_id")
 enable_bedrock   = (app.node.try_get_context("enable_bedrock") or "true").lower() == "true"
 
-FoundryAgentStack(
+ArcAgentStack(
     app,
-    f"Foundry-{agent_id.title().replace('-', '')}",
+    f"Arc-{agent_id.title().replace('-', '')}",
     agent_id=agent_id,
     ecr_image_uri=ecr_image_uri,
     environment=environment,

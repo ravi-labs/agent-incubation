@@ -1,12 +1,32 @@
-# Agent Foundry — Documentation (legacy reference)
+# Agent Foundry — Documentation (historical reference)
 
 > **Status:** These docs were written when `agent-foundry` was the canonical
-> implementation. The codebase has since migrated to `arc/`, and these docs
-> still reference `from foundry.X import Y` paths. The concepts (effects,
-> manifests, BaseAgent, ControlTower, lifecycle) all carry over identically;
-> only the import path changed. Mentally substitute `arc.core.X` for
-> `foundry.scaffold.X` / `foundry.policy.X` / `foundry.lifecycle.X`,
-> `arc.harness.X` for `foundry.harness.X`, and so on.
+> implementation. The codebase has since been rewritten as `arc/`, and the
+> `agent-foundry/` package no longer exists. These docs still reference
+> `from foundry.X import Y` paths — every one of them maps 1:1 to an
+> `arc.*` path:
+>
+> | Old (deleted) | New (canonical) |
+> |---|---|
+> | `foundry.scaffold.base.BaseAgent` | `arc.core.BaseAgent` |
+> | `foundry.scaffold.manifest.AgentManifest` | `arc.core.AgentManifest` |
+> | `foundry.policy.effects.FinancialEffect` | `arc.core.FinancialEffect` |
+> | `foundry.policy.builder.EffectRequestBuilder` | `arc.core.EffectRequestBuilder` |
+> | `foundry.gateway.*` | `arc.core.gateway.*` |
+> | `foundry.memory.*` | `arc.core.memory.*` |
+> | `foundry.tools.*` | `arc.core.tools.*` |
+> | `foundry.observability.*` | `arc.core.observability.*` |
+> | `foundry.lifecycle.*` | `arc.core.lifecycle.*` |
+> | `foundry.harness.*` | `arc.harness.*` |
+> | `foundry.deploy.*` | `arc.runtime.deploy.*` |
+> | `foundry.eval.*` | `arc.eval.*` |
+> | `foundry.integrations.langchain` | `arc.orchestrators.langchain` |
+> | `foundry.integrations.langgraph` | `arc.orchestrators.langgraph_agent` |
+> | `foundry.integrations.bedrock_*` | `arc.connectors.bedrock_*` |
+> | `foundry.registry.catalog` | `arc.core.registry` |
+>
+> The concepts (effects, manifests, BaseAgent, ControlTower, lifecycle) all
+> carry over identically; only the import path changed.
 >
 > For the canonical entry point, see the root [README](../../README.md) and
 > [docs/migration-plan.md](../migration-plan.md).

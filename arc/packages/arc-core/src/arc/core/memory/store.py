@@ -43,7 +43,7 @@ Production setup (DynamoDB):
     from arc.core.memory import FoundryMemoryStore, DynamoDBMemoryBackend
 
     backend = DynamoDBMemoryBackend(
-        table_name="agent-foundry-memory",
+        table_name="arc-agent-memory",
         region="us-east-1",
     )
     memory = FoundryMemoryStore(agent_id="fiduciary-watchdog", backend=backend)
@@ -261,7 +261,7 @@ class DynamoDBMemoryBackend(MemoryBackend):
             except ImportError as exc:
                 raise ImportError(
                     "boto3 is required for DynamoDBMemoryBackend. "
-                    "Run: pip install 'agent-foundry[aws]'"
+                    "Run: pip install 'arc-core[aws]'"
                 ) from exc
             dynamodb = boto3.resource("dynamodb", region_name=self._region)
             self._table = dynamodb.Table(self._table_name)

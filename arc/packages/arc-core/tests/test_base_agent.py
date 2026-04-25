@@ -1,7 +1,5 @@
 """
-Tests for arc.core.agent.BaseAgent — native after migration module 4.
-Foundry has equivalent coverage via the shim
-(agent-foundry/tests/test_base_agent.py).
+Tests for arc.core.agent.BaseAgent.
 
 Validates that:
   - Kill switch blocks execution for suspended/deprecated agents

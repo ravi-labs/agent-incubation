@@ -1,6 +1,6 @@
 # Policy overrides — Example Agent
 # ─────────────────────────────────────────────────────────────────────────────
-# Layered on top of agent-foundry's defaults.yaml and erisa.yaml.
+# Layered on top of policies/financial_services/{defaults,erisa}.yaml at the repo root.
 # Only add rules that differ from the defaults.
 # You can TIGHTEN defaults (stricter) but never LOOSEN them.
 # ─────────────────────────────────────────────────────────────────────────────

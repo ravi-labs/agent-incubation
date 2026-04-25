@@ -1,7 +1,7 @@
 """
 Contract Review Agent — Example Implementation
 
-Demonstrates agent-foundry governance using LegalEffect (UPL taxonomy).
+Demonstrates arc governance using LegalEffect (UPL taxonomy).
 
 This agent:
   1. Reads contract documents from the repository (Tier 1 — ALLOW)
@@ -22,8 +22,7 @@ Key governance properties shown:
   - Audit JSONL: every decision recorded for legal hold compliance
 
 Run:
-    cd agent-foundry
-    python examples/contract_review/agent.py
+    python arc/agents/contract-review/agent.py
 """
 
 import asyncio
@@ -648,7 +647,7 @@ def build_agent() -> ContractReviewAgent:
 
 async def main():
     print("=" * 60)
-    print("Contract Review Agent — agent-foundry demo")
+    print("Contract Review Agent — arc demo")
     print("Taxonomy: LegalEffect (UPL / Privilege)")
     print("=" * 60)
 

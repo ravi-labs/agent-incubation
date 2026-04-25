@@ -1,6 +1,6 @@
 """
-foundry.deploy.lambda_handler
-──────────────────────────────
+arc.runtime.deploy.lambda_handler
+──────────────────────────────────
 Wraps any BaseAgent as an AWS Lambda function.
 
 Cold-start wires up the manifest, ControlTower, Gateway, and (optionally)
@@ -17,19 +17,19 @@ Usage — in your agent repo, create handler.py:
     # handler.handler is your Lambda entry point
 
 Environment variables:
-    FOUNDRY_MANIFEST_PATH      Path to manifest.yaml          (default: manifest.yaml)
-    FOUNDRY_POLICY_DIR         Path to policies/              (default: policies/)
-    FOUNDRY_ENV                sandbox | production            (default: sandbox)
-    FOUNDRY_LOG_LEVEL          Python log level               (default: INFO)
+    ARC_MANIFEST_PATH      Path to manifest.yaml          (default: manifest.yaml)
+    ARC_POLICY_DIR         Path to policies/              (default: policies/)
+    ARC_ENV                sandbox | production            (default: sandbox)
+    ARC_LOG_LEVEL          Python log level               (default: INFO)
 
     # Production backends (auto-enabled when set)
-    FOUNDRY_APPROVALS_TABLE    DynamoDB table name for approvals
-    FOUNDRY_REVIEW_QUEUE_URL   SQS queue URL for human review
-    FOUNDRY_APPROVAL_TIMEOUT   Seconds to wait for review     (default: 3600)
+    ARC_APPROVALS_TABLE    DynamoDB table name for approvals
+    ARC_REVIEW_QUEUE_URL   SQS queue URL for human review
+    ARC_APPROVAL_TIMEOUT   Seconds to wait for review     (default: 3600)
 
     # Secrets (loaded from Secrets Manager / SSM at cold start)
-    FOUNDRY_SECRET_<KEY>       Secrets Manager secret name    → injected as env var
-    FOUNDRY_PARAM_<KEY>        SSM Parameter Store name       → injected as env var
+    ARC_SECRET_<KEY>       Secrets Manager secret name    → injected as env var
+    ARC_PARAM_<KEY>        SSM Parameter Store name       → injected as env var
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ class _FoundryLambdaHandler:
         self._agent: Any   = None
 
         # Structured logging for CloudWatch Logs Insights
-        log_level = os.environ.get("FOUNDRY_LOG_LEVEL", "INFO")
+        log_level = os.environ.get("ARC_LOG_LEVEL", "INFO")
         logging.basicConfig(
             level=getattr(logging, log_level, logging.INFO),
             format='{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}',
@@ -75,16 +75,16 @@ class _FoundryLambdaHandler:
 
     def _init_agent(self) -> None:
         """Cold-start: wire manifest, tower, gateway, and production backends."""
-        manifest_path      = os.environ.get("FOUNDRY_MANIFEST_PATH", "manifest.yaml")
-        policy_dir         = os.environ.get("FOUNDRY_POLICY_DIR",    "policies/")
-        environment        = os.environ.get("FOUNDRY_ENV",           "sandbox")
-        approvals_table    = os.environ.get("FOUNDRY_APPROVALS_TABLE")
-        review_queue_url   = os.environ.get("FOUNDRY_REVIEW_QUEUE_URL")
-        approval_timeout   = float(os.environ.get("FOUNDRY_APPROVAL_TIMEOUT", "3600"))
+        manifest_path      = os.environ.get("ARC_MANIFEST_PATH", "manifest.yaml")
+        policy_dir         = os.environ.get("ARC_POLICY_DIR",    "policies/")
+        environment        = os.environ.get("ARC_ENV",           "sandbox")
+        approvals_table    = os.environ.get("ARC_APPROVALS_TABLE")
+        review_queue_url   = os.environ.get("ARC_REVIEW_QUEUE_URL")
+        approval_timeout   = float(os.environ.get("ARC_APPROVAL_TIMEOUT", "3600"))
         region             = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
 
         logger.info(
-            "foundry_cold_start agent_class=%s manifest=%s env=%s",
+            "arc_cold_start agent_class=%s manifest=%s env=%s",
             self._agent_class.__name__, manifest_path, environment,
         )
 
@@ -103,7 +103,7 @@ class _FoundryLambdaHandler:
         # ── Approver: production (SQS+DDB) or sandbox (auto) ─────────────────
         if approvals_table and review_queue_url:
             logger.info(
-                "foundry_backend production approvals_table=%s queue=%s",
+                "arc_backend production approvals_table=%s queue=%s",
                 approvals_table, review_queue_url.split("/")[-1],
             )
             from tollgate.backends.dynamodb_store import DynamoDBApprovalStore
@@ -117,7 +117,7 @@ class _FoundryLambdaHandler:
             )
         elif approvals_table:
             # DynamoDB only — polling-based (no SQS notification)
-            logger.info("foundry_backend ddb-only approvals_table=%s", approvals_table)
+            logger.info("arc_backend ddb-only approvals_table=%s", approvals_table)
             from tollgate.backends.dynamodb_store import DynamoDBApprovalStore
             from tollgate.approvals import AsyncQueueApprover
             store    = DynamoDBApprovalStore(table_name=approvals_table, region=region)
@@ -126,8 +126,8 @@ class _FoundryLambdaHandler:
             # Sandbox — auto-approver (never use in production)
             if environment == "production":
                 logger.warning(
-                    "foundry_warning FOUNDRY_APPROVALS_TABLE not set in production — "
-                    "ASK decisions will use AutoApprover. Set FOUNDRY_APPROVALS_TABLE."
+                    "arc_warning ARC_APPROVALS_TABLE not set in production — "
+                    "ASK decisions will use AutoApprover. Set ARC_APPROVALS_TABLE."
                 )
             from tollgate import AutoApprover
             approver = AutoApprover()
@@ -166,7 +166,7 @@ class _FoundryLambdaHandler:
         )
 
         logger.info(
-            "foundry_agent_ready agent=%s version=%s stage=%s env=%s",
+            "arc_agent_ready agent=%s version=%s stage=%s env=%s",
             manifest.agent_id, manifest.version,
             manifest.lifecycle_stage.value, environment,
         )
@@ -174,25 +174,25 @@ class _FoundryLambdaHandler:
     @staticmethod
     def _load_secrets(region: str | None) -> None:
         """
-        Load FOUNDRY_SECRET_* and FOUNDRY_PARAM_* environment variables
+        Load ARC_SECRET_* and ARC_PARAM_* environment variables
         from Secrets Manager / SSM and inject them as env vars.
 
         Pattern:
-            FOUNDRY_SECRET_DB_URL=foundry/my-agent/db-url
+            ARC_SECRET_DB_URL=arc/my-agent/db-url
               → fetches the secret and sets DB_URL in os.environ
 
-            FOUNDRY_PARAM_SLACK_URL=/foundry/my-agent/slack-webhook
+            ARC_PARAM_SLACK_URL=/arc/my-agent/slack-webhook
               → fetches the parameter and sets SLACK_URL in os.environ
         """
         secret_vars = {
-            k[len("FOUNDRY_SECRET_"):]: v
+            k[len("ARC_SECRET_"):]: v
             for k, v in os.environ.items()
-            if k.startswith("FOUNDRY_SECRET_")
+            if k.startswith("ARC_SECRET_")
         }
         param_vars = {
-            k[len("FOUNDRY_PARAM_"):]: v
+            k[len("ARC_PARAM_"):]: v
             for k, v in os.environ.items()
-            if k.startswith("FOUNDRY_PARAM_")
+            if k.startswith("ARC_PARAM_")
         }
 
         if not secret_vars and not param_vars:
@@ -249,7 +249,7 @@ class _FoundryLambdaHandler:
         is_bedrock = "actionGroup" in event
 
         logger.info(
-            "foundry_invoke agent=%s request_id=%s cold_start=%s bedrock=%s",
+            "arc_invoke agent=%s request_id=%s cold_start=%s bedrock=%s",
             agent_id, request_id, cold_start, is_bedrock,
         )
 
@@ -267,7 +267,7 @@ class _FoundryLambdaHandler:
 
                 duration_ms = round((time.monotonic() - start_time) * 1000)
                 logger.info(
-                    "foundry_complete agent=%s request_id=%s duration_ms=%d",
+                    "arc_complete agent=%s request_id=%s duration_ms=%d",
                     agent_id, request_id, duration_ms,
                 )
                 result = {
@@ -278,12 +278,12 @@ class _FoundryLambdaHandler:
                 }
 
         except PermissionError as exc:
-            logger.error("foundry_permission_denied agent=%s: %s", agent_id, exc)
+            logger.error("arc_permission_denied agent=%s: %s", agent_id, exc)
             result = {"statusCode": 403, "error": "permission_denied", "message": str(exc)}
 
         except Exception as exc:  # noqa: BLE001
             logger.error(
-                "foundry_error agent=%s: %s\n%s",
+                "arc_error agent=%s: %s\n%s",
                 agent_id, exc, traceback.format_exc(),
             )
             result = {"statusCode": 500, "error": type(exc).__name__, "message": str(exc)}
@@ -328,7 +328,7 @@ class _FoundryLambdaHandler:
         adapter = BedrockAgentAdapter(self._agent.manifest)
 
         logger.info(
-            "foundry_bedrock_invoke agent=%s action_group=%s operation=%s "
+            "arc_bedrock_invoke agent=%s action_group=%s operation=%s "
             "session_keys=%s type=%s",
             agent_id, parsed.action_group, parsed.operation,
             list(parsed.session.keys()), parsed.invocation_type,
@@ -342,7 +342,7 @@ class _FoundryLambdaHandler:
         except PermissionError as exc:
             # Tollgate DENY or kill switch
             logger.warning(
-                "foundry_bedrock_denied agent=%s operation=%s: %s",
+                "arc_bedrock_denied agent=%s operation=%s: %s",
                 agent_id, parsed.operation, exc,
             )
             return adapter.format_error(parsed, exc, status_code=403)
@@ -354,7 +354,7 @@ class _FoundryLambdaHandler:
                     from tollgate.exceptions import TollgateDeferred
                     if isinstance(exc, TollgateDeferred):
                         logger.info(
-                            "foundry_bedrock_ask agent=%s operation=%s",
+                            "arc_bedrock_ask agent=%s operation=%s",
                             agent_id, parsed.operation,
                         )
                         return adapter.format_confirmation_request(
@@ -370,7 +370,7 @@ class _FoundryLambdaHandler:
                     pass
 
             logger.error(
-                "foundry_bedrock_error agent=%s operation=%s: %s\n%s",
+                "arc_bedrock_error agent=%s operation=%s: %s\n%s",
                 agent_id, parsed.operation, exc, traceback.format_exc(),
             )
             return adapter.format_error(parsed, exc, status_code=500)
@@ -385,7 +385,7 @@ class _FoundryLambdaHandler:
             body = record.get("body", "{}")
             parsed = json.loads(body) if isinstance(body, str) else body
             # Strip foundry envelope if present (e.g., from SQSApprover notification)
-            if "foundry_event" in parsed:
+            if "arc_event" in parsed:
                 return {"event": parsed}
             return parsed
 
@@ -539,6 +539,6 @@ class _FoundryStreamingHandler(_FoundryLambdaHandler):
             response_stream.write((err + "\n").encode())
 
         except Exception as exc:  # noqa: BLE001
-            logger.error("foundry_stream_error agent=%s: %s", agent_id, exc)
+            logger.error("arc_stream_error agent=%s: %s", agent_id, exc)
             err = json.dumps({"type": "error", "error": type(exc).__name__, "message": str(exc)})
             response_stream.write((err + "\n").encode())

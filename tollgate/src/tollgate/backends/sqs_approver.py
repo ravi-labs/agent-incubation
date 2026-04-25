@@ -15,7 +15,7 @@ return immediately (or wait up to its configured timeout), while reviewers
 process the queue asynchronously.
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "tollgate[aws]"
 
 Architecture:
 
@@ -100,7 +100,7 @@ class SQSApprover:
                 import boto3
             except ImportError as exc:
                 raise ImportError(
-                    "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+                    "boto3 is not installed. Run: pip install 'tollgate[aws]'"
                 ) from exc
             kwargs: dict[str, Any] = {}
             if self.region:
@@ -180,7 +180,7 @@ class SQSApprover:
         reviewer must pass back to set_decision().
         """
         return {
-            "foundry_event": "approval_requested",
+            "arc_event": "approval_requested",
             "approval_id":   approval_id,
             "expires_at":    expiry,
             "agent": {

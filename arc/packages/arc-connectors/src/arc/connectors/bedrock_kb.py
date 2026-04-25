@@ -1,14 +1,14 @@
 """
 foundry.integrations.bedrock_kb
 ─────────────────────────────────
-Amazon Bedrock Knowledge Base integration for agent-foundry.
+Amazon Bedrock Knowledge Base integration for arc agents.
 
 Allows agents to retrieve relevant documents from a Bedrock Knowledge Base
 as part of their execute() flow. All retrievals go through run_effect()
 so they are policy-enforced, audit-logged, and declared in the manifest.
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "arc-connectors[aws]"
 
 Manifest declaration:
 
@@ -134,7 +134,7 @@ class BedrockKBClient:
                 import boto3
             except ImportError as exc:
                 raise ImportError(
-                    "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+                    "boto3 is not installed. Run: pip install 'arc-connectors[aws]'"
                 ) from exc
             self._client = boto3.client(
                 "bedrock-agent-runtime",

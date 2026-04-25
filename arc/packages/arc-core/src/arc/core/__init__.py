@@ -2,11 +2,9 @@
 arc.core — governance engine.
 
 The foundation everything else builds on. Typed effects, policy evaluation,
-ControlTower pre-execution gating, and the audit trail.
-
-Every export below is native — arc-core no longer depends on agent-foundry
-at runtime. Tollgate primitives (ControlTower, YamlPolicyEvaluator, etc.)
-come from the canonical `tollgate` package directly.
+ControlTower pre-execution gating, and the audit trail. Tollgate primitives
+(ControlTower, YamlPolicyEvaluator, etc.) come from the canonical `tollgate`
+package directly.
 
 Public API:
     from arc.core import (
@@ -17,11 +15,6 @@ Public API:
         JsonlAuditSink,
         ITSMEffect, FinancialEffect, ComplianceEffect,
     )
-
-Implementation note: this module used to use a PEP 562 ``__getattr__``
-to lazy-load foundry re-exports during the migration. After Phase 2 +
-the vendored-tollgate cleanup, all exports are native eager imports and
-the lazy table is gone.
 """
 
 # ── Effects, scaffold, gateway, memory, tools, observability, lifecycle ──────
@@ -91,10 +84,6 @@ from tollgate.types import (
     Outcome,
     ToolRequest,
 )
-
-# All re-exports above are now native imports — the lazy foundry table is
-# empty. arc-core no longer needs `agent-foundry` at runtime for any of its
-# public surface.
 
 
 __all__ = [

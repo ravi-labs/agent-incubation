@@ -120,7 +120,7 @@ class HttpGateway:
     Async HTTP REST connector for Foundry agents.
 
     Maps a DataRequest to a GET/POST call against a REST API.
-    Requires httpx: pip install httpx (or pip install 'agent-foundry[http]').
+    Requires httpx: pip install httpx (or pip install 'arc-core[http]').
 
     Request mapping:
         - source is appended to base_url as a path segment:
@@ -176,7 +176,7 @@ class HttpGateway:
             except ImportError as exc:
                 raise ImportError(
                     "httpx is required for HttpGateway. "
-                    "Run: pip install httpx  or  pip install 'agent-foundry[http]'"
+                    "Run: pip install httpx  or  pip install 'arc-core[http]'"
                 ) from exc
             self._client = httpx.AsyncClient(
                 headers=self.headers,

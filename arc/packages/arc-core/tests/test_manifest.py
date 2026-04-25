@@ -1,7 +1,5 @@
 """
-Tests for arc.core.manifest — AgentManifest loading and validation. Native
-in arc-core after migration module 3. Foundry has equivalent coverage via
-the shim (agent-foundry/tests/test_manifest.py).
+Tests for arc.core.manifest — AgentManifest loading and validation.
 
 Validates that:
   - Valid manifests load correctly

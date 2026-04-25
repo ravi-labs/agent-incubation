@@ -1,5 +1,5 @@
 """
-Tests for foundry.eval — FoundryEvaluator and EvalScenario.
+Tests for arc.eval — FoundryEvaluator and EvalScenario.
 
 Strategy: wire a real BaseAgent + real ControlTower (AutoApprover) so the
 evaluator runs against the actual policy pipeline, exactly as documented.

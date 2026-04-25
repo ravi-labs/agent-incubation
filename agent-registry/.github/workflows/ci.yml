@@ -18,8 +18,12 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install agent-foundry
-        run: pip install agent-foundry
+      - name: Install arc
+        run: |
+          pip install -e ./tollgate
+          pip install -e ./arc/packages/arc-core
+          pip install -e ./arc/packages/arc-runtime
+          pip install -e ./arc/packages/arc-cli
 
       - name: Validate all manifests in registry/
         run: |
@@ -74,8 +78,12 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install agent-foundry
-        run: pip install agent-foundry
+      - name: Install arc
+        run: |
+          pip install -e ./tollgate
+          pip install -e ./arc/packages/arc-core
+          pip install -e ./arc/packages/arc-runtime
+          pip install -e ./arc/packages/arc-cli
 
       - name: Regenerate registry.yaml
         run: |

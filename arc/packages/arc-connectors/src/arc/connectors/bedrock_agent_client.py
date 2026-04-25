@@ -8,7 +8,7 @@ bedrock-agent-runtime that supports both streaming and non-streaming
 invocation of a Bedrock Agent from within another foundry agent.
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "arc-connectors[aws]"
 
 Usage:
 
@@ -237,7 +237,7 @@ class BedrockAgentStreamingClient:
                 import boto3
             except ImportError as exc:
                 raise ImportError(
-                    "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+                    "boto3 is not installed. Run: pip install 'arc-connectors[aws]'"
                 ) from exc
             self._client = boto3.client(
                 "bedrock-agent-runtime",

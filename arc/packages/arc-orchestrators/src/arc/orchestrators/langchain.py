@@ -1,7 +1,7 @@
 """
 foundry.integrations.langchain
 ────────────────────────────────
-LangChain integration for agent-foundry.
+LangChain integration for arc agents.
 
 Provides two primary adapters:
 
@@ -19,7 +19,7 @@ Provides two primary adapters:
          chain = retriever | FoundryRunnable(agent) | output_parser
 
 Install:
-    pip install "agent-foundry[langchain]"
+    pip install "arc-orchestrators[langchain]"
 
 Quick start — single tool:
 
@@ -81,7 +81,7 @@ def _require_langchain() -> None:
     except ImportError as exc:
         raise ImportError(
             "LangChain is not installed. "
-            "Run: pip install 'agent-foundry[langchain]'"
+            "Run: pip install 'arc-orchestrators[langchain]'"
         ) from exc
 
 
@@ -209,7 +209,7 @@ class FoundryTool:
         except ImportError as exc:
             raise ImportError(
                 "langchain-core is not installed. "
-                "Run: pip install 'agent-foundry[langchain]'"
+                "Run: pip install 'arc-orchestrators[langchain]'"
             ) from exc
 
         tool_self = self
@@ -483,7 +483,7 @@ class FoundryRunnable:
         except ImportError:
             raise ImportError(
                 "langchain-core is not installed. "
-                "Run: pip install 'agent-foundry[langchain]'"
+                "Run: pip install 'arc-orchestrators[langchain]'"
             )
 
     def __ror__(self, other: Any) -> Any:
@@ -494,7 +494,7 @@ class FoundryRunnable:
         except ImportError:
             raise ImportError(
                 "langchain-core is not installed. "
-                "Run: pip install 'agent-foundry[langchain]'"
+                "Run: pip install 'arc-orchestrators[langchain]'"
             )
 
     # ── Helpers ────────────────────────────────────────────────────────────

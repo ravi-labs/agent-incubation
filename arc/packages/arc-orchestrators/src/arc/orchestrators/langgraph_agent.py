@@ -1,14 +1,14 @@
 """
 foundry.integrations.langgraph
 ───────────────────────────────
-LangGraph integration for agent-foundry.
+LangGraph integration for arc agents.
 
 Provides GraphAgent — a BaseAgent subclass that uses a LangGraph StateGraph
 as the execution engine inside execute(). All effects still go through
 run_effect(), so every state transition is policy-enforced and audit-logged.
 
 Install:
-    pip install "agent-foundry[langgraph]"
+    pip install "arc-orchestrators[langgraph]"
 
 Usage:
     from arc.orchestrators.langgraph_agent import GraphAgent, FoundryState
@@ -94,7 +94,7 @@ try:
     from langgraph.graph.state import CompiledStateGraph
 except ImportError as exc:
     raise ImportError(
-        "LangGraph is not installed. Run: pip install 'agent-foundry[langgraph]'"
+        "LangGraph is not installed. Run: pip install 'arc-orchestrators[langgraph]'"
     ) from exc
 
 from arc.core.gateway import GatewayConnector
