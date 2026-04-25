@@ -40,7 +40,7 @@ try:
 except ImportError:
     _HAS_YAML = False
 
-from foundry.gateway.base import MockGatewayConnector
+from arc.core.gateway import MockGatewayConnector
 
 
 class FixtureLoader:

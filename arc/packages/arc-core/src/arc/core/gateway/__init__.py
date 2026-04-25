@@ -1,6 +1,6 @@
-"""Migrated to arc.core.gateway.base. Thin re-export shim."""
+"""arc.core.gateway — data access abstraction for arc agents."""
 
-from arc.core.gateway.base import (
+from .base import (
     DataRequest,
     DataResponse,
     GatewayConnector,

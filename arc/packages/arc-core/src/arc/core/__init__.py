@@ -50,6 +50,14 @@ from arc.core.effects import (
 from arc.core.policy import EffectRequestBuilder
 from arc.core.manifest import AgentManifest, AgentStatus, load_manifest
 from arc.core.agent import BaseAgent
+from arc.core.gateway import (
+    DataRequest,
+    DataResponse,
+    GatewayConnector,
+    HttpGateway,
+    MockGatewayConnector,
+    MultiGateway,
+)
 
 # ── Foundry-backed re-exports (lazy until each module migrates) ──────────────
 # Map from public attribute name → (foundry module path, attribute in that module).
@@ -76,13 +84,6 @@ _LAZY_FOUNDRY_EXPORTS: dict[str, tuple[str, str]] = {
     "AgentContext": ("foundry.tollgate.types", "AgentContext"),
     # Observability
     "OutcomeTracker": ("foundry.observability.tracker", "OutcomeTracker"),
-    # Gateway
-    "GatewayConnector":     ("foundry.gateway.base", "GatewayConnector"),
-    "MockGatewayConnector": ("foundry.gateway.base", "MockGatewayConnector"),
-    "HttpGateway":          ("foundry.gateway.base", "HttpGateway"),
-    "MultiGateway":         ("foundry.gateway.base", "MultiGateway"),
-    "DataRequest":          ("foundry.gateway.base", "DataRequest"),
-    "DataResponse":         ("foundry.gateway.base", "DataResponse"),
 }
 
 
@@ -114,6 +115,8 @@ __all__ = [
     "EffectRequestBuilder",
     "AgentManifest", "AgentStatus", "load_manifest",
     "BaseAgent",
+    "GatewayConnector", "DataRequest", "DataResponse",
+    "MockGatewayConnector", "HttpGateway", "MultiGateway",
     # Foundry-backed (lazy, awaiting migration)
     *_LAZY_FOUNDRY_EXPORTS,
 ]

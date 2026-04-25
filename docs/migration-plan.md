@@ -1,6 +1,6 @@
 # Foundry → Arc Migration Plan
 
-**Status:** Phase 2 in progress. Modules 1–5 (effects, builder, manifest, BaseAgent, harness) complete. Both `foundry/scaffold/` and `foundry/harness/` are fully shimmed. 10 modules remaining.
+**Status:** Phase 2 in progress. Modules 1–6 (effects, builder, manifest, BaseAgent, harness, gateway) complete. `foundry/scaffold/`, `foundry/harness/`, and `foundry/gateway/` fully shimmed. 9 modules remaining.
 
 **Goal:** Move all production functionality from `agent-foundry/src/foundry/` into the appropriate `arc/packages/arc-*/src/arc/...` package, then delete `agent-foundry/`.
 
@@ -126,8 +126,8 @@ Update this section as modules migrate.
 | 2 | builder | **migrated** | ea68237 | yes |
 | 3 | manifest | **migrated** | 0997b63 | yes |
 | 4 | base agent | **migrated** | 4009b91 | yes |
-| 5 | harness | **migrated** | (this commit) | yes |
-| 6 | gateway | not started | — | yes |
+| 5 | harness | **migrated** | 1016ee9 | yes |
+| 6 | gateway | **migrated** | (this commit) | yes |
 | 7 | memory | not started | — | yes |
 | 8 | tools | not started | — | yes |
 | 9 | observability | not started | — | yes |
