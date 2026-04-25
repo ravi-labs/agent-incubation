@@ -1,15 +1,46 @@
-"""arc.core.lifecycle — incubation pipeline stages and gates.
+"""arc.core.lifecycle — incubation pipeline stages, gates, and promotion service.
 
 DISCOVER → SHAPE → BUILD → VALIDATE → GOVERN → SCALE
 
-Each stage has an entry criteria checklist and required exit artifacts;
-promotion between stages is recorded on the AgentManifest.
+Two layers:
 
-Phase 3 work (the real promotion-with-gates system, auto-demotion on
-anomaly, approval workflows) builds on top of these primitives once the
-foundry → arc migration completes.
+  - stages.py   Static definitions: LifecycleStage enum + StageGate
+                metadata (entry criteria, exit artifacts, reviewer, environment).
+
+  - pipeline.py Runtime promotion machinery: PromotionService runs registered
+                GateChecks for the target stage, records every decision in a
+                PromotionAuditLog, and supports demotion as a first-class
+                operation for anomaly auto-rollback.
 """
 
+from .pipeline import (
+    GateCheck,
+    GateCheckResult,
+    GateChecker,
+    InMemoryPromotionAuditLog,
+    JsonlPromotionAuditLog,
+    PromotionAuditLog,
+    PromotionDecision,
+    PromotionOutcome,
+    PromotionRequest,
+    PromotionService,
+    artifact_exists_check,
+    evidence_field_check,
+    predicate_check,
+    reviewer_present_check,
+    stage_order_check,
+)
 from .stages import LifecycleStage, StageGate, stage_gate
 
-__all__ = ["LifecycleStage", "StageGate", "stage_gate"]
+__all__ = [
+    # Stage definitions
+    "LifecycleStage", "StageGate", "stage_gate",
+    # Promotion pipeline core
+    "PromotionRequest", "PromotionDecision", "PromotionOutcome",
+    "GateCheck", "GateCheckResult", "GateChecker", "PromotionService",
+    # Built-in check primitives
+    "stage_order_check", "evidence_field_check", "artifact_exists_check",
+    "reviewer_present_check", "predicate_check",
+    # Audit log
+    "PromotionAuditLog", "InMemoryPromotionAuditLog", "JsonlPromotionAuditLog",
+]
