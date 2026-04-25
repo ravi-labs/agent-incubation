@@ -1,8 +1,8 @@
 """
 arc.harness — sandbox testing layer.
 
-Run any Arc agent locally against synthetic fixture data without
-touching real external systems.
+Provides everything needed to run any arc agent locally against synthetic
+fixture data, without touching real external systems.
 
 Quick start:
     from arc.harness import HarnessBuilder
@@ -15,18 +15,24 @@ Quick start:
     )
     report.print()
 
+Native after migration module 5 — replaces the prior re-export stub.
+
+The harness:
+  - Routes all gateway fetches to in-memory fixture data
+  - Captures every ALLOW/ASK/DENY decision in a ShadowAuditSink
+  - Auto-approves every ASK via SandboxApprover
+  - Produces a DecisionReport showing exactly what the agent would have done
+
 Swapping to production:
-    Replace HarnessBuilder with RuntimeBuilder from arc.runtime.
-    The agent class, manifest, and policy stay identical.
+    Replace HarnessBuilder with RuntimeBuilder from arc.runtime. The agent
+    class, manifest, and policy stay identical.
 """
 
-from foundry.harness import (
-    HarnessBuilder,
-    SandboxApprover,
-    ShadowAuditSink,
-    DecisionReport,
-    FixtureLoader,
-)
+from .approver import SandboxApprover
+from .builder import HarnessBuilder
+from .fixtures import FixtureLoader
+from .report import DecisionReport
+from .shadow import ShadowAuditSink
 
 __all__ = [
     "HarnessBuilder",
