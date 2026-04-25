@@ -10,7 +10,16 @@ requires-python = ">=3.11"
 dependencies = [
     "arc-core>=0.1.0",
     "pyyaml>=6.0",
+    # Migration shim: arc-harness re-exports foundry.harness today.
+    # Drops once the harness module migrates natively (see docs/migration-plan.md).
+    "agent-foundry",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/arc"]
