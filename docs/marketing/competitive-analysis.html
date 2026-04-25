@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Framework Competitive Analysis — Q1 2026</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    line-height: 1.6;
+    padding: 2rem;
+  }
+
+  .page-header {
+    max-width: 1400px;
+    margin: 0 auto 2.5rem;
+  }
+  .page-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.4rem;
+  }
+  .page-header .sub {
+    color: #94a3b8;
+    font-size: 0.95rem;
+  }
+  .page-header .badge {
+    display: inline-block;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    padding: 0.2rem 0.8rem;
+    font-size: 0.75rem;
+    color: #7dd3fc;
+    margin-left: 0.8rem;
+    vertical-align: middle;
+  }
+
+  /* ── Section headings ── */
+  .section {
+    max-width: 1400px;
+    margin: 0 auto 3rem;
+  }
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e293b;
+  }
+
+  /* ── Summary cards ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1.2rem 1.4rem;
+  }
+  .card.highlight {
+    border-color: #6366f1;
+    background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 100%);
+  }
+  .card-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.3rem;
+  }
+  .card.highlight .card-name { color: #a5b4fc; }
+  .card-tagline {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-bottom: 0.6rem;
+  }
+  .card-desc { font-size: 0.85rem; color: #94a3b8; }
+
+  /* ── Main comparison table ── */
+  .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid #1e293b; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  thead th {
+    background: #0f172a;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #94a3b8;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+  thead th.us {
+    color: #a5b4fc;
+    background: #1e1b4b;
+  }
+  thead th.row-label {
+    min-width: 200px;
+    background: #0a0f1a;
+  }
+  tbody tr:nth-child(even) td { background: #111827; }
+  tbody tr:nth-child(odd)  td { background: #0f1117; }
+  td {
+    padding: 0.65rem 1rem;
+    vertical-align: top;
+    border-right: 1px solid #1a2235;
+    color: #cbd5e1;
+    min-width: 140px;
+  }
+  td.row-label {
+    font-weight: 600;
+    color: #94a3b8;
+    background: #0a0f1a !important;
+    white-space: nowrap;
+    min-width: 200px;
+    font-size: 0.8rem;
+  }
+  td.cat-label {
+    font-weight: 700;
+    color: #7dd3fc;
+    background: #0c1829 !important;
+    padding: 0.5rem 1rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  td.us-col { background: #130f2a !important; }
+  tbody tr:nth-child(even) td.us-col { background: #1a1040 !important; }
+
+  /* ── Cell badges ── */
+  .yes  { color: #4ade80; font-weight: 600; }
+  .no   { color: #f87171; }
+  .part { color: #fbbf24; }
+  .na   { color: #475569; }
+  .pill {
+    display: inline-block;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin: 0.1rem 0.1rem 0.1rem 0;
+    white-space: nowrap;
+  }
+  .pill-green  { background: #14532d; color: #4ade80; }
+  .pill-red    { background: #450a0a; color: #f87171; }
+  .pill-yellow { background: #422006; color: #fbbf24; }
+  .pill-blue   { background: #0c2a4a; color: #7dd3fc; }
+  .pill-purple { background: #2e1065; color: #d8b4fe; }
+  .pill-gray   { background: #1e293b; color: #64748b; }
+
+  /* ── Strengths / weaknesses ── */
+  .sw-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+  .sw-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+  }
+  .sw-card.us { border-color: #4f46e5; background: #1e1b4b; }
+  .sw-name { font-weight: 700; font-size: 0.9rem; color: #e2e8f0; margin-bottom: 0.6rem; }
+  .sw-name span { font-weight: 400; font-size: 0.75rem; color: #64748b; margin-left: 0.4rem; }
+  .sw-list { list-style: none; }
+  .sw-list li { font-size: 0.82rem; color: #94a3b8; padding: 0.2rem 0; padding-left: 1.2rem; position: relative; }
+  .sw-list li::before { position: absolute; left: 0; }
+  .sw-list.strengths li::before { content: "✦"; color: #4ade80; }
+  .sw-list.weaknesses li::before { content: "▲"; color: #f87171; }
+  .sw-list.neutral li::before { content: "◆"; color: #7dd3fc; }
+
+  /* ── Positioning matrix ── */
+  .matrix-wrap {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .matrix-title { font-weight: 600; color: #94a3b8; margin-bottom: 1rem; font-size: 0.9rem; }
+  .matrix-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    background: #334155;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 420px;
+  }
+  .quadrant {
+    background: #0f1117;
+    padding: 1rem;
+    position: relative;
+  }
+  .quadrant-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #475569;
+    margin-bottom: 0.6rem;
+  }
+  .q-tl .quadrant-label { color: #fbbf24; }
+  .q-tr .quadrant-label { color: #4ade80; }
+  .q-bl .quadrant-label { color: #f87171; }
+  .q-br .quadrant-label { color: #94a3b8; }
+  .dot {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    margin: 0.2rem 0.2rem 0.2rem 0;
+    border: 1px solid transparent;
+  }
+  .dot-us      { background: #2e1065; border-color: #7c3aed; color: #d8b4fe; }
+  .dot-maf     { background: #0c2a4a; border-color: #0284c7; color: #7dd3fc; }
+  .dot-magt    { background: #082032; border-color: #0891b2; color: #67e8f9; }
+  .dot-lg      { background: #0a2a1f; border-color: #059669; color: #6ee7b7; }
+  .dot-crew    { background: #2a1a0a; border-color: #d97706; color: #fcd34d; }
+  .dot-nemo    { background: #1a2a0a; border-color: #65a30d; color: #bef264; }
+  .dot-bac     { background: #2a100a; border-color: #dc2626; color: #fca5a5; }
+  .dot-oai     { background: #0a1a2a; border-color: #3b82f6; color: #93c5fd; }
+  .axis-label {
+    font-size: 0.75rem;
+    color: #475569;
+    text-align: center;
+    margin-top: 0.8rem;
+    font-style: italic;
+  }
+
+  /* ── Verdict banner ── */
+  .verdict {
+    background: linear-gradient(135deg, #1e1b4b, #1a0a2e);
+    border: 1px solid #4f46e5;
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+  }
+  .verdict h3 { color: #a5b4fc; font-size: 1.1rem; margin-bottom: 0.8rem; }
+  .verdict p  { color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem; }
+  .verdict strong { color: #e2e8f0; }
+
+  footer { max-width:1400px; margin:2rem auto 0; color:#334155; font-size:0.75rem; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Agent Framework Competitive Analysis</h1>
+  <p class="sub">
+    agent-foundry vs. the field &nbsp;·&nbsp; Q1 2026
+    <span class="badge">Research Preview</span>
+  </p>
+</div>
+
+<!-- ── SECTION 1: Landscape overview cards ── -->
+<div class="section">
+  <div class="section-title">Frameworks in scope</div>
+  <div class="card-grid">
+    <div class="card highlight">
+      <div class="card-name">agent-foundry (us)</div>
+      <div class="card-tagline">Pre-execution typed policy gate</div>
+      <div class="card-desc">Manifest-declared effect scope, hard-deny layer, domain taxonomies (Financial / Healthcare / Legal), built-in audit JSONL + HTML report, Lambda + local deploy.</div>
+    </div>
+    <div class="card">
+      <div class="card-name">Microsoft Agent Framework</div>
+      <div class="card-tagline">AutoGen + Semantic Kernel unified</div>
+      <div class="card-desc">RC Feb 2026. Graph-based workflows, multi-pattern orchestration (sequential, concurrent, group-chat, handoff, Magentic), A2A / AG-UI / MCP interop. Python + .NET.</div>
+    </div>
+    <div class="card">
+      <div class="card-name">MS Agent Governance Toolkit</div>
+      <div class="card-tagline">Cross-framework governance add-on</div>
+      <div class="card-desc">Open-source. Pre-execution capability model with allowed/denied tools, zero-trust agent identity (Ed25519 / SPIFFE), &lt;0.1 ms overhead. Integrates with 12+ frameworks. Covers OWASP Agentic Top 10.</div>
+    </div>
+    <div class="card">
+      <div class="card-name">LangGraph</div>
+      <div class="card-tagline">Graph-based stateful orchestration</div>
+      <div class="card-desc">Explicit DAG/state machine for agents. Durable execution, checkpointing, strong human-in-the-loop. LangSmith for observability. Backed by LangChain Inc.</div>
+    </div>
+    <div class="card">
+      <div class="card-name">CrewAI</div>
+      <div class="card-tagline">Role-based agent teams</div>
+      <div class="card-desc">Intuitive crew/role/task model. Fastest setup, growing A2A support, commercial enterprise tier. Can model approval flows as agent roles. Most GitHub stars.</div>
+    </div>
+    <div class="card">
+      <div class="card-name">Bedrock AgentCore (AWS)</div>
+      <div class="card-tagline">Managed cloud agent runtime</div>
+      <div class="card-desc">Announced re:Invent 2025. Real-time tool-call interception, Cedar policy language (natural language → policy), SOC 2 / HIPAA compliance. AWS IAM integration.</div>
+    </div>
+    <div class="card">
+      <div class="card-name">NeMo Guardrails (NVIDIA)</div>
+      <div class="card-tagline">Rule-driven output supervision</div>
+      <div class="card-desc">Colang configuration language for topic rails, output filtering, and tool-access rules. Post-hoc and inline guardrail patterns. Open-source, model-agnostic.</div>
+    </div>
+    <div class="card">
+      <div class="card-name">OpenAI Agents SDK</div>
+      <div class="card-tagline">Tool use + handoffs + tracing</div>
+      <div class="card-desc">Open-source Python/TS SDK. Tool use, agent handoffs, built-in tracing. Provider-agnostic via AGENTS.md spec. Guardrails hooks available but no typed taxonomy.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SECTION 2: Feature comparison matrix ── -->
+<div class="section">
+  <div class="section-title">Feature-by-feature comparison</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="row-label">Capability</th>
+          <th class="us">agent-foundry</th>
+          <th>MS Agent Framework</th>
+          <th>MS Governance Toolkit</th>
+          <th>LangGraph</th>
+          <th>CrewAI</th>
+          <th>Bedrock AgentCore</th>
+          <th>NeMo Guardrails</th>
+          <th>OpenAI Agents SDK</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- POLICY GATE -->
+        <tr><td class="cat-label" colspan="9">Policy Gate</td></tr>
+        <tr>
+          <td class="row-label">Pre-execution policy check</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — <em>every</em> tool call gated via <code>run_effect()</code></td>
+          <td><span class="part">⚠ Partial</span> — approval-required tools emit pending request; not a typed gate</td>
+          <td><span class="yes">✔ Yes</span> — capability model evaluated &lt;0.1 ms before execution</td>
+          <td><span class="part">⚠ Partial</span> — graph nodes can gate; not enforced by default</td>
+          <td><span class="part">⚠ Partial</span> — validation/approval nodes possible but manual</td>
+          <td><span class="yes">✔ Yes</span> — Cedar policies intercept every tool call at runtime</td>
+          <td><span class="no">✘ No</span> — inline rail checks on LLM <em>output</em>, not pre-tool-call</td>
+          <td><span class="part">⚠ Partial</span> — guardrails hook available; developer must wire it</td>
+        </tr>
+        <tr>
+          <td class="row-label">Typed effect / action taxonomy</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — Python Enum (<code>FinancialEffect</code>, <code>HealthcareEffect</code>, <code>LegalEffect</code>); 100+ named effects</td>
+          <td><span class="no">✘ No</span> — tool names are strings</td>
+          <td><span class="part">⚠ Partial</span> — capability model with allowed/denied tool lists; no semantic enum tiers</td>
+          <td><span class="no">✘ No</span> — arbitrary tool names</td>
+          <td><span class="no">✘ No</span> — arbitrary tool names</td>
+          <td><span class="part">⚠ Partial</span> — Cedar resource types; developer-defined, no standard taxonomy</td>
+          <td><span class="no">✘ No</span> — topic / output rail categories only</td>
+          <td><span class="no">✘ No</span> — tool names are strings</td>
+        </tr>
+        <tr>
+          <td class="row-label">Domain-specific taxonomies</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — Financial (36), Healthcare (35), Legal (36) + extensible base</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="no">✘ No</span> — generic allow/deny only</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="no">✘ No</span> — Cedar is generic; no prebuilt domain libraries</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="no">✘ No</span></td>
+        </tr>
+        <tr>
+          <td class="row-label">Manifest-declared scope</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — <code>AgentManifest.allowed_effects[]</code> declares allowed effect set per agent at design time</td>
+          <td><span class="part">⚠ Partial</span> — tool lists in agent definition, no effect scope concept</td>
+          <td><span class="yes">✔ Yes</span> — <code>CapabilityModel</code> defines per-agent allowed/denied tools</td>
+          <td><span class="no">✘ No</span> — tools registered at runtime</td>
+          <td><span class="no">✘ No</span> — tools assigned per agent but no formal scope contract</td>
+          <td><span class="yes">✔ Yes</span> — Cedar policy defines allowed actions per agent</td>
+          <td><span class="no">✘ No</span> — rails are global, not per-agent</td>
+          <td><span class="no">✘ No</span></td>
+        </tr>
+        <tr>
+          <td class="row-label">Hard-deny layer</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — DENY effects in taxonomy unconditionally blocked regardless of policy; separate from allow list</td>
+          <td><span class="no">✘ No</span> — no hard-deny concept</td>
+          <td><span class="yes">✔ Yes</span> — <code>denied_tools[]</code> block regardless of other rules</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="part">⚠ Partial</span> — Cedar <code>Forbid</code> clauses; developer must define them</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="no">✘ No</span></td>
+        </tr>
+        <tr>
+          <td class="row-label">Human-in-the-loop approval (ASK)</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — <code>ASK</code> decision routes to <code>HumanApprovalGateway</code>; agent suspends until resolved</td>
+          <td><span class="yes">✔ Yes</span> — approval-required tools emit pending request routed to UI/queue</td>
+          <td><span class="no">✘ Not built-in</span> — capability model is ALLOW/DENY only</td>
+          <td><span class="yes">✔ Yes</span> — first-class <code>interrupt</code> / human-in-loop node</td>
+          <td><span class="part">⚠ Partial</span> — modelling approval as an agent role</td>
+          <td><span class="part">⚠ Partial</span> — escalation via Cedar; not a built-in ASK pattern</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="part">⚠ Partial</span> — developer hooks only</td>
+        </tr>
+        <tr>
+          <td class="row-label">Policy enforcement latency</td>
+          <td class="us-col"><span class="pill pill-blue">~0.2 ms</span> Python in-process eval</td>
+          <td><span class="pill pill-gray">N/A</span> no dedicated policy layer</td>
+          <td><span class="pill pill-green">&lt;0.1 ms</span> claimed</td>
+          <td><span class="pill pill-gray">N/A</span></td>
+          <td><span class="pill pill-gray">N/A</span></td>
+          <td><span class="pill pill-yellow">~1–5 ms</span> Cedar eval in-process</td>
+          <td><span class="pill pill-yellow">~5–20 ms</span> NLP rail evaluation</td>
+          <td><span class="pill pill-gray">N/A</span></td>
+        </tr>
+
+        <!-- ORCHESTRATION -->
+        <tr><td class="cat-label" colspan="9">Orchestration</td></tr>
+        <tr>
+          <td class="row-label">Multi-agent orchestration</td>
+          <td class="us-col"><span class="part">⚠ Basic</span> — single-agent primary; multi-agent via gateway routing</td>
+          <td><span class="yes">✔ Rich</span> — sequential, concurrent, group-chat, handoff, Magentic patterns + streaming</td>
+          <td><span class="na">—</span> governance layer, not orchestrator</td>
+          <td><span class="yes">✔ Rich</span> — DAG / state machine with conditional branching</td>
+          <td><span class="yes">✔ Rich</span> — crew/role/task model; hierarchical process</td>
+          <td><span class="yes">✔ Managed</span> — cloud-hosted multi-agent with step functions integration</td>
+          <td><span class="na">—</span> guardrail layer only</td>
+          <td><span class="yes">✔ Yes</span> — handoff protocol, Swarm-style delegation</td>
+        </tr>
+        <tr>
+          <td class="row-label">Durable / long-running execution</td>
+          <td class="us-col"><span class="part">⚠ Partial</span> — Lambda deployment; state not durable across cold starts without external store</td>
+          <td><span class="yes">✔ Yes</span> — session-based state management, checkpointing</td>
+          <td><span class="na">—</span></td>
+          <td><span class="yes">✔ Yes</span> — first-class checkpointing and replay</td>
+          <td><span class="part">⚠ Partial</span> — basic persistence hooks</td>
+          <td><span class="yes">✔ Yes</span> — managed AWS runtime, durable by default</td>
+          <td><span class="na">—</span></td>
+          <td><span class="part">⚠ Partial</span> — no built-in checkpointing</td>
+        </tr>
+        <tr>
+          <td class="row-label">Streaming / real-time output</td>
+          <td class="us-col"><span class="no">✘ No</span></td>
+          <td><span class="yes">✔ Yes</span> — streaming in all orchestration patterns</td>
+          <td><span class="na">—</span></td>
+          <td><span class="yes">✔ Yes</span></td>
+          <td><span class="yes">✔ Yes</span></td>
+          <td><span class="yes">✔ Yes</span></td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="yes">✔ Yes</span></td>
+        </tr>
+
+        <!-- OBSERVABILITY -->
+        <tr><td class="cat-label" colspan="9">Observability &amp; Audit</td></tr>
+        <tr>
+          <td class="row-label">Built-in audit log</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — JSONL audit sink; every tool call, decision, outcome recorded</td>
+          <td><span class="yes">✔ Yes</span> — telemetry, OpenTelemetry integration</td>
+          <td><span class="yes">✔ Yes</span> — "flight recorder" full audit trail</td>
+          <td><span class="yes">✔ Yes</span> — LangSmith tracing</td>
+          <td><span class="part">⚠ Partial</span> — basic logging; LangSmith-compatible</td>
+          <td><span class="yes">✔ Yes</span> — CloudWatch + X-Ray integration</td>
+          <td><span class="part">⚠ Partial</span> — event logging for rails triggered</td>
+          <td><span class="yes">✔ Yes</span> — built-in tracing, OpenAI dashboard</td>
+        </tr>
+        <tr>
+          <td class="row-label">HTML audit report / dashboard</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — <code>foundry-audit</code> CLI generates self-contained HTML with summary cards + filterable timeline</td>
+          <td><span class="no">✘ No</span> — external LangSmith-equivalent needed</td>
+          <td><span class="no">✘ No</span> — log output only</td>
+          <td><span class="yes">✔ Yes</span> — LangSmith (SaaS, paid)</td>
+          <td><span class="part">⚠ Partial</span> — CrewAI+ dashboard (commercial)</td>
+          <td><span class="yes">✔ Yes</span> — AWS CloudWatch dashboards</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="yes">✔ Yes</span> — OpenAI platform traces</td>
+        </tr>
+        <tr>
+          <td class="row-label">Offline / air-gapped audit</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — local JSONL + self-contained HTML; zero cloud dependency</td>
+          <td><span class="no">✘ No</span> — Azure-integrated</td>
+          <td><span class="yes">✔ Yes</span> — local log files</td>
+          <td><span class="no">✘ No</span> — LangSmith is SaaS</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="no">✘ No</span> — AWS cloud required</td>
+          <td><span class="yes">✔ Yes</span> — local</td>
+          <td><span class="no">✘ No</span></td>
+        </tr>
+        <tr>
+          <td class="row-label">Compliance-ready (HIPAA / SOC 2)</td>
+          <td class="us-col"><span class="part">⚠ Framework only</span> — typed effects + audit log support compliance; deployment compliance is operator's responsibility</td>
+          <td><span class="yes">✔ Yes</span> — Azure native; SOC 2, HIPAA via Azure compliance</td>
+          <td><span class="part">⚠ Partial</span> — OWASP Agentic Top 10; not a certified product</td>
+          <td><span class="part">⚠ Partial</span> — via LangSmith Enterprise</td>
+          <td><span class="part">⚠ Partial</span> — enterprise tier</td>
+          <td><span class="yes">✔ Yes</span> — AWS compliance certifications</td>
+          <td><span class="no">✘ No</span> — open-source toolkit</td>
+          <td><span class="part">⚠ Partial</span> — via OpenAI Enterprise</td>
+        </tr>
+
+        <!-- MEMORY -->
+        <tr><td class="cat-label" colspan="9">Memory &amp; State</td></tr>
+        <tr>
+          <td class="row-label">Conversation buffer</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — <code>ConversationBuffer</code>: bounded ring-buffer, session-keyed, OpenAI message format</td>
+          <td><span class="yes">✔ Yes</span> — session-based state management</td>
+          <td><span class="na">—</span></td>
+          <td><span class="yes">✔ Yes</span> — state persistence per run</td>
+          <td><span class="yes">✔ Yes</span> — crew-level memory</td>
+          <td><span class="yes">✔ Yes</span> — managed session state</td>
+          <td><span class="na">—</span></td>
+          <td><span class="yes">✔ Yes</span> — thread-based context</td>
+        </tr>
+        <tr>
+          <td class="row-label">Long-term KV memory with TTL</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — <code>FoundryMemoryStore</code>: TTL-aware KV, <code>LocalJsonStore</code> + <code>DynamoDBMemoryBackend</code></td>
+          <td><span class="part">⚠ Partial</span> — session state; no explicit TTL memory store</td>
+          <td><span class="na">—</span></td>
+          <td><span class="part">⚠ Partial</span> — via external memory backends</td>
+          <td><span class="yes">✔ Yes</span> — long-term, entity, short-term memory types</td>
+          <td><span class="yes">✔ Yes</span> — managed knowledge base</td>
+          <td><span class="na">—</span></td>
+          <td><span class="part">⚠ Partial</span> — external store needed</td>
+        </tr>
+
+        <!-- DEPLOYMENT -->
+        <tr><td class="cat-label" colspan="9">Deployment &amp; Integration</td></tr>
+        <tr>
+          <td class="row-label">Serverless (Lambda) deploy</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — first-class <code>make_handler()</code> with event normalisation (SQS, EventBridge, direct)</td>
+          <td><span class="part">⚠ Partial</span> — Azure Functions support; no AWS Lambda native</td>
+          <td><span class="na">—</span></td>
+          <td><span class="part">⚠ Partial</span> — possible but not first-class</td>
+          <td><span class="part">⚠ Partial</span> — Docker/Cloud Run recommended</td>
+          <td><span class="yes">✔ Yes</span> — AWS-native Lambda integration</td>
+          <td><span class="part">⚠ Partial</span> — embeds in any Python app</td>
+          <td><span class="part">⚠ Partial</span> — possible; no native handler</td>
+        </tr>
+        <tr>
+          <td class="row-label">Model-agnostic</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — any model via gateway connector</td>
+          <td><span class="yes">✔ Yes</span> — multi-provider; Bedrock, OpenAI, Azure, Ollama</td>
+          <td><span class="yes">✔ Yes</span> — framework-agnostic</td>
+          <td><span class="yes">✔ Yes</span> — any LLM</td>
+          <td><span class="yes">✔ Yes</span></td>
+          <td><span class="part">⚠ Partial</span> — Bedrock models preferred; 3rd party possible</td>
+          <td><span class="yes">✔ Yes</span></td>
+          <td><span class="part">⚠ Partial</span> — OpenAI preferred; others via adapters</td>
+        </tr>
+        <tr>
+          <td class="row-label">Language support</td>
+          <td class="us-col"><span class="pill pill-blue">Python</span></td>
+          <td><span class="pill pill-blue">Python</span> <span class="pill pill-purple">.NET/C#</span></td>
+          <td><span class="pill pill-blue">Python</span> <span class="pill pill-purple">.NET</span></td>
+          <td><span class="pill pill-blue">Python</span> <span class="pill pill-green">JS/TS</span></td>
+          <td><span class="pill pill-blue">Python</span></td>
+          <td><span class="pill pill-blue">Python</span> <span class="pill pill-green">JS/TS</span></td>
+          <td><span class="pill pill-blue">Python</span></td>
+          <td><span class="pill pill-blue">Python</span> <span class="pill pill-green">TypeScript</span></td>
+        </tr>
+        <tr>
+          <td class="row-label">Open source</td>
+          <td class="us-col"><span class="yes">✔ Yes</span></td>
+          <td><span class="yes">✔ Yes</span></td>
+          <td><span class="yes">✔ Yes</span></td>
+          <td><span class="yes">✔ Yes</span></td>
+          <td><span class="yes">✔ Yes</span> (+ commercial tier)</td>
+          <td><span class="part">⚠ Partial</span> — managed service; some OSS components</td>
+          <td><span class="yes">✔ Yes</span></td>
+          <td><span class="yes">✔ Yes</span></td>
+        </tr>
+        <tr>
+          <td class="row-label">MCP / A2A / interop standards</td>
+          <td class="us-col"><span class="part">⚠ Partial</span> — MCP-compatible via gateway; A2A not yet</td>
+          <td><span class="yes">✔ Yes</span> — A2A, AG-UI, MCP first-class</td>
+          <td><span class="na">—</span></td>
+          <td><span class="part">⚠ Partial</span> — MCP via LangChain tools</td>
+          <td><span class="part">⚠ Partial</span> — growing A2A support</td>
+          <td><span class="part">⚠ Partial</span> — AWS-native protocols</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="yes">✔ Yes</span> — AGENTS.md spec, MCP</td>
+        </tr>
+
+        <!-- EVAL / TESTING -->
+        <tr><td class="cat-label" colspan="9">Evaluation &amp; Testing</td></tr>
+        <tr>
+          <td class="row-label">Built-in eval / scenario runner</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — <code>FoundryEvaluator</code>: scenario assertions on effects allowed/denied, output, latency, exception</td>
+          <td><span class="part">⚠ Partial</span> — AutoGen Studio has eval; no typed effect assertions</td>
+          <td><span class="na">—</span></td>
+          <td><span class="part">⚠ Partial</span> — LangSmith evals (SaaS)</td>
+          <td><span class="no">✘ No</span> — external evals only</td>
+          <td><span class="part">⚠ Partial</span> — Bedrock model evals; not agent-policy evals</td>
+          <td><span class="part">⚠ Partial</span> — Colang test scenarios</td>
+          <td><span class="part">⚠ Partial</span> — tracing + evals via platform</td>
+        </tr>
+        <tr>
+          <td class="row-label">Policy regression testing</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — test that <em>specific effects</em> are ALLOW/DENY/ASK given a scenario; 125+ tests in suite</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="part">⚠ Partial</span> — unit testable capability model</td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="no">✘ No</span></td>
+          <td><span class="part">⚠ Partial</span> — Colang test scenarios</td>
+          <td><span class="no">✘ No</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── SECTION 3: Strengths/Weaknesses ── -->
+<div class="section">
+  <div class="section-title">Per-framework summary</div>
+  <div class="sw-grid">
+
+    <div class="sw-card us">
+      <div class="sw-name">agent-foundry <span>our position</span></div>
+      <ul class="sw-list strengths">
+        <li>Only framework with a typed, domain-specific effect taxonomy (Financial / Healthcare / Legal)</li>
+        <li>Pre-execution gate is design-time-declared in manifest — scope is <em>auditable before deploy</em></li>
+        <li>Hard-deny layer is unconditional — cannot be bypassed by policy misconfiguration</li>
+        <li>Built-in policy regression testing via <code>FoundryEvaluator</code></li>
+        <li>Self-contained HTML audit report — no SaaS dependency, works air-gapped</li>
+        <li>Lambda-native with event normalisation (SQS / EventBridge / direct)</li>
+      </ul>
+      <ul class="sw-list weaknesses" style="margin-top:0.6rem;">
+        <li>Multi-agent orchestration is basic compared to MAF / LangGraph</li>
+        <li>No streaming output</li>
+        <li>Python-only; no .NET or TypeScript</li>
+        <li>A2A / AG-UI interop not yet implemented</li>
+        <li>No managed cloud runtime; operator runs own infra</li>
+      </ul>
+    </div>
+
+    <div class="sw-card">
+      <div class="sw-name">Microsoft Agent Framework <span>AutoGen + Semantic Kernel unified</span></div>
+      <ul class="sw-list strengths">
+        <li>Most complete orchestration patterns (sequential, concurrent, group-chat, handoff, Magentic)</li>
+        <li>Streaming first-class across all patterns</li>
+        <li>Multi-language: Python + .NET from day one</li>
+        <li>Azure ecosystem: SOC 2, HIPAA, formal SLAs</li>
+        <li>A2A, AG-UI, MCP interoperability standards built in</li>
+      </ul>
+      <ul class="sw-list weaknesses" style="margin-top:0.6rem;">
+        <li>No typed effect taxonomy — tools are plain strings</li>
+        <li>No hard-deny layer; governance is add-on (separate Toolkit)</li>
+        <li>Azure-centric; AWS Lambda not first-class</li>
+        <li>Policy regression testing not built in</li>
+      </ul>
+    </div>
+
+    <div class="sw-card">
+      <div class="sw-name">MS Agent Governance Toolkit <span>cross-framework governance add-on</span></div>
+      <ul class="sw-list strengths">
+        <li>Pre-execution gate with &lt;0.1 ms overhead</li>
+        <li>Zero-trust agent identity (Ed25519 / SPIFFE/SVID) — unique among all listed</li>
+        <li>Integrates with 12+ frameworks; works alongside agent-foundry</li>
+        <li>Addresses OWASP Agentic Top 10 systematically</li>
+        <li>Denied tools hard-blocked like our DENY tier</li>
+      </ul>
+      <ul class="sw-list weaknesses" style="margin-top:0.6rem;">
+        <li>Generic allow/deny lists — no semantic tiers or domain vocabularies</li>
+        <li>No ASK / human-in-loop in capability model</li>
+        <li>No built-in audit dashboard</li>
+        <li>Still early — governance toolkit is newer than the core framework</li>
+      </ul>
+    </div>
+
+    <div class="sw-card">
+      <div class="sw-name">LangGraph <span>LangChain Inc.</span></div>
+      <ul class="sw-list strengths">
+        <li>Best-in-class stateful workflows — explicit DAG + durable execution</li>
+        <li>First-class human-in-the-loop interrupt node</li>
+        <li>LangSmith tracing and evals (strong observability)</li>
+        <li>Strong enterprise support and consulting ecosystem</li>
+      </ul>
+      <ul class="sw-list weaknesses" style="margin-top:0.6rem;">
+        <li>No typed policy gate — governance must be hand-rolled</li>
+        <li>LangSmith observability is SaaS (not air-gapped)</li>
+        <li>Graph mental model has a steep learning curve</li>
+      </ul>
+    </div>
+
+    <div class="sw-card">
+      <div class="sw-name">CrewAI</div>
+      <ul class="sw-list strengths">
+        <li>Easiest onboarding — role/task model maps to business language</li>
+        <li>Fastest time-to-demo</li>
+        <li>Largest GitHub community (most stars)</li>
+        <li>Growing A2A support; active development</li>
+      </ul>
+      <ul class="sw-list weaknesses" style="margin-top:0.6rem;">
+        <li>No policy gate or typed effects</li>
+        <li>Approval flows require modelling as agent roles — fragile</li>
+        <li>Dashboard is commercial add-on</li>
+      </ul>
+    </div>
+
+    <div class="sw-card">
+      <div class="sw-name">Bedrock AgentCore <span>AWS re:Invent 2025</span></div>
+      <ul class="sw-list strengths">
+        <li>Real-time Cedar policy intercepts every tool call</li>
+        <li>AWS compliance certifications (SOC 2, HIPAA, PCI) out of the box</li>
+        <li>Fully managed runtime — no infra to run</li>
+        <li>Natural language → Cedar policy compilation lowers barrier</li>
+      </ul>
+      <ul class="sw-list weaknesses" style="margin-top:0.6rem;">
+        <li>AWS lock-in; Cedar policies are AWS-specific</li>
+        <li>No prebuilt domain taxonomies (Financial / Healthcare / Legal)</li>
+        <li>Newer product — operational maturity still being established</li>
+        <li>Cost: managed runtime pricing on top of model costs</li>
+      </ul>
+    </div>
+
+    <div class="sw-card">
+      <div class="sw-name">NeMo Guardrails <span>NVIDIA</span></div>
+      <ul class="sw-list strengths">
+        <li>Strong topical and output rail capability (hallucination, off-topic)</li>
+        <li>Composable with other frameworks as a middleware layer</li>
+        <li>Well-documented Colang DSL</li>
+        <li>Open-source, model-agnostic</li>
+      </ul>
+      <ul class="sw-list weaknesses" style="margin-top:0.6rem;">
+        <li>Post-hoc output filtering, NOT pre-tool-call gate</li>
+        <li>No action taxonomy or manifest scoping</li>
+        <li>Higher latency (~5–20 ms per call for NLP evaluation)</li>
+        <li>Solves a different problem — content safety, not action governance</li>
+      </ul>
+    </div>
+
+    <div class="sw-card">
+      <div class="sw-name">OpenAI Agents SDK</div>
+      <ul class="sw-list strengths">
+        <li>Cleanest handoff protocol (Swarm-style delegation)</li>
+        <li>Provider-agnostic via AGENTS.md spec</li>
+        <li>MCP-native; large tool ecosystem</li>
+        <li>Built-in tracing tied to OpenAI platform</li>
+      </ul>
+      <ul class="sw-list weaknesses" style="margin-top:0.6rem;">
+        <li>No pre-execution policy gate; guardrails hooks are developer responsibility</li>
+        <li>No typed effect taxonomy</li>
+        <li>Tracing is tied to OpenAI SaaS; not air-gappable</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── SECTION 4: Positioning matrix ── -->
+<div class="section">
+  <div class="section-title">Positioning — Policy depth vs. Orchestration power</div>
+  <div class="matrix-wrap">
+    <div class="matrix-title">X-axis: Orchestration sophistication (low → high) &nbsp;|&nbsp; Y-axis: Pre-execution policy depth (low → high)</div>
+    <div class="matrix-grid">
+      <div class="quadrant q-tl">
+        <div class="quadrant-label">High policy depth / Low orchestration</div>
+        <span class="dot dot-us">agent-foundry ★</span>
+        <span class="dot dot-nemo">NeMo Guardrails*</span>
+      </div>
+      <div class="quadrant q-tr">
+        <div class="quadrant-label">High policy depth / High orchestration ← Target</div>
+        <span class="dot dot-magt">MS Governance Toolkit + MAF</span>
+        <span class="dot dot-bac">Bedrock AgentCore</span>
+      </div>
+      <div class="quadrant q-bl">
+        <div class="quadrant-label">Low policy depth / Low orchestration</div>
+        <span class="dot dot-oai">OpenAI Agents SDK</span>
+      </div>
+      <div class="quadrant q-br">
+        <div class="quadrant-label">Low policy depth / High orchestration</div>
+        <span class="dot dot-maf">MS Agent Framework</span>
+        <span class="dot dot-lg">LangGraph</span>
+        <span class="dot dot-crew">CrewAI</span>
+      </div>
+    </div>
+    <div class="axis-label">* NeMo Guardrails enforces output/topic rails but not pre-execution tool calls — placed high-left for guardrail depth, not action governance depth</div>
+  </div>
+</div>
+
+<!-- ── SECTION 5: Verdict ── -->
+<div class="section">
+  <div class="section-title">Strategic verdict</div>
+  <div class="verdict">
+    <h3>Where agent-foundry wins unconditionally</h3>
+    <p><strong>Typed, domain-specific effect taxonomy</strong> — No competitor ships a prebuilt <code>FinancialEffect</code>, <code>HealthcareEffect</code>, or <code>LegalEffect</code> enum. Bedrock AgentCore uses Cedar (generic resource strings). The MS Governance Toolkit uses allow/deny tool lists. We have 100+ semantically-typed effects that map directly to compliance vocabulary (ERISA, HIPAA, UPL). This is a genuine moat.</p>
+    <p><strong>Policy regression testing</strong> — Writing a test that says "this agent MUST DENY <code>FinancialEffect.TRADE_EXECUTE</code>" is only possible with a typed taxonomy. No other framework can do this. LangSmith evals check output quality; we check governance correctness.</p>
+    <p><strong>Offline audit report</strong> — Self-contained HTML with zero SaaS dependency is a real differentiator for regulated industries (banking, healthcare, legal) that cannot send audit data to a third-party cloud.</p>
+
+    <h3 style="margin-top:1rem;">Where we need to close the gap</h3>
+    <p><strong>Orchestration</strong> — MAF and LangGraph are materially ahead. Adding a basic multi-agent router (handoff + sequential graph) would keep enterprise prospects from having to bolt on LangGraph just for orchestration.</p>
+    <p><strong>A2A / MCP interop</strong> — The ecosystem is converging on these standards. Shipping MCP-native tool dispatch would let agent-foundry tools be discovered and called by MAF or CrewAI agents — turning governance into a cross-ecosystem feature rather than an island.</p>
+    <p><strong>Managed cloud runtime option</strong> — Bedrock AgentCore's fully managed model removes an ops burden. A lightweight Foundry-as-a-service wrapper (even just a Docker Compose + Terraform module) would lower the adoption barrier for non-platform teams.</p>
+  </div>
+</div>
+
+<footer>
+  agent-foundry competitive analysis — generated March 2026 &nbsp;|&nbsp;
+  Sources: Microsoft Learn, GitHub microsoft/agent-governance-toolkit, devblogs.microsoft.com, refactored.pro, openagents.org, datacamp.com, dev.to
+</footer>
+
+</body>
+</html>

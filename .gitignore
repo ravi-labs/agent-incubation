@@ -42,3 +42,16 @@ Desktop.ini
 *.pfx
 secrets/
 credentials/
+
+# ── Python build / cache ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# ── Runtime artifacts (audit logs, outcome traces, generated reports) ───────
+*_audit.jsonl
+*_outcomes.jsonl
+audit-report-sample.html
