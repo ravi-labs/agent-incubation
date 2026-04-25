@@ -52,9 +52,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from .stages import LifecycleStage, stage_gate
+
+if TYPE_CHECKING:
+    from arc.core.manifest import AgentManifest, ManifestStore
 
 
 # ── Outcome and result types ─────────────────────────────────────────────────
@@ -453,3 +456,43 @@ class PromotionService:
         )
         self.audit_log.record(decision)
         return decision
+
+
+# ── Manifest write-back ──────────────────────────────────────────────────────
+
+
+def apply_decision(
+    decision: PromotionDecision,
+    store: "ManifestStore",
+) -> "AgentManifest | None":
+    """Persist a promotion decision to a ``ManifestStore``.
+
+    For an APPROVED decision: load the agent's manifest, set its
+    ``lifecycle_stage`` to ``decision.request.target_stage``, save it back,
+    and return the updated manifest.
+
+    For REJECTED or DEFERRED decisions: no-op. Returns ``None``. The audit
+    log already records the decision; the manifest stays at its current
+    stage until a human resolves the deferral or a new request succeeds.
+
+    This closes the loop on the promotion pipeline: ``service.promote()``
+    decides, ``apply_decision()`` writes the result, and the audit log keeps
+    every step. Splitting "decide" from "apply" keeps the pipeline pure and
+    lets callers gate the apply step on additional out-of-band approval
+    when needed.
+
+    Args:
+        decision: The decision returned by ``PromotionService.promote()``
+                  or ``.demote()``.
+        store:    Where to persist the new manifest state.
+
+    Returns:
+        The updated AgentManifest if the decision was APPROVED;
+        ``None`` for REJECTED or DEFERRED.
+    """
+    if not decision.approved:
+        return None
+    manifest = store.load(decision.request.agent_id)
+    manifest.lifecycle_stage = decision.request.target_stage
+    store.save(manifest)
+    return manifest

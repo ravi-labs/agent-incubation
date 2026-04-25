@@ -24,6 +24,7 @@ from .pipeline import (
     PromotionOutcome,
     PromotionRequest,
     PromotionService,
+    apply_decision,
     artifact_exists_check,
     evidence_field_check,
     predicate_check,
@@ -38,6 +39,7 @@ __all__ = [
     # Promotion pipeline core
     "PromotionRequest", "PromotionDecision", "PromotionOutcome",
     "GateCheck", "GateCheckResult", "GateChecker", "PromotionService",
+    "apply_decision",
     # Built-in check primitives
     "stage_order_check", "evidence_field_check", "artifact_exists_check",
     "reviewer_present_check", "predicate_check",

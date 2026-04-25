@@ -37,7 +37,15 @@ from arc.core.effects import (
     effects_requiring_review,
 )
 from arc.core.policy import EffectRequestBuilder
-from arc.core.manifest import AgentManifest, AgentStatus, load_manifest
+from arc.core.manifest import (
+    AgentManifest,
+    AgentStatus,
+    DirectoryManifestStore,
+    LocalFileManifestStore,
+    ManifestStore,
+    load_manifest,
+    save_manifest,
+)
 from arc.core.agent import BaseAgent
 from arc.core.gateway import (
     DataRequest,
@@ -58,7 +66,27 @@ from arc.core.memory import (
 )
 from arc.core.tools import AgentToolRegistry, GovernedToolDef, ToolRegistry, governed_tool
 from arc.core.observability import OutcomeEvent, OutcomeTracker, generate_report
-from arc.core.lifecycle import LifecycleStage, StageGate, stage_gate
+from arc.core.lifecycle import (
+    GateCheck,
+    GateCheckResult,
+    GateChecker,
+    InMemoryPromotionAuditLog,
+    JsonlPromotionAuditLog,
+    LifecycleStage,
+    PromotionAuditLog,
+    PromotionDecision,
+    PromotionOutcome,
+    PromotionRequest,
+    PromotionService,
+    StageGate,
+    apply_decision,
+    artifact_exists_check,
+    evidence_field_check,
+    predicate_check,
+    reviewer_present_check,
+    stage_gate,
+    stage_order_check,
+)
 from arc.core.registry import CatalogEntry, RegistryCatalog, build_catalog
 
 # ── Tollgate (canonical package, vendored copy in foundry/ now shimmed) ──────
@@ -95,7 +123,8 @@ __all__ = [
     "effect_meta", "effects_by_tier", "effects_requiring_review",
     # Manifest + scaffold + builder
     "EffectRequestBuilder",
-    "AgentManifest", "AgentStatus", "load_manifest",
+    "AgentManifest", "AgentStatus", "load_manifest", "save_manifest",
+    "ManifestStore", "LocalFileManifestStore", "DirectoryManifestStore",
     "BaseAgent",
     # Gateway, memory, tools, observability
     "GatewayConnector", "DataRequest", "DataResponse",
@@ -106,6 +135,13 @@ __all__ = [
     "AgentToolRegistry", "ToolRegistry", "governed_tool", "GovernedToolDef",
     "OutcomeTracker", "OutcomeEvent", "generate_report",
     "LifecycleStage", "StageGate", "stage_gate",
+    # Promotion pipeline
+    "PromotionRequest", "PromotionDecision", "PromotionOutcome",
+    "GateCheck", "GateCheckResult", "GateChecker", "PromotionService",
+    "apply_decision",
+    "stage_order_check", "evidence_field_check", "artifact_exists_check",
+    "reviewer_present_check", "predicate_check",
+    "PromotionAuditLog", "InMemoryPromotionAuditLog", "JsonlPromotionAuditLog",
     "CatalogEntry", "RegistryCatalog", "build_catalog",
     # Tollgate primitives (canonical)
     "ControlTower", "YamlPolicyEvaluator", "JsonlAuditSink",
