@@ -49,12 +49,11 @@ from arc.core.effects import (
 )
 from arc.core.policy import EffectRequestBuilder
 from arc.core.manifest import AgentManifest, AgentStatus, load_manifest
+from arc.core.agent import BaseAgent
 
 # ── Foundry-backed re-exports (lazy until each module migrates) ──────────────
 # Map from public attribute name → (foundry module path, attribute in that module).
 _LAZY_FOUNDRY_EXPORTS: dict[str, tuple[str, str]] = {
-    # Scaffold (BaseAgent migrates next)
-    "BaseAgent":            ("foundry.scaffold.base", "BaseAgent"),
     # ControlTower
     "ControlTower":          ("foundry.tollgate", "ControlTower"),
     "YamlPolicyEvaluator":   ("foundry.tollgate", "YamlPolicyEvaluator"),
@@ -114,6 +113,7 @@ __all__ = [
     "effect_meta", "effects_by_tier", "effects_requiring_review",
     "EffectRequestBuilder",
     "AgentManifest", "AgentStatus", "load_manifest",
+    "BaseAgent",
     # Foundry-backed (lazy, awaiting migration)
     *_LAZY_FOUNDRY_EXPORTS,
 ]
