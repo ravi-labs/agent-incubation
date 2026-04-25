@@ -86,7 +86,7 @@ CODEOWNERS                   ← Who reviews which agents
 ## Browsing the Registry
 
 ```bash
-# Using the foundry CLI
+# Using the arc CLI
 arc registry list --registry-dir .
 
 # View the catalog directly

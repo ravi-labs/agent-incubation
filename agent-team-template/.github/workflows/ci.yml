@@ -25,7 +25,7 @@ jobs:
         run: |
           for manifest in agents/*/manifest.yaml; do
             echo "Validating: $manifest"
-            foundry agent validate "$manifest"
+            arc agent validate "$manifest"
           done
 
       - name: Run tests
@@ -51,5 +51,5 @@ jobs:
       - name: Strict manifest validation
         run: |
           for manifest in agents/*/manifest.yaml; do
-            foundry agent validate "$manifest" --strict
+            arc agent validate "$manifest" --strict
           done

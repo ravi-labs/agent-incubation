@@ -9,7 +9,7 @@
 
 ## Pre-submission Checklist
 
-- [ ] `foundry agent validate --strict` passes locally
+- [ ] `arc agent validate --strict` passes locally
 - [ ] Agent is at lifecycle stage GOVERN or above
 - [ ] `team_repo` is set in manifest
 - [ ] `foundry_version` is set in manifest

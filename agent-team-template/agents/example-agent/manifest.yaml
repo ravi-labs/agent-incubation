@@ -1,7 +1,7 @@
 # Agent Manifest — Example Agent
 # ──────────────────────────────────────────────────────────────────────────────
 # Replace everything below with your agent's actual details.
-# Run: foundry agent validate --strict   before opening a registry PR.
+# Run: arc agent validate --strict   before opening a registry PR.
 
 agent_id: example-agent          # Unique slug. Becomes the registry directory name.
 version: "0.1.0"
@@ -18,7 +18,7 @@ team_repo: https://github.com/your-org/your-team-agents
 foundry_version: ">=0.1.0"
 
 # Declare the minimum set of effects you actually need.
-# Run: foundry effects list   to browse all available effects.
+# Run: arc effects list   to browse all available effects.
 allowed_effects:
   - participant.data.read
   - audit.log.write

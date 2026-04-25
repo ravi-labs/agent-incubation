@@ -333,7 +333,7 @@ class BedrockAgentAdapter:
         session_updates: dict | None = None,
     ) -> dict:
         """
-        Wrap a foundry agent result into Bedrock Agent Core's response format.
+        Wrap a arc agent result into Bedrock Agent Core's response format.
 
         Args:
             parsed_event:    BedrockEventParser from parse_event().
@@ -667,7 +667,7 @@ def register_bedrock_agent(
     alias_name: str = "production",
 ) -> dict:
     """
-    Register a foundry agent with Amazon Bedrock Agent Core via boto3.
+    Register a arc agent with Amazon Bedrock Agent Core via boto3.
 
     This function:
       1. Creates the Bedrock Agent (or updates if it exists)
@@ -689,7 +689,7 @@ def register_bedrock_agent(
 
     Returns:
         dict with keys:
-            agent_id:    Bedrock Agent ID (not the foundry agent_id)
+            agent_id:    Bedrock Agent ID (not the arc agent_id)
             agent_arn:   Full ARN of the Bedrock Agent
             alias_id:    ID of the created alias (if create_alias=True)
             alias_arn:   Full ARN of the alias (if create_alias=True)

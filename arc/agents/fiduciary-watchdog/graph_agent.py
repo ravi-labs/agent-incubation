@@ -47,9 +47,7 @@ Install:
 Run locally (sandbox):
     python graph_agent.py
 
-Or with the foundry CLI:
-    foundry run manifest.yaml --agent graph_agent:FiduciaryWatchdogGraphAgent \\
-        --param fund_id=FUND001 --param plan_id=PLAN001
+Or wire through arc.runtime.RuntimeBuilder for production deployment.
 """
 
 from __future__ import annotations

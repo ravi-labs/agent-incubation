@@ -5,7 +5,7 @@ Streaming client for calling deployed Amazon Bedrock Agents.
 
 Provides BedrockAgentStreamingClient — an async wrapper around
 bedrock-agent-runtime that supports both streaming and non-streaming
-invocation of a Bedrock Agent from within another foundry agent.
+invocation of a Bedrock Agent from within another arc agent.
 
 Install:
     pip install "arc-connectors[aws]"
@@ -206,7 +206,7 @@ class BedrockAgentStreamingClient:
 
     Args:
         agent:                  The calling BaseAgent instance.
-        bedrock_agent_id:       Bedrock Agent ID (not foundry agent_id).
+        bedrock_agent_id:       Bedrock Agent ID (not arc agent_id).
         bedrock_agent_alias_id: Alias to invoke (e.g. "TSTALIASID" or
                                 production alias from register_bedrock_agent()).
         intent_action_prefix:   Prefix for audit intent_action labels.

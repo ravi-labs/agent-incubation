@@ -363,7 +363,7 @@ class FoundryRunnable:
     Makes a BaseAgent usable as a LangChain Runnable in LCEL pipelines.
 
     Implements the Runnable protocol (invoke, ainvoke, stream, astream)
-    so a foundry agent can be composed using LangChain's | operator:
+    so an arc agent can be composed using LangChain's | operator:
 
         chain = retrieval_runnable | FoundryRunnable(agent) | output_parser
 

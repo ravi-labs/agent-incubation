@@ -667,7 +667,7 @@ async def main():
         print(agent.tracker.summary())
 
     print("\nAudit log written to: contract_review_audit.jsonl")
-    print("Generate HTML report: foundry-audit contract_review_audit.jsonl")
+    print("Generate HTML report: python -m arc.core.observability.audit_report contract_review_audit.jsonl")
 
 
 if __name__ == "__main__":
