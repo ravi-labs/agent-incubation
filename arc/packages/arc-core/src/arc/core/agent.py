@@ -28,12 +28,10 @@ from typing import TYPE_CHECKING, Any
 from arc.core.effects import FinancialEffect  # noqa: F401 — kept for IDE/symbol discovery
 from arc.core.gateway import GatewayConnector
 from arc.core.manifest import AgentManifest
+from arc.core.observability import OutcomeTracker
 from arc.core.policy import EffectRequestBuilder
 
-# These deps are still in foundry — they migrate as module 9 (observability)
-# and the tollgate-vendored cleanup. Switch to native arc imports once they
-# land. See docs/migration-plan.md.
-from foundry.observability.tracker import OutcomeTracker
+# Tollgate stays foundry-imported until the vendored-tollgate cleanup.
 from foundry.tollgate.tower import ControlTower
 from foundry.tollgate.types import AgentContext
 

@@ -1,18 +1,18 @@
 """
-Migrated to arc.core.memory (see docs/migration-plan.md, module 7).
+arc.core.memory — agent memory primitives.
 
-Thin re-export shim so existing `from foundry.memory import …` keeps working.
-New code should import from arc.core directly.
+Two layers:
+  - ConversationBuffer: short-term, in-context message history (bounded ring buffer)
+  - FoundryMemoryStore: long-term persisted key-value memory with optional TTL
 """
 
-from arc.core.memory import (
-    ConversationBuffer,
+from .buffer import ConversationBuffer, Message
+from .store import (
     DynamoDBMemoryBackend,
     FoundryMemoryStore,
     LocalJsonStore,
     MemoryBackend,
     MemoryEntry,
-    Message,
 )
 
 __all__ = [

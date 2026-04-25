@@ -1,18 +1,10 @@
 """
-foundry.tools
-─────────────
-Tool registration and governed execution for agent-foundry.
+Migrated to arc.core.tools (see docs/migration-plan.md, module 8).
 
-Provides:
-  - @governed_tool      decorator — attach a FinancialEffect to any async callable
-  - AgentToolRegistry             — register and invoke governed tools from an agent
-  - ToolRegistry                  — backward-compatible alias for AgentToolRegistry
-
-Note: Use ``AgentToolRegistry`` in new code to avoid shadowing
-``foundry.tollgate.ToolRegistry`` (Tollgate's internal resource registry).
-
-No LangChain dependency required. Works with any BaseAgent.
+Thin re-export shim so existing `from foundry.tools import …` keeps working.
+New code should import from arc.core directly.
 """
-from foundry.tools.registry import AgentToolRegistry, ToolRegistry, governed_tool, GovernedToolDef
+
+from arc.core.tools import AgentToolRegistry, GovernedToolDef, ToolRegistry, governed_tool
 
 __all__ = ["AgentToolRegistry", "ToolRegistry", "governed_tool", "GovernedToolDef"]

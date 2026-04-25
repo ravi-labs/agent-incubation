@@ -58,11 +58,22 @@ from arc.core.gateway import (
     MockGatewayConnector,
     MultiGateway,
 )
+from arc.core.memory import (
+    ConversationBuffer,
+    DynamoDBMemoryBackend,
+    FoundryMemoryStore,
+    LocalJsonStore,
+    MemoryBackend,
+    MemoryEntry,
+    Message,
+)
+from arc.core.tools import AgentToolRegistry, GovernedToolDef, ToolRegistry, governed_tool
+from arc.core.observability import OutcomeEvent, OutcomeTracker, generate_report
 
 # ── Foundry-backed re-exports (lazy until each module migrates) ──────────────
 # Map from public attribute name → (foundry module path, attribute in that module).
 _LAZY_FOUNDRY_EXPORTS: dict[str, tuple[str, str]] = {
-    # ControlTower
+    # ControlTower (vendored tollgate cleanup pending)
     "ControlTower":          ("foundry.tollgate", "ControlTower"),
     "YamlPolicyEvaluator":   ("foundry.tollgate", "YamlPolicyEvaluator"),
     "JsonlAuditSink":        ("foundry.tollgate", "JsonlAuditSink"),
@@ -73,7 +84,7 @@ _LAZY_FOUNDRY_EXPORTS: dict[str, tuple[str, str]] = {
     "InMemoryGrantStore":    ("foundry.tollgate", "InMemoryGrantStore"),
     "InMemoryRateLimiter":   ("foundry.tollgate", "InMemoryRateLimiter"),
     "InMemoryCircuitBreaker": ("foundry.tollgate", "InMemoryCircuitBreaker"),
-    # Tollgate types
+    # Tollgate types (vendored tollgate cleanup pending)
     "AuditEvent":   ("foundry.tollgate.types", "AuditEvent"),
     "Decision":     ("foundry.tollgate.types", "Decision"),
     "DecisionType": ("foundry.tollgate.types", "DecisionType"),
@@ -82,8 +93,6 @@ _LAZY_FOUNDRY_EXPORTS: dict[str, tuple[str, str]] = {
     "Intent":       ("foundry.tollgate.types", "Intent"),
     "ToolRequest":  ("foundry.tollgate.types", "ToolRequest"),
     "AgentContext": ("foundry.tollgate.types", "AgentContext"),
-    # Observability
-    "OutcomeTracker": ("foundry.observability.tracker", "OutcomeTracker"),
 }
 
 
@@ -117,6 +126,11 @@ __all__ = [
     "BaseAgent",
     "GatewayConnector", "DataRequest", "DataResponse",
     "MockGatewayConnector", "HttpGateway", "MultiGateway",
+    "ConversationBuffer", "Message",
+    "FoundryMemoryStore", "MemoryEntry", "MemoryBackend",
+    "LocalJsonStore", "DynamoDBMemoryBackend",
+    "AgentToolRegistry", "ToolRegistry", "governed_tool", "GovernedToolDef",
+    "OutcomeTracker", "OutcomeEvent", "generate_report",
     # Foundry-backed (lazy, awaiting migration)
     *_LAZY_FOUNDRY_EXPORTS,
 ]
