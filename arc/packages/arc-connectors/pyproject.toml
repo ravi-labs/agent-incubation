@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arc-connectors"
+version = "0.1.0"
+description = "Arc connector library — Outlook, Pega Case, Pega Knowledge, ServiceNow"
+requires-python = ">=3.10"
+dependencies = [
+    "arc-core>=0.1.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+outlook = ["msal>=1.28"]
+pega = []
+servicenow = []
+all = ["msal>=1.28"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arc"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

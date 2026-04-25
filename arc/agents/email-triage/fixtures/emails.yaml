@@ -1,0 +1,200 @@
+# Email Triage Agent — Synthetic Fixture Data
+# ─────────────────────────────────────────────
+# Covers a representative spread of email types, priorities, and edge cases.
+# Used by the harness for local development and the quality gate eval suite.
+#
+# Priority definitions:
+#   P1 — Critical: production down, major data loss, security incident
+#   P2 — High: significant degradation, VIP customer impacted
+#   P3 — Medium: non-critical issue, workaround available
+#   P4 — Low: question, minor request, general inquiry
+
+sources:
+  email.inbox:
+
+    # ── P1 Incidents ────────────────────────────────────────────────────
+    - id: "email-001"
+      subject: "URGENT: Production portal completely down for all users"
+      body: >
+        Our entire customer portal has been inaccessible since 6:45 AM EST.
+        All users are getting a 503 error. This is affecting approximately
+        12,000 active users and we are losing transactions in real time.
+        This is a P1 emergency. Please escalate immediately.
+      sender: "cto@enterprise-client.com"
+      sender_name: "David Chen"
+      received_at: "2026-04-24T11:45:00Z"
+      department: "Technology"
+      expected_intent: "incident"
+      expected_priority: "P1"
+
+    - id: "email-002"
+      subject: "Possible security breach - unauthorized access detected"
+      body: >
+        Our security monitoring system has detected multiple failed login
+        attempts followed by a successful login from an unusual IP address
+        (185.220.101.x) for one of our admin accounts. We have locked the
+        account but need immediate investigation. Potential data exposure.
+      sender: "security@customer-corp.com"
+      sender_name: "Sarah Mitchell"
+      received_at: "2026-04-24T08:30:00Z"
+      department: "Security"
+      expected_intent: "incident"
+      expected_priority: "P1"
+
+    # ── P2 Incidents ────────────────────────────────────────────────────
+    - id: "email-003"
+      subject: "API integration failing - affecting 30% of transactions"
+      body: >
+        Since the deployment this morning, our payment API integration has
+        been returning 504 timeout errors on approximately 30% of requests.
+        Transactions are failing intermittently. We have a workaround in
+        place but it is manual and not sustainable. Need resolution today.
+      sender: "platform-team@partner-bank.com"
+      sender_name: "James Rodriguez"
+      received_at: "2026-04-24T10:15:00Z"
+      department: "Platform Engineering"
+      expected_intent: "incident"
+      expected_priority: "P2"
+
+    - id: "email-004"
+      subject: "Reports not generating for VIP client - month end close"
+      body: >
+        Our largest enterprise client (Acme Corp, $2M ARR) cannot generate
+        their month-end reports. The export function is timing out after
+        2 minutes. Their finance team needs these reports for board review
+        tomorrow morning. Please treat as urgent.
+      sender: "account-manager@ourcompany.com"
+      sender_name: "Lisa Park"
+      received_at: "2026-04-24T14:00:00Z"
+      department: "Customer Success"
+      expected_intent: "incident"
+      expected_priority: "P2"
+
+    # ── P3 Incidents ────────────────────────────────────────────────────
+    - id: "email-005"
+      subject: "Dashboard widget showing wrong date range"
+      body: >
+        The portfolio performance widget on the main dashboard appears to
+        be showing data for the wrong date range. When I select "Last 30 days"
+        it seems to be showing 45 days of data. Not critical but it is
+        confusing our team. Please investigate when you have a chance.
+      sender: "ops-user@client-company.com"
+      sender_name: "Tom Wilson"
+      received_at: "2026-04-24T13:20:00Z"
+      department: "Operations"
+      expected_intent: "incident"
+      expected_priority: "P3"
+
+    - id: "email-006"
+      subject: "Slow response times on the analytics module"
+      body: >
+        Over the past week the analytics reports have been taking 45-60 seconds
+        to load. It used to be under 10 seconds. There is a workaround —
+        we can export to CSV and use that — but the in-app performance
+        has degraded noticeably. Not blocking but worth fixing.
+      sender: "data-team@analytics-client.com"
+      sender_name: "Emma Thompson"
+      received_at: "2026-04-24T09:45:00Z"
+      department: "Data Analytics"
+      expected_intent: "incident"
+      expected_priority: "P3"
+
+    # ── P4 Requests / Questions ──────────────────────────────────────────
+    - id: "email-007"
+      subject: "How do I add a new user to our account?"
+      body: >
+        Hi, I am the new admin for our company account. I need to add three
+        new team members but I cannot find the option in the settings panel.
+        Could you point me to the right place? Thanks.
+      sender: "new-admin@small-business.com"
+      sender_name: "Rachel Green"
+      received_at: "2026-04-24T11:00:00Z"
+      department: "General"
+      expected_intent: "question"
+      expected_priority: "P4"
+
+    - id: "email-008"
+      subject: "Request to update our billing address"
+      body: >
+        We have moved offices and need to update the billing address on our
+        account to: 123 New Street, Austin TX 78701. Please also update
+        the contact email for invoices to finance@newaddress.com.
+        Thank you.
+      sender: "admin@client-business.com"
+      sender_name: "Mark Johnson"
+      received_at: "2026-04-24T10:30:00Z"
+      department: "Finance"
+      expected_intent: "request"
+      expected_priority: "P4"
+
+    - id: "email-009"
+      subject: "Complaint - waited 3 days for response on previous ticket"
+      body: >
+        I submitted a support ticket (TKT-4521) three days ago about our
+        integration issue and have not received any response. This is
+        unacceptable for a paid enterprise plan. We expect a response within
+        4 hours per our SLA agreement. Please escalate this immediately.
+      sender: "frustrated-customer@enterprise.com"
+      sender_name: "Barbara Williams"
+      received_at: "2026-04-24T15:30:00Z"
+      department: "Enterprise"
+      expected_intent: "complaint"
+      expected_priority: "P2"
+
+    - id: "email-010"
+      subject: "Feature request - bulk export for audit reports"
+      body: >
+        For our upcoming compliance audit we need to export 18 months of
+        transaction history. The current UI only allows 3-month exports
+        and we would need to do this 6 times. Could you either extend
+        the export range or provide a bulk export tool? Happy to discuss.
+      sender: "compliance@regulated-firm.com"
+      sender_name: "Andrew Davies"
+      received_at: "2026-04-24T12:00:00Z"
+      department: "Compliance"
+      expected_intent: "request"
+      expected_priority: "P4"
+
+  user.directory:
+    "cto@enterprise-client.com":
+      name: "David Chen"
+      tier: "enterprise"
+      account_value: 500000
+      department: "Technology"
+    "security@customer-corp.com":
+      name: "Sarah Mitchell"
+      tier: "enterprise"
+      account_value: 200000
+      department: "Security"
+    "platform-team@partner-bank.com":
+      name: "James Rodriguez"
+      tier: "partner"
+      account_value: 150000
+      department: "Engineering"
+    "account-manager@ourcompany.com":
+      name: "Lisa Park"
+      tier: "internal"
+      account_value: 0
+      department: "Customer Success"
+    "frustrated-customer@enterprise.com":
+      name: "Barbara Williams"
+      tier: "enterprise"
+      account_value: 250000
+      department: "Enterprise"
+
+  knowledge.articles:
+    "portal-down":
+      id: "KB-001"
+      title: "Troubleshooting portal 503 errors"
+      content: "Check load balancer health, verify database connections, review recent deployments"
+      relevance_tags: ["503", "portal", "down", "production"]
+    "api-timeout":
+      id: "KB-002"
+      title: "API timeout troubleshooting guide"
+      content: "Common causes: connection pool exhaustion, slow queries, network latency. Check APM dashboard."
+      relevance_tags: ["timeout", "504", "api", "integration"]
+    "user-management":
+      id: "KB-003"
+      title: "How to add users to your account"
+      content: "Navigate to Settings > Team > Add Member. Enter email address and select role."
+      relevance_tags: ["user", "add", "admin", "settings"]
