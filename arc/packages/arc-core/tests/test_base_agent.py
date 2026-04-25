@@ -18,8 +18,7 @@ from arc.core.agent import BaseAgent
 from arc.core.effects import FinancialEffect
 from arc.core.manifest import AgentManifest, AgentStatus
 
-# LifecycleStage stays in foundry until module 10 migrates.
-from foundry.lifecycle.stages import LifecycleStage
+from arc.core.lifecycle import LifecycleStage
 
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────

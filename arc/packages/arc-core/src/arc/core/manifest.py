@@ -35,9 +35,7 @@ from arc.core.effects import (
     LegalEffect,
 )
 
-# LifecycleStage still lives in agent-foundry — migrates as module 10. See
-# docs/migration-plan.md. Switches to `from arc.core.lifecycle import …` then.
-from foundry.lifecycle.stages import LifecycleStage
+from arc.core.lifecycle import LifecycleStage
 
 # All known effect enums — tried in order when parsing manifest YAML.
 # Add new domain taxonomies here to make them available in manifests.

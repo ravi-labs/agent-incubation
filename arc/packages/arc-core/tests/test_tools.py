@@ -33,8 +33,7 @@ from arc.core.effects import FinancialEffect
 from arc.core.manifest import AgentManifest, AgentStatus
 from arc.core.tools import AgentToolRegistry, GovernedToolDef, ToolRegistry, governed_tool
 
-# LifecycleStage stays in foundry until module 10.
-from foundry.lifecycle.stages import LifecycleStage
+from arc.core.lifecycle import LifecycleStage
 
 
 # ─── Fixtures ──────────────────────────────────────────────────────────────────

@@ -69,6 +69,7 @@ from arc.core.memory import (
 )
 from arc.core.tools import AgentToolRegistry, GovernedToolDef, ToolRegistry, governed_tool
 from arc.core.observability import OutcomeEvent, OutcomeTracker, generate_report
+from arc.core.lifecycle import LifecycleStage, StageGate, stage_gate
 
 # ── Foundry-backed re-exports (lazy until each module migrates) ──────────────
 # Map from public attribute name → (foundry module path, attribute in that module).
@@ -131,6 +132,7 @@ __all__ = [
     "LocalJsonStore", "DynamoDBMemoryBackend",
     "AgentToolRegistry", "ToolRegistry", "governed_tool", "GovernedToolDef",
     "OutcomeTracker", "OutcomeEvent", "generate_report",
+    "LifecycleStage", "StageGate", "stage_gate",
     # Foundry-backed (lazy, awaiting migration)
     *_LAZY_FOUNDRY_EXPORTS,
 ]
