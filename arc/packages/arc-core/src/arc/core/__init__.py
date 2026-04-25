@@ -28,7 +28,7 @@ eventually goes away with the foundry dep itself.
 
 from typing import Any
 
-# ── Effects (native — already migrated) ──────────────────────────────────────
+# ── Native arc-core (already migrated from foundry) ──────────────────────────
 from arc.core.effects import (
     COMPLIANCE_EFFECT_METADATA,
     EFFECT_METADATA,
@@ -47,12 +47,12 @@ from arc.core.effects import (
     effects_by_tier,
     effects_requiring_review,
 )
+from arc.core.policy import EffectRequestBuilder
 
 # ── Foundry-backed re-exports (lazy until each module migrates) ──────────────
 # Map from public attribute name → (foundry module path, attribute in that module).
 _LAZY_FOUNDRY_EXPORTS: dict[str, tuple[str, str]] = {
-    # Policy & manifest
-    "EffectRequestBuilder": ("foundry.policy.builder", "EffectRequestBuilder"),
+    # Manifest & scaffold
     "AgentManifest":        ("foundry.scaffold.manifest", "AgentManifest"),
     "load_manifest":        ("foundry.scaffold.manifest", "load_manifest"),
     "BaseAgent":            ("foundry.scaffold.base", "BaseAgent"),
@@ -107,12 +107,13 @@ def __dir__() -> list[str]:
 
 
 __all__ = [
-    # Effects (native)
+    # Native (migrated)
     "FinancialEffect", "ITSMEffect", "HealthcareEffect", "LegalEffect", "ComplianceEffect",
     "EffectTier", "DefaultDecision", "EffectMeta",
     "EFFECT_METADATA", "ITSM_EFFECT_METADATA", "HEALTHCARE_EFFECT_METADATA",
     "LEGAL_EFFECT_METADATA", "COMPLIANCE_EFFECT_METADATA",
     "effect_meta", "effects_by_tier", "effects_requiring_review",
-    # Foundry-backed (lazy)
+    "EffectRequestBuilder",
+    # Foundry-backed (lazy, awaiting migration)
     *_LAZY_FOUNDRY_EXPORTS,
 ]
