@@ -55,3 +55,4 @@ __pycache__/
 *_audit.jsonl
 *_outcomes.jsonl
 audit-report-sample.html
+.claude/

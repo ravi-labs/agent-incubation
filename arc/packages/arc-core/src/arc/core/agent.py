@@ -31,14 +31,12 @@ from arc.core.manifest import AgentManifest
 from arc.core.observability import OutcomeTracker
 from arc.core.policy import EffectRequestBuilder
 
-# Tollgate stays foundry-imported until the vendored-tollgate cleanup.
-from foundry.tollgate.tower import ControlTower
-from foundry.tollgate.types import AgentContext
+from tollgate.tower import ControlTower
+from tollgate.types import AgentContext
 
 if TYPE_CHECKING:
-    from foundry.memory.buffer import ConversationBuffer
-    from foundry.memory.store import FoundryMemoryStore
-    from foundry.tools.registry import AgentToolRegistry  # noqa: F401
+    from arc.core.memory import ConversationBuffer, FoundryMemoryStore
+    from arc.core.tools import AgentToolRegistry  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

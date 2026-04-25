@@ -16,7 +16,7 @@ from arc.harness import (
     SandboxApprover,
     ShadowAuditSink,
 )
-from foundry.tollgate.types import ApprovalOutcome
+from tollgate.types import ApprovalOutcome
 
 
 # ─── FixtureLoader ────────────────────────────────────────────────────────────

@@ -12,9 +12,7 @@ ToolRequest objects. It enforces that every request:
 
 from typing import Any
 
-# Same vendored-tollgate identity quirk as arc.core.effects.base — switches
-# to canonical `tollgate.types` once foundry/tollgate/ becomes a shim.
-from foundry.tollgate.types import Intent, ToolRequest
+from tollgate.types import Intent, ToolRequest
 
 from arc.core.effects import effect_meta
 

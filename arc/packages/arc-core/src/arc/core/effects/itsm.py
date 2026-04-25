@@ -37,7 +37,7 @@ Usage:
 
 from enum import Enum
 
-from foundry.tollgate.types import Effect as _BaseEffect
+from tollgate.types import Effect as _BaseEffect
 
 from .base import DefaultDecision, EffectMeta, EffectTier
 

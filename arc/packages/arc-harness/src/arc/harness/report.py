@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from foundry.tollgate.types import DecisionType
+from tollgate.types import DecisionType
 
 
 # ── ANSI colours for terminal output ─────────────────────────────────────────

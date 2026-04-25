@@ -19,7 +19,7 @@ is fully compatible with Tollgate's ControlTower and YAML policy engine.
 
 from enum import Enum
 
-from foundry.tollgate.types import Effect
+from tollgate.types import Effect
 
 from .base import DefaultDecision, EffectMeta, EffectTier
 

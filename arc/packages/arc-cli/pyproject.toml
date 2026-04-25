@@ -9,12 +9,9 @@ description = "Arc command-line interface — agent scaffolding, validation, pro
 requires-python = ">=3.11"
 dependencies = [
     "arc-core>=0.1.0",
+    "arc-runtime>=0.1.0",
     "click>=8.0",
     "pyyaml>=6.0",
-    # Tollgate and deploy/bedrock are still imported by a couple of CLI
-    # subcommands (`foundry agent suspend/resume`, the bedrock helpers).
-    # Drops once modules 12 (deploy) and the vendored-tollgate cleanup land.
-    "agent-foundry",
 ]
 
 [project.scripts]

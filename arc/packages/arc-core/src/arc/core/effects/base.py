@@ -10,13 +10,7 @@ policy evaluation) can treat any effect identically.
 from dataclasses import dataclass
 from enum import Enum
 
-# NOTE: import foundry's vendored tollgate.types until that vendored copy is
-# itself shimmed to re-export from canonical `tollgate`. Both classes are
-# identical in shape, but Python's isinstance() checks class identity, so
-# importing from foundry preserves identity for foundry's existing tests.
-# Switch to `from tollgate.types import Effect` once foundry/tollgate/ is
-# converted to a re-export (tracked separately, not part of module 1).
-from foundry.tollgate.types import Effect
+from tollgate.types import Effect
 
 
 class EffectTier(int, Enum):

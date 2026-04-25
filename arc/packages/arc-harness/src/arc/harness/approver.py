@@ -11,7 +11,7 @@ can flag which decisions *would have* required human approval in production.
 """
 
 from dataclasses import dataclass, field
-from foundry.tollgate.types import ApprovalOutcome
+from tollgate.types import ApprovalOutcome
 
 
 @dataclass

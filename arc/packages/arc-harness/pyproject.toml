@@ -10,9 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "arc-core>=0.1.0",
     "pyyaml>=6.0",
-    # Migration shim: arc-harness re-exports foundry.harness today.
-    # Drops once the harness module migrates natively (see docs/migration-plan.md).
-    "agent-foundry",
+    "tollgate>=1.4",
 ]
 
 [project.optional-dependencies]

@@ -127,7 +127,7 @@ from arc.core.gateway import HttpGateway
 from arc.core.observability import OutcomeTracker
 from arc.core.effects import FinancialEffect
 from arc.core import BaseAgent, load_manifest
-from foundry.tollgate import (
+from tollgate import (
     AutoApprover,
     ControlTower,
     JsonlAuditSink,
@@ -859,7 +859,7 @@ def deploy_schema(manifest_path: str, output: str | None, upload_to_s3: str | No
     manifest = _load_manifest_safe(path)
 
     try:
-        from foundry.deploy.bedrock import generate_action_schema, upload_schema_to_s3
+        from arc.runtime.deploy.bedrock import generate_action_schema, upload_schema_to_s3
     except ImportError:
         click.echo(click.style(
             "✗ AWS extras not installed. Run: pip install 'agent-foundry[aws]'", fg="red"
@@ -917,7 +917,7 @@ def deploy_package(manifest_path: str, target: str):
         click.echo(f"     cd package && zip -r ../function.zip .")
         click.echo()
         click.echo("  2. In your handler.py:")
-        click.echo("     from foundry.deploy.lambda_handler import make_handler")
+        click.echo("     from arc.runtime.deploy.lambda_handler import make_handler")
         click.echo(f"     from your_module import {manifest.agent_id.replace('-', '_').title().replace('_', '')}Agent")
         click.echo("     handler = make_handler(YourAgentClass)")
         click.echo()
@@ -1011,7 +1011,7 @@ def deploy_register(
     manifest = _load_manifest_safe(path)
 
     try:
-        from foundry.deploy.bedrock import generate_action_schema, register_bedrock_agent
+        from arc.runtime.deploy.bedrock import generate_action_schema, register_bedrock_agent
     except ImportError:
         click.echo(click.style(
             "✗ AWS extras not installed. Run: pip install 'agent-foundry[aws]'", fg="red"

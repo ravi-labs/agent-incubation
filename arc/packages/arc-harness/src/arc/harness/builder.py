@@ -37,12 +37,9 @@ Production swap:
 from pathlib import Path
 from typing import Any, Type, TypeVar
 
-# Native arc-core (migrated)
 from arc.core import BaseAgent, load_manifest
 from arc.core.observability import OutcomeTracker
-
-# Tollgate stays foundry-imported until the vendored-tollgate cleanup.
-from foundry.tollgate import ControlTower, YamlPolicyEvaluator
+from tollgate import ControlTower, YamlPolicyEvaluator
 
 from .approver import SandboxApprover
 from .fixtures import FixtureLoader

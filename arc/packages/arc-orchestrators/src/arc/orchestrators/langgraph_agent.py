@@ -101,7 +101,7 @@ from arc.core.gateway import GatewayConnector
 from arc.core.observability import OutcomeTracker
 from arc.core import BaseAgent
 from arc.core.manifest import AgentManifest
-from foundry.tollgate.tower import ControlTower
+from tollgate.tower import ControlTower
 
 logger = logging.getLogger(__name__)
 

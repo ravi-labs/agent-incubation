@@ -70,9 +70,9 @@ class TestMakeHandler:
             data_access=[], policy_path="p.yaml", success_metrics=["m"],
         )
 
-        with patch("foundry.deploy.lambda_handler._FoundryLambdaHandler._load_secrets"):
-            with patch("foundry.scaffold.manifest.AgentManifest.from_yaml", return_value=dummy_manifest):
-                with patch("foundry.tollgate.YamlPolicyEvaluator"):
+        with patch("arc.runtime.deploy.lambda_handler._FoundryLambdaHandler._load_secrets"):
+            with patch("arc.core.manifest.AgentManifest.from_yaml", return_value=dummy_manifest):
+                with patch("tollgate.YamlPolicyEvaluator"):
                     with patch("foundry.tollgate.AutoApprover"):
                         with patch("foundry.tollgate.JsonlAuditSink"):
                             with patch("foundry.tollgate.tower.ControlTower"):

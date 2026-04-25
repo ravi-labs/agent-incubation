@@ -21,7 +21,7 @@ from arc.core.effects import (
     effects_by_tier,
     effects_requiring_review,
 )
-from foundry.tollgate.types import Effect
+from tollgate.types import Effect
 
 
 # ─── Completeness ─────────────────────────────────────────────────────────────

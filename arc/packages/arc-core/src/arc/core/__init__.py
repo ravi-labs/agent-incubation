@@ -4,10 +4,9 @@ arc.core — governance engine.
 The foundation everything else builds on. Typed effects, policy evaluation,
 ControlTower pre-execution gating, and the audit trail.
 
-Effects are native (migration module 1, complete). Other surfaces
-(BaseAgent, AgentManifest, ControlTower, gateway, observability) are still
-re-exported from agent-foundry pending their migration. See
-docs/migration-plan.md.
+Every export below is native — arc-core no longer depends on agent-foundry
+at runtime. Tollgate primitives (ControlTower, YamlPolicyEvaluator, etc.)
+come from the canonical `tollgate` package directly.
 
 Public API:
     from arc.core import (
@@ -19,16 +18,13 @@ Public API:
         ITSMEffect, FinancialEffect, ComplianceEffect,
     )
 
-Implementation note: foundry re-exports are loaded lazily via PEP 562
-``__getattr__`` so a partial-import path through ``foundry.policy.*`` (which
-shims back to ``arc.core.effects``) cannot trigger a circular dependency at
-package init time. Once those modules migrate, the lazy table shrinks and
-eventually goes away with the foundry dep itself.
+Implementation note: this module used to use a PEP 562 ``__getattr__``
+to lazy-load foundry re-exports during the migration. After Phase 2 +
+the vendored-tollgate cleanup, all exports are native eager imports and
+the lazy table is gone.
 """
 
-from typing import Any
-
-# ── Native arc-core (already migrated from foundry) ──────────────────────────
+# ── Effects, scaffold, gateway, memory, tools, observability, lifecycle ──────
 from arc.core.effects import (
     COMPLIANCE_EFFECT_METADATA,
     EFFECT_METADATA,
@@ -71,60 +67,47 @@ from arc.core.tools import AgentToolRegistry, GovernedToolDef, ToolRegistry, gov
 from arc.core.observability import OutcomeEvent, OutcomeTracker, generate_report
 from arc.core.lifecycle import LifecycleStage, StageGate, stage_gate
 
-# ── Foundry-backed re-exports (lazy until each module migrates) ──────────────
-# Map from public attribute name → (foundry module path, attribute in that module).
-_LAZY_FOUNDRY_EXPORTS: dict[str, tuple[str, str]] = {
-    # ControlTower (vendored tollgate cleanup pending)
-    "ControlTower":          ("foundry.tollgate", "ControlTower"),
-    "YamlPolicyEvaluator":   ("foundry.tollgate", "YamlPolicyEvaluator"),
-    "JsonlAuditSink":        ("foundry.tollgate", "JsonlAuditSink"),
-    "ApprovalOutcome":       ("foundry.tollgate", "ApprovalOutcome"),
-    "AutoApprover":          ("foundry.tollgate", "AutoApprover"),
-    "CliApprover":           ("foundry.tollgate", "CliApprover"),
-    "AsyncQueueApprover":    ("foundry.tollgate", "AsyncQueueApprover"),
-    "InMemoryGrantStore":    ("foundry.tollgate", "InMemoryGrantStore"),
-    "InMemoryRateLimiter":   ("foundry.tollgate", "InMemoryRateLimiter"),
-    "InMemoryCircuitBreaker": ("foundry.tollgate", "InMemoryCircuitBreaker"),
-    # Tollgate types (vendored tollgate cleanup pending)
-    "AuditEvent":   ("foundry.tollgate.types", "AuditEvent"),
-    "Decision":     ("foundry.tollgate.types", "Decision"),
-    "DecisionType": ("foundry.tollgate.types", "DecisionType"),
-    "Effect":       ("foundry.tollgate.types", "Effect"),
-    "Outcome":      ("foundry.tollgate.types", "Outcome"),
-    "Intent":       ("foundry.tollgate.types", "Intent"),
-    "ToolRequest":  ("foundry.tollgate.types", "ToolRequest"),
-    "AgentContext": ("foundry.tollgate.types", "AgentContext"),
-}
+# ── Tollgate (canonical package, vendored copy in foundry/ now shimmed) ──────
+from tollgate import (
+    ApprovalOutcome,
+    AsyncQueueApprover,
+    AutoApprover,
+    CliApprover,
+    ControlTower,
+    InMemoryCircuitBreaker,
+    InMemoryGrantStore,
+    InMemoryRateLimiter,
+    JsonlAuditSink,
+    YamlPolicyEvaluator,
+)
+from tollgate.types import (
+    AgentContext,
+    AuditEvent,
+    Decision,
+    DecisionType,
+    Effect,
+    Intent,
+    Outcome,
+    ToolRequest,
+)
 
-
-def __getattr__(name: str) -> Any:
-    """PEP 562 lazy attribute access for foundry-backed re-exports."""
-    target = _LAZY_FOUNDRY_EXPORTS.get(name)
-    if target is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    module_path, attr = target
-    from importlib import import_module
-    module = import_module(module_path)
-    value = getattr(module, attr)
-    globals()[name] = value  # cache so subsequent access skips this dispatch
-    return value
-
-
-def __dir__() -> list[str]:
-    """Make tab-completion and dir() see the lazy names."""
-    return sorted({*globals(), *_LAZY_FOUNDRY_EXPORTS})
+# All re-exports above are now native imports — the lazy foundry table is
+# empty. arc-core no longer needs `agent-foundry` at runtime for any of its
+# public surface.
 
 
 __all__ = [
-    # Native (migrated)
+    # Effects
     "FinancialEffect", "ITSMEffect", "HealthcareEffect", "LegalEffect", "ComplianceEffect",
     "EffectTier", "DefaultDecision", "EffectMeta",
     "EFFECT_METADATA", "ITSM_EFFECT_METADATA", "HEALTHCARE_EFFECT_METADATA",
     "LEGAL_EFFECT_METADATA", "COMPLIANCE_EFFECT_METADATA",
     "effect_meta", "effects_by_tier", "effects_requiring_review",
+    # Manifest + scaffold + builder
     "EffectRequestBuilder",
     "AgentManifest", "AgentStatus", "load_manifest",
     "BaseAgent",
+    # Gateway, memory, tools, observability
     "GatewayConnector", "DataRequest", "DataResponse",
     "MockGatewayConnector", "HttpGateway", "MultiGateway",
     "ConversationBuffer", "Message",
@@ -133,6 +116,10 @@ __all__ = [
     "AgentToolRegistry", "ToolRegistry", "governed_tool", "GovernedToolDef",
     "OutcomeTracker", "OutcomeEvent", "generate_report",
     "LifecycleStage", "StageGate", "stage_gate",
-    # Foundry-backed (lazy, awaiting migration)
-    *_LAZY_FOUNDRY_EXPORTS,
+    # Tollgate primitives (canonical)
+    "ControlTower", "YamlPolicyEvaluator", "JsonlAuditSink",
+    "ApprovalOutcome", "AutoApprover", "CliApprover", "AsyncQueueApprover",
+    "InMemoryGrantStore", "InMemoryRateLimiter", "InMemoryCircuitBreaker",
+    "AuditEvent", "Decision", "DecisionType", "Effect", "Outcome",
+    "Intent", "ToolRequest", "AgentContext",
 ]

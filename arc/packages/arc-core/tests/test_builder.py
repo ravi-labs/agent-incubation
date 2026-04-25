@@ -14,7 +14,7 @@ import pytest
 
 from arc.core.policy import EffectRequestBuilder
 from arc.core.effects import FinancialEffect, EffectTier, effect_meta
-from foundry.tollgate.types import Effect, Intent, ToolRequest
+from tollgate.types import Effect, Intent, ToolRequest
 
 
 MANIFEST_VERSION = "test-agent@1.0.0"

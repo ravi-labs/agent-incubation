@@ -97,7 +97,7 @@ class _FoundryLambdaHandler:
         manifest.environment = environment
 
         # ── Policy evaluator ─────────────────────────────────────────────────
-        from foundry.tollgate import YamlPolicyEvaluator
+        from tollgate import YamlPolicyEvaluator
         policy = YamlPolicyEvaluator(policy_dir)
 
         # ── Approver: production (SQS+DDB) or sandbox (auto) ─────────────────
@@ -106,8 +106,8 @@ class _FoundryLambdaHandler:
                 "foundry_backend production approvals_table=%s queue=%s",
                 approvals_table, review_queue_url.split("/")[-1],
             )
-            from foundry.tollgate.backends.dynamodb_store import DynamoDBApprovalStore
-            from foundry.tollgate.backends.sqs_approver   import SQSApprover
+            from tollgate.backends.dynamodb_store import DynamoDBApprovalStore
+            from tollgate.backends.sqs_approver   import SQSApprover
             store    = DynamoDBApprovalStore(table_name=approvals_table, region=region)
             approver = SQSApprover(
                 queue_url=review_queue_url,
@@ -118,8 +118,8 @@ class _FoundryLambdaHandler:
         elif approvals_table:
             # DynamoDB only — polling-based (no SQS notification)
             logger.info("foundry_backend ddb-only approvals_table=%s", approvals_table)
-            from foundry.tollgate.backends.dynamodb_store import DynamoDBApprovalStore
-            from foundry.tollgate.approvals import AsyncQueueApprover
+            from tollgate.backends.dynamodb_store import DynamoDBApprovalStore
+            from tollgate.approvals import AsyncQueueApprover
             store    = DynamoDBApprovalStore(table_name=approvals_table, region=region)
             approver = AsyncQueueApprover(store=store, timeout=approval_timeout)
         else:
@@ -129,16 +129,16 @@ class _FoundryLambdaHandler:
                     "foundry_warning FOUNDRY_APPROVALS_TABLE not set in production — "
                     "ASK decisions will use AutoApprover. Set FOUNDRY_APPROVALS_TABLE."
                 )
-            from foundry.tollgate import AutoApprover
+            from tollgate import AutoApprover
             approver = AutoApprover()
 
         # ── Audit sink ────────────────────────────────────────────────────────
-        from foundry.tollgate import JsonlAuditSink
+        from tollgate import JsonlAuditSink
         audit_path = f"/tmp/audit-{manifest.agent_id}.jsonl"
         audit = JsonlAuditSink(audit_path)
 
         # ── ControlTower ──────────────────────────────────────────────────────
-        from foundry.tollgate.tower import ControlTower
+        from tollgate.tower import ControlTower
         tower = ControlTower(policy=policy, approver=approver, audit=audit)
 
         # ── Gateway ───────────────────────────────────────────────────────────
@@ -304,7 +304,7 @@ class _FoundryLambdaHandler:
         from arc.runtime.deploy.bedrock import BedrockAgentAdapter, BedrockEventParser
 
         try:
-            from foundry.tollgate.exceptions import TollgateDenied, TollgateDeferred
+            from tollgate.exceptions import TollgateDenied, TollgateDeferred
             _has_tollgate_exceptions = True
         except ImportError:
             _has_tollgate_exceptions = False
@@ -351,7 +351,7 @@ class _FoundryLambdaHandler:
             # Check if this is a TollgateDeferred (ASK decision pending review)
             if _has_tollgate_exceptions:
                 try:
-                    from foundry.tollgate.exceptions import TollgateDeferred
+                    from tollgate.exceptions import TollgateDeferred
                     if isinstance(exc, TollgateDeferred):
                         logger.info(
                             "foundry_bedrock_ask agent=%s operation=%s",

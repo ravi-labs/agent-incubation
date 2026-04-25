@@ -103,7 +103,7 @@ class RuntimeBuilder:
             An instance of agent_cls ready to run in production.
         """
         from foundry.scaffold import load_manifest
-        from foundry.tollgate import ControlTower, YamlPolicyEvaluator, JsonlAuditSink
+        from tollgate import ControlTower, YamlPolicyEvaluator, JsonlAuditSink
         from foundry.gateway.base import MultiGateway, MockGatewayConnector
 
         ticket_target = os.getenv("TICKET_TARGET", "pega").lower()
@@ -235,7 +235,7 @@ class RuntimeBuilder:
 
     def _build_audit_sink(self) -> Any:
         """Build audit sink based on config.audit_sink."""
-        from foundry.tollgate import JsonlAuditSink
+        from tollgate import JsonlAuditSink
 
         sink_type = getattr(self._config, "audit_sink", "jsonl")
         audit_path = getattr(self._config, "audit_path", "arc_audit.jsonl")
@@ -252,7 +252,7 @@ class RuntimeBuilder:
 
     def _build_approver(self) -> Any:
         """Build approver based on config.approver_mode."""
-        from foundry.tollgate import AsyncQueueApprover, CliApprover
+        from tollgate import AsyncQueueApprover, CliApprover
 
         mode = getattr(self._config, "approver_mode", "sqs")
 

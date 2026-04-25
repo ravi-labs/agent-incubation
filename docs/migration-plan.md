@@ -1,6 +1,6 @@
 # Foundry → Arc Migration Plan
 
-**Status:** Phase 2 module migrations COMPLETE — all 15 modules now shimmed in foundry. Remaining work to delete `agent-foundry/`: port examples to `arc/agents/`, update `agent-team-template/`, drop the agent-foundry dep from arc-core/arc-harness, complete the vendored-tollgate cleanup (Option F).
+**Status:** Phase 2 + Phase 3 first feature + vendored-tollgate cleanup COMPLETE. All 15 modules shimmed in foundry; foundry's vendored tollgate copy reduced to shims; arc-core, arc-harness, arc-cli no longer declare `agent-foundry` as a runtime dependency. Phase 3 promotion pipeline (`PromotionService`, gates, audit log, demote()) is native in arc-core. Remaining work to physically delete `agent-foundry/`: port examples in `agent-foundry/examples/` to `arc/agents/`, update `agent-team-template/` import paths, decide on long-term policy for keeping foundry as a back-compat shim package vs deleting outright.
 
 **Goal:** Move all production functionality from `agent-foundry/src/foundry/` into the appropriate `arc/packages/arc-*/src/arc/...` package, then delete `agent-foundry/`.
 

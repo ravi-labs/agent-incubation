@@ -11,7 +11,7 @@ the report can show what would have happened in each autonomy level.
 """
 
 from dataclasses import dataclass, field
-from foundry.tollgate.types import AuditEvent, DecisionType, Outcome
+from tollgate.types import AuditEvent, DecisionType, Outcome
 
 
 @dataclass
