@@ -79,14 +79,11 @@ Reusable deployment artifacts: container `Dockerfile`, ECS task definition,
 CDK stacks for Lambda + Bedrock Agent.
 
 ### `docs/`
-Planning and stakeholder artifacts — platform vision deck, project plan,
-engineering overview, the typed-effect-scopes research paper, competitive
-analysis, the interactive HTML pipeline deck. Plus the
-[migration plan](docs/migration-plan.md) (module-by-module history of the
-foundry → arc rewrite) and [foundry-legacy/](docs/foundry-legacy/) (the
-original architecture/quickstart docs, preserved for concept reference —
-import paths reference the now-deleted `foundry.*` namespace, but every
-concept maps 1:1 to `arc.*`).
+Engineering documentation, organized high-level → low-level:
+- [`docs/architecture.md`](docs/architecture.md) — top-level platform architecture
+- [`docs/concepts/`](docs/concepts/) — the four big abstractions: effects, governance, lifecycle
+- [`docs/guides/`](docs/guides/) — hands-on walkthroughs (start with [build-an-agent](docs/guides/build-an-agent.md))
+- [`docs/vision/`](docs/vision/), [`docs/research/`](docs/research/), [`docs/marketing/`](docs/marketing/) — stakeholder artifacts (vision deck, typed-effect-scopes paper, competitive analysis)
 
 ---
 
@@ -133,11 +130,14 @@ arc agent validate my-agent/manifest.yaml --strict
 
 ## Architecture & onboarding
 
-- Platform architecture: [docs/foundry-legacy/platform-architecture.md](docs/foundry-legacy/platform-architecture.md) *(concepts apply identically to arc; import paths reference the now-deleted `foundry.*` namespace — substitute `arc.*` mentally)*
+- **Start here:** [docs/architecture.md](docs/architecture.md) — what arc is, the four big abstractions, package layout, end-to-end execution flow
+- **The four big concepts:**
+  - [Effects](docs/concepts/effects.md) — typed taxonomy, six tiers, default decisions
+  - [Governance](docs/concepts/governance.md) — Tollgate ControlTower, policy YAML, audit trail
+  - [Lifecycle](docs/concepts/lifecycle.md) — six-stage pipeline, promotion service, manifest write-back
+- **Hands-on:** [Build an agent](docs/guides/build-an-agent.md)
+- **Deploy:** [`deploy/bedrock-agent-core.md`](deploy/bedrock-agent-core.md)
 - Engineering overview: [docs/vision/engineering-overview.docx](docs/vision/engineering-overview.docx)
-- Team onboarding: [docs/foundry-legacy/team-onboarding.md](docs/foundry-legacy/team-onboarding.md)
-- Effect reference: [docs/foundry-legacy/effects-reference.md](docs/foundry-legacy/effects-reference.md)
-- Migration history: [docs/migration-plan.md](docs/migration-plan.md)
 
 ---
 
