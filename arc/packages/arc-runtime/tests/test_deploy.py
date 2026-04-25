@@ -73,9 +73,9 @@ class TestMakeHandler:
         with patch("arc.runtime.deploy.lambda_handler._FoundryLambdaHandler._load_secrets"):
             with patch("arc.core.manifest.AgentManifest.from_yaml", return_value=dummy_manifest):
                 with patch("tollgate.YamlPolicyEvaluator"):
-                    with patch("foundry.tollgate.AutoApprover"):
-                        with patch("foundry.tollgate.JsonlAuditSink"):
-                            with patch("foundry.tollgate.tower.ControlTower"):
+                    with patch("tollgate.AutoApprover"):
+                        with patch("tollgate.JsonlAuditSink"):
+                            with patch("tollgate.tower.ControlTower"):
                                 with pytest.raises(ValueError, match="No gateway provided"):
                                     handler_obj._init_agent()
 

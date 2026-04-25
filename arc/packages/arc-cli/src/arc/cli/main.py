@@ -928,7 +928,7 @@ def deploy_package(manifest_path: str, target: str):
         click.echo(f"     docker build -t {manifest.agent_id}:latest \\")
         click.echo(f"       --build-arg AGENT_MODULE=your_module \\")
         click.echo(f"       --build-arg AGENT_CLASS=YourAgentClass \\")
-        click.echo(f"       -f agent-foundry/deploy/Dockerfile .")
+        click.echo(f"       -f deploy/Dockerfile .")
         click.echo()
         click.echo("  2. Push to ECR:")
         click.echo(f"     aws ecr create-repository --repository-name {manifest.agent_id}")
@@ -936,7 +936,7 @@ def deploy_package(manifest_path: str, target: str):
         click.echo(f"     docker push <ECR_URI>/{manifest.agent_id}:latest")
         click.echo()
         click.echo("  3. Register ECS task def:")
-        click.echo("     Edit agent-foundry/deploy/ecs-task-def.json with your values")
+        click.echo("     Edit deploy/ecs-task-def.json with your values")
         click.echo("     aws ecs register-task-definition --cli-input-json file://ecs-task-def.json")
 
     elif target == "bedrock":
@@ -950,12 +950,12 @@ def deploy_package(manifest_path: str, target: str):
             click.echo()
 
         click.echo("  1. Generate Action Group schema:")
-        click.echo(f"     foundry deploy schema --upload-to-s3 s3://my-bucket/agents/{manifest.agent_id}/schema.json")
+        click.echo(f"     arc deploy schema --upload-to-s3 s3://my-bucket/agents/{manifest.agent_id}/schema.json")
         click.echo()
         click.echo("  2. Deploy Lambda function (see --target lambda)")
         click.echo()
         click.echo("  3. Register in Bedrock Agent Core:")
-        click.echo("     See agent-foundry/deploy/bedrock-agent-core.md for full setup")
+        click.echo("     See deploy/bedrock-agent-core.md for full setup")
         click.echo()
         click.echo(click.style(
             "  Note: Tollgate policy enforcement runs inside your Lambda —\n"

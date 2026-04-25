@@ -1,4 +1,17 @@
-# Agent Foundry — Documentation
+# Agent Foundry — Documentation (legacy reference)
+
+> **Status:** These docs were written when `agent-foundry` was the canonical
+> implementation. The codebase has since migrated to `arc/`, and these docs
+> still reference `from foundry.X import Y` paths. The concepts (effects,
+> manifests, BaseAgent, ControlTower, lifecycle) all carry over identically;
+> only the import path changed. Mentally substitute `arc.core.X` for
+> `foundry.scaffold.X` / `foundry.policy.X` / `foundry.lifecycle.X`,
+> `arc.harness.X` for `foundry.harness.X`, and so on.
+>
+> For the canonical entry point, see the root [README](../../README.md) and
+> [docs/migration-plan.md](../migration-plan.md).
+
+---
 
 > Enterprise agent incubation platform: from idea to governed production agent on AWS.
 

@@ -15,89 +15,121 @@ Identity + Intent + Policy.
 
 ```
 agent-incubation/
-├── agent-foundry/        ← Active implementation: framework, CLI, scaffold, examples, docs
-├── arc/                  ← Future packaging surface: multi-package monorepo (in migration)
+├── arc/                  ← THE PLATFORM. Multi-package monorepo, native, fully tested.
+├── agent-foundry/        ← Back-compat shim package. All source files are thin re-exports of arc.*
 ├── agent-registry/       ← Central governance catalog: manifests only, no code
 ├── agent-team-template/  ← Starter template: copy this to bootstrap a new team repo
 ├── tollgate/             ← Vendored policy engine (ControlTower, evaluator, circuit breaker)
-└── docs/                 ← Vision, research, and marketing artifacts
+├── policies/             ← Shared policy YAMLs (financial-services, etc.)
+├── deploy/               ← Container + CDK + ECS deployment artifacts
+└── docs/                 ← Vision, research, marketing, and the migration plan
     ├── vision/           ← platform vision, project plan, engineering overview
     ├── research/         ← typed-effect-scopes paper
-    └── marketing/        ← competitive analysis, quickstart, interactive deck
+    ├── marketing/        ← competitive analysis, quickstart, interactive deck
+    ├── foundry-legacy/   ← original agent-foundry/docs (concepts apply, paths reference foundry.*)
+    └── migration-plan.md ← module-by-module foundry → arc migration history
 ```
 
-### `agent-foundry/` — the active implementation
-The mature, pip-installable framework. Today this is what every agent runs on.
-Includes:
-- **Effect taxonomies** — Financial (30+ effects across 6 tiers), plus Healthcare,
-  Legal, ITSM, and Compliance taxonomies for domain-specific governance
-- **BaseAgent scaffold** — every tool call routed through Tollgate's ControlTower,
-  manifest-declared effects only, kill switch enforced at the class level
-- **AgentManifest** — YAML artifact declaring scope, effects, lifecycle stage,
-  success metrics
-- **Harness layer** — sandbox testing with fixture data, shadow audit sink,
-  decision reports, automatic ASK-approval in sandbox mode
-- **`foundry` CLI** — scaffold, validate, promote, suspend, registry commands
-- **Audit dashboard** — self-contained HTML report generated from JSONL audit logs
-- **Reference agents** — retirement trajectory, fiduciary watchdog, life event
-  anticipation, plan design optimizer (financial); email triage (ITSM);
-  care coordinator (healthcare); contract review (legal)
-- **Full documentation** under [agent-foundry/docs/](agent-foundry/docs/)
+### `arc/` — the platform
 
-### `arc/` — the future packaging surface
-Multi-package monorepo (`arc-core`, `arc-harness`, `arc-orchestrators`,
-`arc-connectors`, `arc-runtime`, `arc-platform`). Today most arc packages
-**re-export from agent-foundry**; the migration is happening module by module.
+Native, self-contained, fully tested. This is what every agent runs on:
 
-Net-new in arc, not in foundry:
-- **arc-orchestrators** — common protocol with adapters for LangGraph, AgentCore,
-  and Strands so agent code is orchestrator-agnostic
-- **arc-connectors** — Outlook, Pega (case + knowledge), ServiceNow, plus a mock
-  for tests, all behind a common base interface
+- **arc-core** — governance engine. Effect taxonomies (Financial 30+, Healthcare,
+  Legal, ITSM, Compliance), `EffectRequestBuilder`, `AgentManifest`, `BaseAgent`,
+  `gateway`, `memory`, `tools`, `observability`, lifecycle stages + promotion
+  pipeline (`PromotionService`, gates, audit log), `RegistryCatalog`.
+- **arc-harness** — sandbox testing with fixture data, shadow audit sink,
+  decision reports, automatic ASK-approval in sandbox mode.
 - **arc-runtime** — `RuntimeConfig.from_env()` + `RuntimeBuilder` for production
-  wiring (mirror of `HarnessBuilder` in foundry)
+  wiring; deploy adapters (Lambda, Bedrock, secrets).
+- **arc-cli** — `arc agent new/list/validate/promote/suspend`, audit dashboard,
+  policy/effects browsers. (Legacy `foundry` script still works as an alias.)
+- **arc-eval** — scenario-based evaluation framework.
+- **arc-orchestrators** — common protocol with adapters for LangGraph, AgentCore,
+  and Strands so agent code is orchestrator-agnostic; LangChain bridge.
+- **arc-connectors** — Outlook, Pega (case + knowledge), ServiceNow, Bedrock
+  (KB, LLM, Guardrails, Agent client), plus a mock for tests.
+- **arc-platform** — reserved for Phase 3 web portals (empty placeholder).
+- **arc/agents/** — 7 reference agents (retirement-trajectory, fiduciary-watchdog,
+  life-event-anticipation, plan-design-optimizer, email-triage, care-coordinator,
+  contract-review).
 
-See [arc/README.md](arc/README.md) for the package layout and target API.
+See [arc/README.md](arc/README.md) for the package layout and full API.
+
+### `agent-foundry/` — back-compat shim package
+
+The original implementation, slimmed to a re-export layer. Every file under
+`agent-foundry/src/foundry/` is a thin shim that imports from `arc.*`. Existing
+callers of `from foundry.X import Y` keep working; new code should use `arc.*`
+directly. The package's `[aws]`, `[langchain]`, `[langgraph]`, etc. extras
+remain as install-time aliases so legacy `pip install 'agent-foundry[aws]'`
+instructions still install the right transitive deps.
 
 ### `agent-registry/`
 The governance catalog. Teams submit a PR here when an agent is ready for
 compliance review. Manifests only — no business logic. Each PR requires
-compliance-team sign-off.
+compliance-team sign-off. Catalog generation runs in CI via
+`arc.core.registry.build_catalog`.
 
 ### `agent-team-template/`
-Boilerplate for a new team's agent repo. Copy it, install foundry, and build.
-Contains a working scaffold with manifest, policy, agent stub, and tests.
+Boilerplate for a new team's agent repo. Copy it, install `arc-core` +
+`arc-harness`, and build. Contains a working scaffold with manifest, policy,
+agent stub, and tests.
 
 ### `tollgate/`
-Vendored policy engine: ControlTower, YAML policy evaluator, circuit breaker,
-approval primitives. Imported by foundry; will be imported by arc once the
-core migration completes.
+The canonical policy engine: ControlTower, YAML policy evaluator, circuit
+breaker, approval primitives. Imported directly by both `arc.*` packages and
+the foundry shim layer (no vendored copy anymore).
+
+### `policies/`
+Shared policy YAMLs that span teams (e.g., `financial_services/erisa.yaml`).
+Per-team policies live in each team's repo.
+
+### `deploy/`
+Reusable deployment artifacts: container `Dockerfile`, ECS task definition,
+CDK stacks for Lambda + Bedrock Agent.
 
 ### `docs/`
 Planning and stakeholder artifacts — platform vision deck, project plan,
 engineering overview, the typed-effect-scopes research paper, competitive
-analysis, and the interactive HTML pipeline deck.
+analysis, the interactive HTML pipeline deck. Plus the
+[migration plan](docs/migration-plan.md) (module-by-module history of
+foundry → arc) and [foundry-legacy/](docs/foundry-legacy/) (the original
+`agent-foundry/docs/` content, preserved for concept reference).
 
 ---
 
 ## Quick start
 
 ```bash
-# Install the active framework
+# Install the platform (editable, monorepo)
+pip install -e tollgate/
+pip install -e arc/packages/arc-core/
+pip install -e arc/packages/arc-harness/
+pip install -e arc/packages/arc-runtime/
+pip install -e arc/packages/arc-cli/
+pip install -e arc/packages/arc-eval/
+pip install -e arc/packages/arc-orchestrators/
+pip install -e arc/packages/arc-connectors/
+
+# (Optional) Install the back-compat shim — adds `from foundry.X import Y` support
 pip install -e agent-foundry/
 
 # Browse the effect taxonomy
-foundry effects list
+arc effects list
 
 # Scaffold a new agent
-foundry agent new my-agent
+arc agent new my-agent
 
 # Run a reference implementation
-python agent-foundry/examples/retirement_trajectory/agent.py
+python arc/agents/retirement-trajectory/agent.py
 
 # Validate a manifest
-foundry agent validate my-agent/manifest.yaml --strict
+arc agent validate my-agent/manifest.yaml --strict
 ```
+
+The legacy `foundry` script is still wired up as an alias for `arc`, so older
+docs and shell history keep working.
 
 ---
 
@@ -116,10 +148,11 @@ foundry agent validate my-agent/manifest.yaml --strict
 
 ## Architecture & onboarding
 
-- Platform architecture: [agent-foundry/docs/platform-architecture.md](agent-foundry/docs/platform-architecture.md)
+- Platform architecture: [docs/foundry-legacy/platform-architecture.md](docs/foundry-legacy/platform-architecture.md) *(concepts apply identically to arc; import paths reference foundry.*)*
 - Engineering overview: [docs/vision/engineering-overview.docx](docs/vision/engineering-overview.docx)
-- Team onboarding: [agent-foundry/docs/team-onboarding.md](agent-foundry/docs/team-onboarding.md)
-- Effect reference: [agent-foundry/docs/effects-reference.md](agent-foundry/docs/effects-reference.md)
+- Team onboarding: [docs/foundry-legacy/team-onboarding.md](docs/foundry-legacy/team-onboarding.md)
+- Effect reference: [docs/foundry-legacy/effects-reference.md](docs/foundry-legacy/effects-reference.md)
+- Migration history: [docs/migration-plan.md](docs/migration-plan.md)
 
 ---
 
