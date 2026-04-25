@@ -1,0 +1,68 @@
+# Agent Manifest — Contract Review Agent
+# ─────────────────────────────────────────
+# Reviews commercial contracts against an internal playbook, scores clause
+# risk, drafts redlines for high-risk clauses, and routes the review package
+# through attorney sign-off before any external communication.
+#
+# Taxonomy: LegalEffect (UPL / Privilege)
+# Taxonomy Steward role: General Counsel / Deputy GC
+# Manifest Approver role: Chief Legal Officer / Legal Ops Lead
+
+agent_id: contract-reviewer
+version: "0.1.0"
+owner: legal-ops-team
+description: >
+  Reads incoming commercial contracts (NDAs, MSAs, SOWs), extracts key
+  parties, obligations, and deadlines, scores each clause against the
+  playbook for risk, drafts redlines on high-risk clauses, and routes
+  the full review package to the attorney review queue before any
+  summary is sent to the requesting business unit.
+
+lifecycle_stage: BUILD
+environment: sandbox
+
+# Effects this agent is permitted to invoke.
+# Any effect not listed here is implicitly denied.
+# Hard-deny effects (legal.advice.render, privileged.document.disclose,
+# court.filing.execute, settlement.execute) cannot appear here — they
+# are unconditional.
+allowed_effects:
+  - contract.read
+  - regulation.read
+  - precedent.read
+  - clause.risk.score
+  - compliance.gap.identify
+  - entity.extraction.run
+  - deadline.calculate
+  - redline.draft
+  - contract.summary.draft
+  - legal.memo.draft
+  - review.summary.send
+  - compliance.alert.send
+  - legal.human.review.queue.add
+  - legal.audit.log.write
+  - matter.interaction.log.write
+  - document.classification.save
+  - deadline.record
+
+data_access:
+  - contract.repository
+  - playbook.library
+  - regulation.database
+  - precedent.library
+
+policy_path: examples/contract_review/policy.yaml
+
+success_metrics:
+  - "Contract review cycle time reduced by >= 40% vs. manual baseline"
+  - "Attorney escalation rate for high-risk contracts >= 95%"
+  - "Zero unauthorised external disclosure of contract terms"
+  - "Audit log completeness: 100% of effects logged"
+  - "Playbook coverage: >= 90% of standard clause types scored"
+
+tags:
+  - legal
+  - contract-review
+  - upl-compliance
+  - redlining
+  - risk-scoring
