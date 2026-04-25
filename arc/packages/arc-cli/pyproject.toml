@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arc-cli"
+version = "0.1.0"
+description = "Arc command-line interface — agent scaffolding, validation, promotion, and registry submission"
+requires-python = ">=3.11"
+dependencies = [
+    "arc-core>=0.1.0",
+    "click>=8.0",
+    "pyyaml>=6.0",
+    # Tollgate and deploy/bedrock are still imported by a couple of CLI
+    # subcommands (`foundry agent suspend/resume`, the bedrock helpers).
+    # Drops once modules 12 (deploy) and the vendored-tollgate cleanup land.
+    "agent-foundry",
+]
+
+[project.scripts]
+arc = "arc.cli.main:cli"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arc"]
