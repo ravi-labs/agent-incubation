@@ -41,7 +41,7 @@ VALID_MANIFEST_DATA = {
     "success_metrics": ["Metric one", "Metric two"],
     "tags": ["test"],
     "team_repo": "https://github.com/test/test-agents",
-    "foundry_version": ">=0.1.0",
+    "arc_version": ">=0.1.0",
 }
 
 
@@ -110,7 +110,35 @@ class TestValidManifest:
         assert d["status"] == "active"
         assert "allowed_effects" in d
         assert "team_repo" in d
-        assert "foundry_version" in d
+        assert "arc_version" in d
+
+
+class TestLegacyFoundryVersionField:
+    """Pre-rename manifests written with `foundry_version:` must still load.
+
+    The field was renamed `foundry_version` → `arc_version` during the
+    foundry → arc consolidation. ``load_manifest`` accepts the legacy
+    key as a fallback so existing manifest.yaml files keep working.
+    """
+
+    def test_legacy_foundry_version_key_still_loads(self, tmp_path):
+        legacy = {**VALID_MANIFEST_DATA}
+        # Strip the new key, write the legacy one
+        legacy.pop("arc_version", None)
+        legacy["foundry_version"] = ">=0.1.0"
+
+        p = write_manifest(tmp_path, legacy)
+        manifest = load_manifest(p)
+        assert manifest.arc_version == ">=0.1.0"
+
+    def test_arc_version_wins_when_both_keys_present(self, tmp_path):
+        data = {**VALID_MANIFEST_DATA}
+        data["arc_version"] = ">=0.2.0"
+        data["foundry_version"] = ">=0.1.0"   # should be ignored
+
+        p = write_manifest(tmp_path, data)
+        manifest = load_manifest(p)
+        assert manifest.arc_version == ">=0.2.0"
 
 
 # ─── Required Fields ──────────────────────────────────────────────────────────

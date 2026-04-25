@@ -1,5 +1,5 @@
 """
-foundry.integrations.bedrock_kb
+arc.connectors.bedrock_kb
 ─────────────────────────────────
 Amazon Bedrock Knowledge Base integration for arc agents.
 

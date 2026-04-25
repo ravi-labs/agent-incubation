@@ -1,5 +1,5 @@
 """
-foundry.integrations.bedrock_agent_client
+arc.connectors.bedrock_agent_client
 ──────────────────────────────────────────
 Streaming client for calling deployed Amazon Bedrock Agents.
 

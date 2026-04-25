@@ -56,7 +56,7 @@ import asyncio
 import logging
 from typing import Any, Optional
 
-from arc.orchestrators.langgraph_agent import END, START, FoundryState, GraphAgent
+from arc.orchestrators.langgraph_agent import END, START, AgentState, GraphAgent
 from arc.core.effects import FinancialEffect
 from arc.core.manifest import AgentManifest
 from arc.core.gateway import GatewayConnector
@@ -69,7 +69,7 @@ logger = logging.getLogger(__name__)
 # ── State schema ───────────────────────────────────────────────────────────────
 
 
-class WatchdogState(FoundryState):
+class WatchdogState(AgentState):
     """
     State that flows through all nodes in the Fiduciary Watchdog graph.
 

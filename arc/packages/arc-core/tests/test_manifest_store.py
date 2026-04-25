@@ -75,7 +75,7 @@ class TestSaveManifest:
         original = _make_manifest()
         original.tags = ["financial-services", "fiduciary"]
         original.team_repo = "https://github.com/example/agent"
-        original.foundry_version = ">=0.1.0"
+        original.arc_version = ">=0.1.0"
         original.status = AgentStatus.SUSPENDED
 
         path = tmp_path / "manifest.yaml"
@@ -84,7 +84,7 @@ class TestSaveManifest:
 
         assert loaded.tags == original.tags
         assert loaded.team_repo == original.team_repo
-        assert loaded.foundry_version == original.foundry_version
+        assert loaded.arc_version == original.arc_version
         assert loaded.status == AgentStatus.SUSPENDED
 
     def test_save_creates_parent_directories(self, tmp_path: Path):

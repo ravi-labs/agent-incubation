@@ -1,5 +1,5 @@
 """
-foundry.integrations.bedrock_llm
+arc.connectors.bedrock_llm
 ──────────────────────────────────
 Amazon Bedrock LLM client for arc agents.
 

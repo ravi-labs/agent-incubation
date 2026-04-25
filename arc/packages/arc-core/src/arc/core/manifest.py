@@ -92,7 +92,7 @@ class AgentManifest:
     tags: list[str] = field(default_factory=list)
     status: AgentStatus = AgentStatus.ACTIVE
     team_repo: str = ""
-    foundry_version: str = ""
+    arc_version: str = ""
 
     @property
     def manifest_version(self) -> str:
@@ -159,7 +159,7 @@ class AgentManifest:
             "environment": self.environment,
             "tags": self.tags,
             "team_repo": self.team_repo,
-            "foundry_version": self.foundry_version,
+            "arc_version": self.arc_version,
         }
 
 
@@ -223,7 +223,10 @@ def load_manifest(path: str | Path) -> AgentManifest:
         tags=data.get("tags", []),
         status=status,
         team_repo=data.get("team_repo", ""),
-        foundry_version=data.get("foundry_version", ""),
+        # Accept legacy `foundry_version` key for back-compat with manifests
+        # written before the foundry → arc rename. New manifests should use
+        # `arc_version`; the loader prefers it when both are present.
+        arc_version=data.get("arc_version", data.get("foundry_version", "")),
     )
 
 

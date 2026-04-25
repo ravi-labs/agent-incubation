@@ -1,9 +1,9 @@
 """
-foundry.memory.store
+arc.core.memory.store
 ─────────────────────
-Long-term persisted key-value memory for Foundry agents.
+Long-term persisted key-value memory for arc agents.
 
-FoundryMemoryStore provides durable agent memory that survives Lambda cold starts
+AgentMemoryStore provides durable agent memory that survives Lambda cold starts
 and spans multiple sessions. It stores arbitrary JSON-serialisable facts keyed by
 (agent_id, namespace, key).
 
@@ -13,14 +13,14 @@ Backends:
 
 Usage in a BaseAgent:
 
-    from arc.core.memory import FoundryMemoryStore, LocalJsonStore
+    from arc.core.memory import AgentMemoryStore, LocalJsonStore
 
     class FiduciaryWatchdogAgent(BaseAgent):
 
         def __init__(self, manifest, tower, gateway, tracker=None):
             super().__init__(manifest, tower, gateway, tracker)
             backend = LocalJsonStore("/tmp/watchdog-memory.json")
-            self.memory = FoundryMemoryStore(
+            self.memory = AgentMemoryStore(
                 agent_id=manifest.agent_id,
                 backend=backend,
             )
@@ -40,13 +40,13 @@ Usage in a BaseAgent:
 
 Production setup (DynamoDB):
 
-    from arc.core.memory import FoundryMemoryStore, DynamoDBMemoryBackend
+    from arc.core.memory import AgentMemoryStore, DynamoDBMemoryBackend
 
     backend = DynamoDBMemoryBackend(
         table_name="arc-agent-memory",
         region="us-east-1",
     )
-    memory = FoundryMemoryStore(agent_id="fiduciary-watchdog", backend=backend)
+    memory = AgentMemoryStore(agent_id="fiduciary-watchdog", backend=backend)
 """
 
 from __future__ import annotations
@@ -126,7 +126,7 @@ class MemoryEntry:
 
 
 class MemoryBackend(ABC):
-    """Abstract persistence backend for FoundryMemoryStore."""
+    """Abstract persistence backend for AgentMemoryStore."""
 
     @abstractmethod
     async def get(self, agent_id: str, namespace: str, key: str) -> MemoryEntry | None:
@@ -344,9 +344,9 @@ class DynamoDBMemoryBackend(MemoryBackend):
 # ── High-level store ───────────────────────────────────────────────────────────
 
 
-class FoundryMemoryStore:
+class AgentMemoryStore:
     """
-    High-level long-term memory store for Foundry agents.
+    High-level long-term memory store for arc agents.
 
     Wraps a MemoryBackend with a clean get/set/delete API, automatic TTL
     calculation from days, and structured logging.

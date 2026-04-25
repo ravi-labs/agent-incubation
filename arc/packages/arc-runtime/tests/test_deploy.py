@@ -1,5 +1,5 @@
 """
-Tests for foundry.deploy.lambda_handler — make_handler and _FoundryLambdaHandler.
+Tests for arc.runtime.deploy.lambda_handler — make_handler and _LambdaHandler.
 
 Covers:
   make_handler():
@@ -7,7 +7,7 @@ Covers:
     - returns handler object with .handler() method
     - agent is not initialised at make_handler() time (lazy cold-start)
 
-  _FoundryLambdaHandler.handler():
+  _LambdaHandler.handler():
     - cold start initialises agent on first invocation
     - warm invocation reuses existing agent (no re-init)
     - direct event kwargs passed through to agent.execute()
@@ -30,7 +30,7 @@ import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
-from arc.runtime.deploy.lambda_handler import make_handler, _FoundryLambdaHandler
+from arc.runtime.deploy.lambda_handler import make_handler, _LambdaHandler
 
 
 # ─── Minimal concrete agent ────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ class TestMakeHandler:
             data_access=[], policy_path="p.yaml", success_metrics=["m"],
         )
 
-        with patch("arc.runtime.deploy.lambda_handler._FoundryLambdaHandler._load_secrets"):
+        with patch("arc.runtime.deploy.lambda_handler._LambdaHandler._load_secrets"):
             with patch("arc.core.manifest.AgentManifest.from_yaml", return_value=dummy_manifest):
                 with patch("tollgate.YamlPolicyEvaluator"):
                     with patch("tollgate.AutoApprover"):
@@ -100,7 +100,7 @@ class TestNormaliseEvent:
 
     def test_direct_dict_passes_through(self):
         event = {"participant_id": "p-001", "run_type": "batch"}
-        result = _FoundryLambdaHandler._normalise_event(event)
+        result = _LambdaHandler._normalise_event(event)
         assert result == event
 
     def test_eventbridge_detail_extracted(self):
@@ -109,30 +109,30 @@ class TestNormaliseEvent:
             "detail-type": "AgentTrigger",
             "detail": {"fund_id": "f-42"},
         }
-        result = _FoundryLambdaHandler._normalise_event(event)
+        result = _LambdaHandler._normalise_event(event)
         assert result == {"fund_id": "f-42"}
 
     def test_scheduled_aws_events_returns_empty(self):
         event = {"source": "aws.events", "detail-type": "Scheduled Event"}
-        result = _FoundryLambdaHandler._normalise_event(event)
+        result = _LambdaHandler._normalise_event(event)
         assert result == {}
 
     def test_sqs_records_body_parsed(self):
         body = json.dumps({"plan_id": "p-999"})
         event = {"Records": [{"body": body}]}
-        result = _FoundryLambdaHandler._normalise_event(event)
+        result = _LambdaHandler._normalise_event(event)
         assert result == {"plan_id": "p-999"}
 
     def test_sqs_arc_event_wrapped(self):
         body = json.dumps({"arc_event": "review_complete", "review_id": "r-1"})
         event = {"Records": [{"body": body}]}
-        result = _FoundryLambdaHandler._normalise_event(event)
+        result = _LambdaHandler._normalise_event(event)
         # arc_event envelope present → returns wrapped as {"event": {...}}
         assert "event" in result
 
     def test_eventbridge_non_dict_detail_wrapped(self):
         event = {"detail": "just a string"}
-        result = _FoundryLambdaHandler._normalise_event(event)
+        result = _LambdaHandler._normalise_event(event)
         assert result == {"detail": "just a string"}
 
 

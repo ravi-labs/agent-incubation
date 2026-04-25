@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# LangChain bridge (FoundryTool, FoundryToolkit, FoundryRunnable)
+# LangChain bridge (ArcTool, ArcToolkit, ArcRunnable)
 langchain   = ["langchain-core>=0.2", "langchain>=0.2", "langchain-community>=0.2"]
 langgraph   = ["langgraph>=0.2", "langchain-aws>=0.1", "arc-orchestrators[langchain]"]
 agentcore   = ["boto3>=1.34", "botocore>=1.34"]

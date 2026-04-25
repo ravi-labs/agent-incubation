@@ -5,7 +5,7 @@ Reads TICKET_TARGET env var and instantiates the correct connector
 (PegaCaseConnector or ServiceNowConnector). Wires all Arc components
 into a production-ready agent instance.
 
-Contrast with HarnessBuilder (foundry.harness) — same fluent interface,
+Contrast with HarnessBuilder (arc.harness) — same fluent interface,
 real connectors instead of fixture mocks.
 
 Usage:

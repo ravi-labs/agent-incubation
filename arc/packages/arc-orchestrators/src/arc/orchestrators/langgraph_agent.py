@@ -1,5 +1,5 @@
 """
-foundry.integrations.langgraph
+arc.orchestrators.langgraph_agent
 ───────────────────────────────
 LangGraph integration for arc agents.
 
@@ -11,11 +11,11 @@ Install:
     pip install "arc-orchestrators[langgraph]"
 
 Usage:
-    from arc.orchestrators.langgraph_agent import GraphAgent, FoundryState
+    from arc.orchestrators.langgraph_agent import GraphAgent, AgentState
     from langgraph.graph import START, END
     from typing import TypedDict
 
-    class WatchdogState(FoundryState):
+    class WatchdogState(AgentState):
         fund_id: str
         fee_analysis: dict | None
         performance_analysis: dict | None
@@ -110,13 +110,13 @@ logger = logging.getLogger(__name__)
 from typing import TypedDict
 
 
-class FoundryState(TypedDict, total=False):
+class AgentState(TypedDict, total=False):
     """
     Base state for all GraphAgent state machines.
 
     Extend this with your agent's domain-specific fields:
 
-        class MyAgentState(FoundryState):
+        class MyAgentState(AgentState):
             participant_id: str
             risk_score: float | None
             intervention_draft: str | None
@@ -134,8 +134,8 @@ class FoundryState(TypedDict, total=False):
     _meta: dict
 
 
-# Generic type variable bound to FoundryState
-S = TypeVar("S", bound=FoundryState)
+# Generic type variable bound to AgentState
+S = TypeVar("S", bound=AgentState)
 
 
 # ── GraphAgent ─────────────────────────────────────────────────────────────────
@@ -262,7 +262,7 @@ class GraphAgent(BaseAgent, Generic[S]):
         thread_id = kwargs.pop("thread_id", None)
         graph     = self._get_graph()
 
-        initial_state: FoundryState = {
+        initial_state: AgentState = {
             "input": kwargs,
             "outputs": [],
             "errors": [],
@@ -331,7 +331,7 @@ class GraphAgent(BaseAgent, Generic[S]):
         """
         graph = self._get_graph()
 
-        initial_state: FoundryState = {
+        initial_state: AgentState = {
             "input": kwargs,
             "outputs": [],
             "errors": [],
@@ -391,7 +391,7 @@ class GraphAgent(BaseAgent, Generic[S]):
 
     # ── Node helpers ───────────────────────────────────────────────────────────
 
-    def append_output(self, state: FoundryState, output: Any) -> dict:
+    def append_output(self, state: AgentState, output: Any) -> dict:
         """
         Helper for nodes that produce outputs — appends to the outputs list.
 
@@ -405,7 +405,7 @@ class GraphAgent(BaseAgent, Generic[S]):
         existing.append(output)
         return {"outputs": existing}
 
-    def append_error(self, state: FoundryState, error: str) -> dict:
+    def append_error(self, state: AgentState, error: str) -> dict:
         """
         Helper for nodes that encounter non-fatal errors — continues execution.
 
@@ -422,6 +422,6 @@ class GraphAgent(BaseAgent, Generic[S]):
 
 try:
     from langgraph.graph import END, START
-    __all__ = ["GraphAgent", "FoundryState", "START", "END"]
+    __all__ = ["GraphAgent", "AgentState", "START", "END"]
 except ImportError:
-    __all__ = ["GraphAgent", "FoundryState"]
+    __all__ = ["GraphAgent", "AgentState"]

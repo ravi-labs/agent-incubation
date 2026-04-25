@@ -30,8 +30,8 @@ from .pega_knowledge import PegaKnowledgeConnector
 from .servicenow import ServiceNowConnector
 
 
-# Bedrock connectors — migrated from foundry.integrations (module 15).
-# Lazy-loaded because they require boto3 (extras: arc-connectors[aws]).
+# Bedrock connectors. Lazy-loaded because they require boto3
+# (extras: arc-connectors[aws]).
 def __getattr__(name: str):
     bedrock_map = {
         "BedrockKBClient":             ("bedrock_kb",            "BedrockKBClient"),
@@ -60,7 +60,7 @@ __all__ = [
     "PegaKnowledgeConnector",
     "ServiceNowConnector",
     "MockTicketConnector",
-    # Migrated from foundry.integrations (lazy, requires arc-connectors[aws])
+    # Bedrock connectors (lazy, requires arc-connectors[aws])
     "BedrockKBClient", "RetrievedPassage",
     "BedrockLLMClient",
     "BedrockGuardrailsAdapter", "GuardrailsMixin",

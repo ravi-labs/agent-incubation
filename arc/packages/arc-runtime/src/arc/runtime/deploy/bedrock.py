@@ -1,5 +1,5 @@
 """
-foundry.deploy.bedrock
+arc.runtime.deploy.bedrock
 ───────────────────────
 Amazon Bedrock Agent Core adapter for arc agents.
 
@@ -346,7 +346,7 @@ class BedrockAgentAdapter:
         """
         # Build response body
         if isinstance(result, dict) and "statusCode" in result:
-            # Foundry envelope — unwrap it
+            # arc envelope — unwrap it
             payload     = result.get("result", result)
             status_code = result.get("statusCode", 200)
         else:
@@ -571,8 +571,8 @@ def generate_action_schema(manifest: Any) -> dict:
                 "operationId":  operation_id,
                 "summary":      effect_value,
                 "description":  description_text,
-                "x-foundry-effect": effect_value,
-                "x-foundry-tier":   tier.value,
+                "x-arc-effect": effect_value,
+                "x-arc-tier":   tier.value,
                 "x-tollgate-default-decision": default_str,
                 "requestBody": {
                     "required": True,
@@ -611,8 +611,8 @@ def generate_action_schema(manifest: Any) -> dict:
             "title":       agent_id,
             "version":     manifest.version,
             "description": description,
-            "x-foundry-lifecycle-stage": manifest.lifecycle_stage.value,
-            "x-foundry-owner":           manifest.owner,
+            "x-arc-lifecycle-stage": manifest.lifecycle_stage.value,
+            "x-arc-owner":           manifest.owner,
             "x-tollgate-policy-path":    manifest.policy_path,
         },
         "paths": paths,

@@ -1,11 +1,11 @@
 """
-EmailTriageAgent — Arc edition with LangGraph orchestration.
+EmailTriageAgent — LangGraph-orchestrated agent for ITSM email intake.
 
-Rewrites the foundry POC to:
-  - Use self.orchestrator.run() instead of direct pipeline calls
-  - Import from arc.core namespace (not foundry directly)
-  - Work in both harness mode (MockBedrockLLM) and runtime mode (real Bedrock)
-  - Support P1/P2 interrupt (ASK) and P3/P4 auto-create (ALLOW)
+Highlights:
+  - Delegates execution to self.orchestrator.run() (LangGraph or direct).
+  - Built on arc.core (BaseAgent, ITSMEffect, etc.).
+  - Works in both harness mode (MockBedrockLLM) and runtime mode (real Bedrock).
+  - P1/P2 interrupt (ASK) for ticket creation; P3/P4 auto-create (ALLOW).
 
 Run in harness mode (no LangGraph required — uses MockBedrockLLM):
     cd arc
@@ -333,7 +333,7 @@ class _DirectAgent:
         await self._impl.log_outcome(category, data)
 
     async def _triage_email(self, email, articles, directory, results):
-        """Inline triage logic from foundry POC (no LangGraph)."""
+        """Inline triage fallback used when no orchestrator is wired (no LangGraph)."""
         import re as _re
         from arc.core.effects import ITSMEffect
 

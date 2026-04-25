@@ -1,14 +1,14 @@
 """
-foundry.memory.buffer
+arc.core.memory.buffer
 ──────────────────────
-Short-term, in-context conversation memory for Foundry agents.
+Short-term, in-context conversation memory for arc agents.
 
 ConversationBuffer is a bounded ring buffer of Message objects. It holds the
 last N turns of a conversation so agents can maintain context across multi-turn
 interactions without a checkpointer or external store.
 
 This is zero-dependency (no LangChain, no AWS required) and works with any
-BaseAgent. For LangGraph agents that already use a checkpointer, FoundryState
+BaseAgent. For LangGraph agents that already use a checkpointer, AgentState
 already persists full graph state — use ConversationBuffer for non-graph agents
 or for pre/post-processing outside the graph.
 

@@ -1,5 +1,5 @@
 """
-foundry.deploy.secrets
+arc.runtime.deploy.secrets
 ───────────────────────
 AWS Secrets Manager and SSM Parameter Store integration.
 
@@ -11,23 +11,23 @@ Install:
 
 Usage in a Lambda handler or agent init:
 
-    from arc.runtime.deploy.secrets import FoundrySecrets
+    from arc.runtime.deploy.secrets import RuntimeSecrets
 
-    secrets = FoundrySecrets(region="us-east-1")
+    secrets = RuntimeSecrets(region="us-east-1")
 
     # Load a database URL from Secrets Manager
-    db_url = secrets.get_secret("foundry/fiduciary-watchdog/db-url")
+    db_url = secrets.get_secret("arc/fiduciary-watchdog/db-url")
 
     # Load a config value from SSM Parameter Store
-    slack_webhook = secrets.get_parameter("/foundry/notifications/slack-webhook")
+    slack_webhook = secrets.get_parameter("/arc/notifications/slack-webhook")
 
     # Load a full JSON secret as a dict
-    api_creds = secrets.get_secret_json("foundry/bloomberg/credentials")
+    api_creds = secrets.get_secret_json("arc/bloomberg/credentials")
     # → {"api_key": "...", "secret": "..."}
 
 Naming conventions (enforced by CDK stack):
-    Secrets Manager:  foundry/{agent_id}/{secret_name}
-    SSM Parameter:    /foundry/{agent_id}/{param_name}
+    Secrets Manager:  arc/{agent_id}/{secret_name}
+    SSM Parameter:    /arc/{agent_id}/{param_name}
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-class FoundrySecrets:
+class RuntimeSecrets:
     """
     Cached loader for AWS Secrets Manager and SSM Parameter Store.
 
@@ -135,7 +135,7 @@ class FoundrySecrets:
         Load a parameter from SSM Parameter Store (cached).
 
         Args:
-            param_name: Full parameter name (e.g., "/foundry/agent/key").
+            param_name: Full parameter name (e.g., "/arc/agent/key").
             decrypt:    Decrypt SecureString parameters (default True).
 
         Returns:
@@ -164,7 +164,7 @@ class FoundrySecrets:
         Load all parameters under an SSM path prefix.
 
         Args:
-            path:    Parameter path prefix (e.g., "/foundry/fiduciary-watchdog/").
+            path:    Parameter path prefix (e.g., "/arc/fiduciary-watchdog/").
             decrypt: Decrypt SecureString values.
 
         Returns:
@@ -205,12 +205,12 @@ class FoundrySecrets:
 
 # ── Module-level helper for simple use cases ──────────────────────────────────
 
-_default_secrets: FoundrySecrets | None = None
+_default_secrets: RuntimeSecrets | None = None
 
 
-def get_secrets(region: str | None = None) -> FoundrySecrets:
-    """Return a module-level FoundrySecrets instance (singleton per process)."""
+def get_secrets(region: str | None = None) -> RuntimeSecrets:
+    """Return a module-level RuntimeSecrets instance (singleton per process)."""
     global _default_secrets
     if _default_secrets is None:
-        _default_secrets = FoundrySecrets(region=region)
+        _default_secrets = RuntimeSecrets(region=region)
     return _default_secrets

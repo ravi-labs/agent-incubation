@@ -55,10 +55,10 @@ def make_handler(agent_class: type, **agent_kwargs: Any):
     Returns:
         An object with a .handler(event, context) → dict method.
     """
-    return _FoundryLambdaHandler(agent_class, **agent_kwargs)
+    return _LambdaHandler(agent_class, **agent_kwargs)
 
 
-class _FoundryLambdaHandler:
+class _LambdaHandler:
     """Lambda handler — manages agent lifecycle across warm invocations."""
 
     def __init__(self, agent_class: type, **agent_kwargs: Any):
@@ -199,8 +199,8 @@ class _FoundryLambdaHandler:
             return
 
         try:
-            from arc.runtime.deploy.secrets import FoundrySecrets
-            secrets = FoundrySecrets(region=region)
+            from arc.runtime.deploy.secrets import RuntimeSecrets
+            secrets = RuntimeSecrets(region=region)
 
             for env_key, secret_name in secret_vars.items():
                 value = secrets.get_secret(secret_name)
@@ -384,7 +384,7 @@ class _FoundryLambdaHandler:
             record = event["Records"][0]
             body = record.get("body", "{}")
             parsed = json.loads(body) if isinstance(body, str) else body
-            # Strip foundry envelope if present (e.g., from SQSApprover notification)
+            # Strip arc envelope if present (e.g., from SQSApprover notification)
             if "arc_event" in parsed:
                 return {"event": parsed}
             return parsed
@@ -442,17 +442,17 @@ def make_streaming_handler(agent_class: type, **agent_kwargs: Any):
         **agent_kwargs: Extra kwargs forwarded to agent_class.__init__().
 
     Returns:
-        A _FoundryStreamingHandler with a .handler(event, context, response_stream)
+        A _StreamingLambdaHandler with a .handler(event, context, response_stream)
         method compatible with Lambda's streaming invocation.
     """
-    return _FoundryStreamingHandler(agent_class, **agent_kwargs)
+    return _StreamingLambdaHandler(agent_class, **agent_kwargs)
 
 
-class _FoundryStreamingHandler(_FoundryLambdaHandler):
+class _StreamingLambdaHandler(_LambdaHandler):
     """
     Lambda Response Streaming handler — sends NDJSON chunks progressively.
 
-    Inherits cold-start wiring from _FoundryLambdaHandler. The handler()
+    Inherits cold-start wiring from _LambdaHandler. The handler()
     method signature extends the standard Lambda handler with response_stream.
 
     Deployment notes:

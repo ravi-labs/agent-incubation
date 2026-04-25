@@ -58,7 +58,7 @@ from arc.core.gateway import (
 from arc.core.memory import (
     ConversationBuffer,
     DynamoDBMemoryBackend,
-    FoundryMemoryStore,
+    AgentMemoryStore,
     LocalJsonStore,
     MemoryBackend,
     MemoryEntry,
@@ -130,7 +130,7 @@ __all__ = [
     "GatewayConnector", "DataRequest", "DataResponse",
     "MockGatewayConnector", "HttpGateway", "MultiGateway",
     "ConversationBuffer", "Message",
-    "FoundryMemoryStore", "MemoryEntry", "MemoryBackend",
+    "AgentMemoryStore", "MemoryEntry", "MemoryBackend",
     "LocalJsonStore", "DynamoDBMemoryBackend",
     "AgentToolRegistry", "ToolRegistry", "governed_tool", "GovernedToolDef",
     "OutcomeTracker", "OutcomeEvent", "generate_report",

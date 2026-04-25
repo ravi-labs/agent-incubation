@@ -35,7 +35,7 @@ from tollgate.tower import ControlTower
 from tollgate.types import AgentContext
 
 if TYPE_CHECKING:
-    from arc.core.memory import ConversationBuffer, FoundryMemoryStore
+    from arc.core.memory import ConversationBuffer, AgentMemoryStore
     from arc.core.tools import AgentToolRegistry  # noqa: F401
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class BaseAgent(ABC):
         tower: ControlTower,
         gateway: GatewayConnector,
         tracker: OutcomeTracker | None = None,
-        memory: "ConversationBuffer | FoundryMemoryStore | None" = None,
+        memory: "ConversationBuffer | AgentMemoryStore | None" = None,
         tools: "AgentToolRegistry | None" = None,
     ):
         """
@@ -64,7 +64,7 @@ class BaseAgent(ABC):
             tower:    Configured Tollgate ControlTower (policy + audit).
             gateway:  Data access connector (reads via declared permissions).
             tracker:  Optional outcome tracker for ROI measurement.
-            memory:   Optional ConversationBuffer / FoundryMemoryStore.
+            memory:   Optional ConversationBuffer / AgentMemoryStore.
             tools:    Optional AgentToolRegistry.
         """
         self.manifest = manifest

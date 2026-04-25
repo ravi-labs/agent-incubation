@@ -514,7 +514,7 @@
         </tr>
         <tr>
           <td class="row-label">Long-term KV memory with TTL</td>
-          <td class="us-col"><span class="yes">✔ Yes</span> — <code>FoundryMemoryStore</code>: TTL-aware KV, <code>LocalJsonStore</code> + <code>DynamoDBMemoryBackend</code></td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — <code>AgentMemoryStore</code>: TTL-aware KV, <code>LocalJsonStore</code> + <code>DynamoDBMemoryBackend</code></td>
           <td><span class="part">⚠ Partial</span> — session state; no explicit TTL memory store</td>
           <td><span class="na">—</span></td>
           <td><span class="part">⚠ Partial</span> — via external memory backends</td>
@@ -586,7 +586,7 @@
         <tr><td class="cat-label" colspan="9">Evaluation &amp; Testing</td></tr>
         <tr>
           <td class="row-label">Built-in eval / scenario runner</td>
-          <td class="us-col"><span class="yes">✔ Yes</span> — <code>FoundryEvaluator</code>: scenario assertions on effects allowed/denied, output, latency, exception</td>
+          <td class="us-col"><span class="yes">✔ Yes</span> — <code>Evaluator</code>: scenario assertions on effects allowed/denied, output, latency, exception</td>
           <td><span class="part">⚠ Partial</span> — AutoGen Studio has eval; no typed effect assertions</td>
           <td><span class="na">—</span></td>
           <td><span class="part">⚠ Partial</span> — LangSmith evals (SaaS)</td>
@@ -622,7 +622,7 @@
         <li>Only framework with a typed, domain-specific effect taxonomy (Financial / Healthcare / Legal)</li>
         <li>Pre-execution gate is design-time-declared in manifest — scope is <em>auditable before deploy</em></li>
         <li>Hard-deny layer is unconditional — cannot be bypassed by policy misconfiguration</li>
-        <li>Built-in policy regression testing via <code>FoundryEvaluator</code></li>
+        <li>Built-in policy regression testing via <code>Evaluator</code></li>
         <li>Self-contained HTML audit report — no SaaS dependency, works air-gapped</li>
         <li>Lambda-native with event normalisation (SQS / EventBridge / direct)</li>
       </ul>

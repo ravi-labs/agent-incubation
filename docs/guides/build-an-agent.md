@@ -98,7 +98,7 @@ success_metrics:
   - "Recipient confirmation rate >= 70%"
 
 team_repo: https://github.com/your-org/doc-summarizer-agent
-foundry_version: ">=0.1.0"
+arc_version: ">=0.1.0"
 ```
 
 Validate it:

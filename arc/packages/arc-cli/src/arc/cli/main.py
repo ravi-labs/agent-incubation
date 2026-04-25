@@ -56,7 +56,7 @@ status: active
 team_repo: https://github.com/your-org/your-repo
 
 # The version of arc-core this agent targets.
-foundry_version: ">=0.1.0"
+arc_version: ">=0.1.0"
 
 # Effects this agent is permitted to invoke.
 # Start minimal — only add effects you actually need.
@@ -240,7 +240,7 @@ def agent_new(name: str, output_dir: str):
     Scaffold a new agent directory.
 
     Creates NAME/manifest.yaml, NAME/policy.yaml, and NAME/agent.py
-    pre-wired with the Foundry conventions and effect declarations.
+    pre-wired with the arc conventions and effect declarations.
 
     Example:
         arc agent new fee-transparency

@@ -1,5 +1,5 @@
 """
-foundry.integrations.bedrock_guardrails
+arc.connectors.bedrock_guardrails
 ─────────────────────────────────────────
 Amazon Bedrock Guardrails integration for arc agents.
 

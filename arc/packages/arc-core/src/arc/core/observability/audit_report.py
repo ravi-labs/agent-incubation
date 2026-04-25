@@ -1,7 +1,7 @@
 """
-foundry.observability.audit_report
+arc.core.observability.audit_report
 ────────────────────────────────────
-Generate a self-contained HTML audit dashboard from a Foundry JSONL audit log.
+Generate a self-contained HTML audit dashboard from an arc JSONL audit log.
 
 The report provides:
   - Summary counts (total decisions, ALLOW / ASK / DENY breakdown)
@@ -69,7 +69,7 @@ def _decision_badge(decision: str) -> str:
 
 # ── HTML generation ────────────────────────────────────────────────────────────
 
-def generate_report(audit_path: str | Path, title: str = "Agent Foundry — Audit Report") -> str:
+def generate_report(audit_path: str | Path, title: str = "Arc — Audit Report") -> str:
     path   = Path(audit_path)
     events = _load_events(path)
 
@@ -315,10 +315,10 @@ def _empty_report(title: str, path: str) -> str:
 
 def main() -> None:
     import argparse
-    parser = argparse.ArgumentParser(description="Generate an HTML audit report from a Foundry JSONL audit log.")
+    parser = argparse.ArgumentParser(description="Generate an HTML audit report from a arc JSONL audit log.")
     parser.add_argument("audit_log", help="Path to the JSONL audit log file")
     parser.add_argument("--out", default=None, help="Output HTML file (default: <audit_log>.html)")
-    parser.add_argument("--title", default="Agent Foundry — Audit Report", help="Report title")
+    parser.add_argument("--title", default="Arc — Audit Report", help="Report title")
     args = parser.parse_args()
 
     out_path = args.out or str(Path(args.audit_log).with_suffix(".html"))

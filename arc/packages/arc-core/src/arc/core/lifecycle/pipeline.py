@@ -307,7 +307,7 @@ class JsonlPromotionAuditLog:
 
     Each promotion decision becomes one line in the file. Reload by reading
     every line; new appends never rewrite history. Compatible with the
-    existing JsonlAuditSink pattern in foundry.observability.
+    existing JsonlAuditSink pattern in arc.core.observability.
     """
 
     def __init__(self, path: str | Path) -> None:
