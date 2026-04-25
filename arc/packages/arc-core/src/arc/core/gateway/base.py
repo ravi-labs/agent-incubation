@@ -24,7 +24,7 @@ Implementing a custom connector:
 
 Usage — HttpGateway (single REST backend):
 
-    from foundry.gateway.base import HttpGateway
+    from arc.core.gateway import HttpGateway
 
     gateway = HttpGateway(
         base_url="https://api.internal.company.com",
@@ -35,7 +35,7 @@ Usage — HttpGateway (single REST backend):
 
 Usage — MultiGateway (route to different backends by source prefix):
 
-    from foundry.gateway.base import MultiGateway, HttpGateway, MockGatewayConnector
+    from arc.core.gateway import MultiGateway, HttpGateway, MockGatewayConnector
 
     gateway = MultiGateway({
         "participant": HttpGateway("https://participant-api.internal.com"),

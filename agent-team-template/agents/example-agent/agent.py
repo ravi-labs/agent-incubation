@@ -9,12 +9,12 @@ import asyncio
 import logging
 from pathlib import Path
 
-from foundry.gateway import MockGatewayConnector
-from foundry.gateway.base import DataRequest
-from foundry.observability import OutcomeTracker
-from foundry.policy.effects import FinancialEffect
-from foundry.scaffold import BaseAgent, load_manifest
-from foundry.tollgate import (
+from arc.core.gateway import MockGatewayConnector
+from arc.core.gateway import DataRequest
+from arc.core.observability import OutcomeTracker
+from arc.core.effects import FinancialEffect
+from arc.core import BaseAgent, load_manifest
+from tollgate import (
     AutoApprover,
     ControlTower,
     JsonlAuditSink,

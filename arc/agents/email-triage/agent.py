@@ -61,7 +61,7 @@ class EmailTriageAgent:
         self.orchestrator = orchestrator
 
         # Import BaseAgent machinery
-        from foundry.scaffold.base import BaseAgent
+        from arc.core import BaseAgent
         # Inject BaseAgent's run_effect and log_outcome onto self
         # (BaseAgent normally requires subclassing — we wrap here for flexibility)
         self._base = _DirectAgent(manifest=manifest, tower=tower, gateway=gateway, tracker=tracker)
@@ -106,7 +106,7 @@ class EmailTriageAgent:
 
     async def _execute_with_orchestrator(self, email_ids: list[str] | None) -> dict:
         """Run email triage through the LangGraph orchestrator."""
-        from foundry.gateway.base import DataRequest
+        from arc.core.gateway import DataRequest
 
         results = {
             "processed": 0, "p1": 0, "p2": 0, "p3": 0, "p4": 0,
@@ -165,8 +165,8 @@ class EmailTriageAgent:
         Direct execution using MockBedrockLLM — no LangGraph required.
         Calls run_effect() for every action so governance still applies.
         """
-        from foundry.gateway.base import DataRequest
-        from foundry.policy.itsm_effects import ITSMEffect
+        from arc.core.gateway import DataRequest
+        from arc.core.effects import ITSMEffect
         import os
 
         # Import graph helpers (MockBedrockLLM + routing logic)
@@ -314,7 +314,7 @@ class _DirectAgent:
     """
 
     def __init__(self, manifest, tower, gateway, tracker=None):
-        from foundry.scaffold.base import BaseAgent
+        from arc.core import BaseAgent
 
         class _Impl(BaseAgent):
             async def execute(self, **kwargs):
@@ -335,7 +335,7 @@ class _DirectAgent:
     async def _triage_email(self, email, articles, directory, results):
         """Inline triage logic from foundry POC (no LangGraph)."""
         import re as _re
-        from foundry.policy.itsm_effects import ITSMEffect
+        from arc.core.effects import ITSMEffect
 
         PRIORITY_SIGNALS = {
             "P1": ["production down", "completely down", "all users", "data loss",
@@ -505,7 +505,7 @@ async def main():
     print("=" * 62)
 
     try:
-        from foundry.harness import HarnessBuilder
+        from arc.harness import HarnessBuilder
     except ImportError:
         from arc.harness import HarnessBuilder
 
@@ -540,8 +540,8 @@ async def main():
     # Print report
     if hasattr(agent, "_harness_audit"):
         try:
-            from foundry.harness.report import DecisionReport
-            from foundry.harness.shadow import ShadowAuditSink
+            from arc.harness.report import DecisionReport
+            from arc.harness.shadow import ShadowAuditSink
             report = DecisionReport(
                 audit=agent._harness_audit,
                 approver=agent._harness_approver,

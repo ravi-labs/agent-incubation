@@ -5,10 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "your-team-agents"
 version = "0.1.0"
-description = "AI agents built on agent-foundry — replace with your team name"
-requires-python = ">=3.10"
+description = "AI agents built on the arc platform — replace with your team name"
+requires-python = ">=3.11"
 dependencies = [
-    "agent-foundry>=0.1.0",
+    "arc-core>=0.1.0",
+    "arc-harness>=0.1.0",
 ]
 
 [project.optional-dependencies]

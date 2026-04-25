@@ -15,8 +15,8 @@ Key concepts:
 
 Usage — decorator pattern:
 
-    from foundry.tools.registry import governed_tool, ToolRegistry
-    from foundry.policy.effects import FinancialEffect
+    from arc.core.tools import governed_tool, ToolRegistry
+    from arc.core.effects import FinancialEffect
 
     class FiduciaryAgent(BaseAgent):
 
@@ -72,7 +72,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from foundry.scaffold.base import BaseAgent
+    from arc.core import BaseAgent
 
 logger = logging.getLogger(__name__)
 

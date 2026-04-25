@@ -238,7 +238,7 @@ class TestTowerIntegration:
 class TestOutcomeTracking:
     @pytest.mark.asyncio
     async def test_log_outcome_records_event(self):
-        from foundry.observability.tracker import OutcomeTracker
+        from arc.core.observability import OutcomeTracker
         tracker = OutcomeTracker()
         manifest = make_manifest()
         agent = ConcreteAgent(

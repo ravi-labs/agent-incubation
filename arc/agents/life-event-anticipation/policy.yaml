@@ -1,0 +1,41 @@
+# Policy — Life Event Anticipation Agent
+# ─────────────────────────────────────────────────────────────────────────────
+# This agent sends targeted outreach and may trigger advisor escalation.
+# Both are ASK by default under erisa.yaml. We tighten advisor escalation
+# further (always requires explicit human confirmation) while permitting
+# batch-approved informational outreach for non-advice message types.
+# ─────────────────────────────────────────────────────────────────────────────
+
+rules:
+
+  # Advisor escalation always requires human approval — no exceptions.
+  # The signal model may be wrong; a human must confirm the routing.
+  - resource_type: "advisor.escalation.trigger"
+    decision: ASK
+    reason: >
+      Life event signals are probabilistic. Routing a participant to an advisor
+      without confirming the signal is accurate risks inappropriate contact and
+      unnecessary anxiety. Human confirmation required for every escalation.
+    when:
+      manifest_version: "life-event-anticipation@*"
+
+  # Informational outreach (no financial advice) may proceed with batch approval.
+  # Complex/advice communications still require individual review per erisa.yaml.
+  - resource_type: "participant.communication.send"
+    decision: ASK
+    reason: >
+      Life event outreach is personalized and contextual. All sends require
+      approval. Batch approval is acceptable for informational message types
+      (new-hire, beneficiary reminder); individual approval required for
+      advice-adjacent content (retirement readiness, withdrawal guidance).
+    when:
+      manifest_version: "life-event-anticipation@*"
+
+  # Follow-up scheduling is informational — log and schedule automatically.
+  - resource_type: "followup.schedule"
+    decision: ALLOW
+    reason: >
+      Scheduling a follow-up evaluation (re-score in 30 days) is a low-risk
+      internal action that does not reach the participant. Auto-permitted.
+    when:
+      manifest_version: "life-event-anticipation@*"

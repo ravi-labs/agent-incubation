@@ -1,0 +1,61 @@
+# Agent Manifest — Plan Design Optimizer Agent
+# ──────────────────────────────────────────────────────────────────────────────
+# Models the projected participant outcomes of different plan design scenarios
+# (auto-enrollment thresholds, match formulas, QDIA defaults, Roth availability)
+# and delivers ranked recommendations to internal relationship managers.
+# The agent never touches plan configuration — it models, drafts, and delivers
+# recommendations for human decision-making.
+
+agent_id: plan-design-optimizer
+version: "0.1.0"
+owner: relationship-management-team
+description: >
+  Given a plan's demographic profile, current design parameters, and peer
+  benchmarks, models 4–6 alternative plan design scenarios (e.g., raising
+  auto-enrollment to 6%, adding auto-escalation, changing match formula) and
+  projects the expected improvement in participant retirement outcomes for each.
+  Delivers a ranked recommendation summary to the plan's relationship manager
+  for use in client consultations. Does not modify plan parameters — delivers
+  analysis only.
+
+lifecycle_stage: DISCOVER
+environment: sandbox
+status: active
+
+team_repo: https://github.com/ravi-labs/relationship-management-agents
+foundry_version: ">=0.1.0"
+
+allowed_effects:
+  - plan.data.read
+  - plan.demographics.read
+  - fund.performance.read
+  - fund.fees.read
+  - market.data.read
+  - scenario.model.execute
+  - recommendation.draft
+  - recommendation.deliver
+  - outcome.log.write
+  - audit.log.write
+
+data_access:
+  - plan.data
+  - plan.demographics
+  - fund.performance
+  - fund.fees
+  - market.benchmarks
+
+policy_path: examples/plan_design_optimizer/policy.yaml
+
+success_metrics:
+  - "Relationship managers use agent output in ≥60% of plan review meetings"
+  - "Plans that adopt auto-enrollment recommendations show ≥8pp increase in participation rate at 12 months"
+  - "Average plan deferral rate in recommendation-adopted plans increases by ≥1.5pp"
+  - "Relationship manager meeting prep time decreases by ≥40%"
+  - "Client satisfaction scores for plan design consultations increase year-over-year"
+
+tags:
+  - plan-design
+  - relationship-management
+  - scenario-modeling
+  - auto-enrollment
+  - recommendations

@@ -3,8 +3,8 @@
 import pytest
 from pathlib import Path
 
-from foundry.scaffold.manifest import load_manifest
-from foundry.policy.effects import FinancialEffect
+from arc.core.manifest import load_manifest
+from arc.core.effects import FinancialEffect
 
 
 class TestManifest:

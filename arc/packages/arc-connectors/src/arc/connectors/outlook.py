@@ -16,7 +16,7 @@ Usage (production):
     messages = await connector.list_messages(max_results=25)
 
 Usage (harness — swap to mock):
-    from foundry.gateway.base import MockGatewayConnector
+    from arc.core.gateway import MockGatewayConnector
     connector = MockGatewayConnector({"inbox": [...]})
 """
 

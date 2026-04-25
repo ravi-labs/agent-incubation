@@ -12,11 +12,11 @@ Validates that:
 import pytest
 from pathlib import Path
 
-from foundry.policy.compliance_effects import (
+from arc.core.effects import (
     ComplianceEffect,
     COMPLIANCE_EFFECT_METADATA,
 )
-from foundry.policy.effects import (
+from arc.core.effects import (
     DefaultDecision,
     EffectTier,
     effect_meta,
@@ -278,7 +278,7 @@ class TestManifestWithComplianceEffect:
         manifest_path = tmp_path / "manifest.yaml"
         manifest_path.write_text(yaml.dump(manifest_data))
 
-        from foundry.scaffold.manifest import load_manifest
+        from arc.core.manifest import load_manifest
         manifest = load_manifest(manifest_path)
         assert manifest.agent_id == "compliance-monitor"
         assert len(manifest.allowed_effects) == 6
@@ -297,7 +297,7 @@ class TestManifestWithComplianceEffect:
         if not foundry_manifest.exists():
             pytest.skip("Foundry email_triage manifest not found")
 
-        from foundry.scaffold.manifest import load_manifest
+        from arc.core.manifest import load_manifest
         manifest = load_manifest(foundry_manifest)
         assert manifest.agent_id == "email-triage"
         assert len(manifest.allowed_effects) > 0

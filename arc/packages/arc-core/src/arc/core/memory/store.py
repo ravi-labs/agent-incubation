@@ -13,7 +13,7 @@ Backends:
 
 Usage in a BaseAgent:
 
-    from foundry.memory.store import FoundryMemoryStore, LocalJsonStore
+    from arc.core.memory import FoundryMemoryStore, LocalJsonStore
 
     class FiduciaryWatchdogAgent(BaseAgent):
 
@@ -40,7 +40,7 @@ Usage in a BaseAgent:
 
 Production setup (DynamoDB):
 
-    from foundry.memory.store import FoundryMemoryStore, DynamoDBMemoryBackend
+    from arc.core.memory import FoundryMemoryStore, DynamoDBMemoryBackend
 
     backend = DynamoDBMemoryBackend(
         table_name="agent-foundry-memory",

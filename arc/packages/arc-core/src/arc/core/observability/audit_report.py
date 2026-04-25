@@ -10,11 +10,11 @@ The report provides:
   - Hard-deny and ASK events highlighted for compliance review
 
 Usage (CLI):
-    python -m foundry.observability.audit_report audit.jsonl
-    python -m foundry.observability.audit_report audit.jsonl --out report.html
+    python -m arc.core.observability.audit_report audit.jsonl
+    python -m arc.core.observability.audit_report audit.jsonl --out report.html
 
 Usage (programmatic):
-    from foundry.observability.audit_report import generate_report
+    from arc.core.observability import generate_report
     html = generate_report("audit.jsonl")
     Path("report.html").write_text(html)
 """

@@ -243,7 +243,7 @@ def _determine_team(intent: str, priority: str, entities: dict) -> str:
 
 def _make_classify_node(agent: Any, llm: Any):
     """classify_node — ITSMEffect.EMAIL_CLASSIFY, PRIORITY_INFER, SENTIMENT_SCORE."""
-    from foundry.policy.itsm_effects import ITSMEffect
+    from arc.core.effects import ITSMEffect
 
     async def classify_node(state: EmailTriageState) -> dict:
         email  = state.get("email", {})
@@ -323,7 +323,7 @@ def _make_classify_node(agent: Any, llm: Any):
 
 def _make_extract_entities_node(agent: Any, llm: Any):
     """extract_entities_node — ITSMEffect.ENTITY_EXTRACT."""
-    from foundry.policy.itsm_effects import ITSMEffect
+    from arc.core.effects import ITSMEffect
 
     async def extract_entities_node(state: EmailTriageState) -> dict:
         email = state.get("email", {})
@@ -372,8 +372,8 @@ def _make_extract_entities_node(agent: Any, llm: Any):
 
 def _make_lookup_user_node(agent: Any):
     """lookup_user_node — ITSMEffect.USER_DIRECTORY_READ."""
-    from foundry.policy.itsm_effects import ITSMEffect
-    from foundry.gateway.base import DataRequest
+    from arc.core.effects import ITSMEffect
+    from arc.core.gateway import DataRequest
 
     async def lookup_user_node(state: EmailTriageState) -> dict:
         entities = state.get("entities", {})
@@ -411,8 +411,8 @@ def _make_lookup_user_node(agent: Any):
 
 def _make_query_knowledge_node(agent: Any):
     """query_knowledge_node — ITSMEffect.KNOWLEDGE_BUDDY_QUERY (optional)."""
-    from foundry.policy.itsm_effects import ITSMEffect
-    from foundry.gateway.base import DataRequest
+    from arc.core.effects import ITSMEffect
+    from arc.core.gateway import DataRequest
 
     async def query_knowledge_node(state: EmailTriageState) -> dict:
         email = state.get("email", {})
@@ -458,8 +458,8 @@ def _make_query_knowledge_node(agent: Any):
 
 def _make_check_duplicate_node(agent: Any):
     """check_duplicate_node — ITSMEffect.DUPLICATE_DETECT."""
-    from foundry.policy.itsm_effects import ITSMEffect
-    from foundry.gateway.base import DataRequest
+    from arc.core.effects import ITSMEffect
+    from arc.core.gateway import DataRequest
 
     async def check_duplicate_node(state: EmailTriageState) -> dict:
         eid      = state.get("email_id", "unknown")
@@ -501,7 +501,7 @@ def _make_check_duplicate_node(agent: Any):
 
 def _make_draft_ticket_node(agent: Any):
     """draft_ticket_node — ITSMEffect.TICKET_DRAFT + TICKET_SUMMARY_DRAFT."""
-    from foundry.policy.itsm_effects import ITSMEffect
+    from arc.core.effects import ITSMEffect
     import os
 
     async def draft_ticket_node(state: EmailTriageState) -> dict:
@@ -580,7 +580,7 @@ def _make_create_ticket_node(agent: Any):
     P1/P2 → ASK (interrupt in production, auto-approved in harness).
     P3/P4 → ALLOW if confidence >= 0.85, else ASK.
     """
-    from foundry.policy.itsm_effects import ITSMEffect
+    from arc.core.effects import ITSMEffect
 
     async def create_ticket_node(state: EmailTriageState) -> dict:
         ticket     = state.get("ticket_draft", {})
@@ -630,7 +630,7 @@ def _make_create_ticket_node(agent: Any):
 
 def _make_log_triage_node(agent: Any):
     """log_triage_node — ITSMEffect.TRIAGE_LOG_WRITE."""
-    from foundry.policy.itsm_effects import ITSMEffect
+    from arc.core.effects import ITSMEffect
 
     async def log_triage_node(state: EmailTriageState) -> dict:
         eid        = state.get("email_id", "unknown")

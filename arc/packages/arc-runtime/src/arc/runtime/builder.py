@@ -102,9 +102,9 @@ class RuntimeBuilder:
         Returns:
             An instance of agent_cls ready to run in production.
         """
-        from foundry.scaffold import load_manifest
+        from arc.core import load_manifest
         from tollgate import ControlTower, YamlPolicyEvaluator, JsonlAuditSink
-        from foundry.gateway.base import MultiGateway, MockGatewayConnector
+        from arc.core.gateway import MultiGateway, MockGatewayConnector
 
         ticket_target = os.getenv("TICKET_TARGET", "pega").lower()
         logger.info("RuntimeBuilder: TICKET_TARGET=%s", ticket_target)
@@ -210,7 +210,7 @@ class RuntimeBuilder:
         kb_connector: Any | None,
     ) -> Any:
         """Assemble MultiGateway routing sources to connectors."""
-        from foundry.gateway.base import MultiGateway
+        from arc.core.gateway import MultiGateway
 
         connectors: dict[str, Any] = {}
 
