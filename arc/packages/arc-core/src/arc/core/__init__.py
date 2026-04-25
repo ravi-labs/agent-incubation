@@ -89,7 +89,7 @@ from arc.core.lifecycle import (
 )
 from arc.core.registry import CatalogEntry, RegistryCatalog, build_catalog
 
-# ── Tollgate (canonical package, vendored copy in foundry/ now shimmed) ──────
+# ── Tollgate (canonical policy engine — sibling package at the repo root) ───
 from tollgate import (
     ApprovalOutcome,
     AsyncQueueApprover,
