@@ -1,6 +1,6 @@
 # Foundry → Arc Migration Plan
 
-**Status:** Phase 1 (planning + scaffolding) complete. Phase 2 (per-module migration) not yet started.
+**Status:** Phase 2 in progress. Module 1 (effects) complete. 14 modules remaining.
 
 **Goal:** Move all production functionality from `agent-foundry/src/foundry/` into the appropriate `arc/packages/arc-*/src/arc/...` package, then delete `agent-foundry/`.
 
@@ -35,6 +35,18 @@ This way:
 - Foundry shrinks one module at a time; we can delete it the day every shim file is empty
 
 **Until the migration is complete, `arc-core` and `arc-harness` declare `agent-foundry` as a dependency** (so installs work). Each migrated module is one less reason to depend on foundry; the dep gets dropped when the last shim disappears.
+
+### Class-identity caveat
+
+Foundry currently has its own vendored copy of tollgate at `agent-foundry/src/foundry/tollgate/`, which defines `Effect`, `Decision`, etc. as separate classes from the canonical `tollgate/` package at the repo root. They have identical shapes but different `id()` — so `isinstance(x, foundry.tollgate.types.Effect)` returns False if `x` was constructed from `tollgate.types.Effect`.
+
+To preserve identity for foundry's existing `isinstance()` checks during migration, **arc.core.effects imports `Effect` from `foundry.tollgate.types`**, not from canonical `tollgate.types`. This is tracked as a separate cleanup: convert `foundry/tollgate/` itself into a shim that re-exports from canonical `tollgate`. After that, arc.core.effects switches to canonical `tollgate.types`.
+
+### arc.core init must be circular-safe
+
+When the foundry shim does `from arc.core.effects import …`, Python loads `arc.core.__init__.py` first. If that init eagerly imports from `foundry.policy.builder` (which is mid-init through the same chain), you get an `ImportError` for partially-initialized modules.
+
+The fix is in `arc.core.__init__.py`: foundry-backed re-exports are loaded lazily via PEP 562 `__getattr__`, not at import time. Native arc imports (currently just `arc.core.effects`) stay eager. This preserves the public API and avoids the circular.
 
 ---
 
@@ -110,7 +122,7 @@ Update this section as modules migrate.
 
 | # | Module | Status | Commit | Foundry shim still present? |
 |---|---|---|---|---|
-| 1 | effects | not started | — | yes |
+| 1 | effects | **migrated** | (this commit) | yes |
 | 2 | builder | not started | — | yes |
 | 3 | manifest | not started | — | yes |
 | 4 | base agent | not started | — | yes |

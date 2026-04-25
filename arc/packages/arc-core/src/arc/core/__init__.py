@@ -4,8 +4,10 @@ arc.core — governance engine.
 The foundation everything else builds on. Typed effects, policy evaluation,
 ControlTower pre-execution gating, and the audit trail.
 
-Re-exports from foundry (the internal implementation package) under the
-arc.core namespace. Migrate module by module as the arc codebase matures.
+Effects are native (migration module 1, complete). Other surfaces
+(BaseAgent, AgentManifest, ControlTower, gateway, observability) are still
+re-exported from agent-foundry pending their migration. See
+docs/migration-plan.md.
 
 Public API:
     from arc.core import (
@@ -16,84 +18,101 @@ Public API:
         JsonlAuditSink,
         ITSMEffect, FinancialEffect, ComplianceEffect,
     )
+
+Implementation note: foundry re-exports are loaded lazily via PEP 562
+``__getattr__`` so a partial-import path through ``foundry.policy.*`` (which
+shims back to ``arc.core.effects``) cannot trigger a circular dependency at
+package init time. Once those modules migrate, the lazy table shrinks and
+eventually goes away with the foundry dep itself.
 """
 
-# ── Effects ───────────────────────────────────────────────────────────────────
-from foundry.policy.effects import (
-    FinancialEffect,
-    EffectTier,
+from typing import Any
+
+# ── Effects (native — already migrated) ──────────────────────────────────────
+from arc.core.effects import (
+    COMPLIANCE_EFFECT_METADATA,
+    EFFECT_METADATA,
+    HEALTHCARE_EFFECT_METADATA,
+    ITSM_EFFECT_METADATA,
+    LEGAL_EFFECT_METADATA,
+    ComplianceEffect,
     DefaultDecision,
     EffectMeta,
+    EffectTier,
+    FinancialEffect,
+    HealthcareEffect,
+    ITSMEffect,
+    LegalEffect,
     effect_meta,
-)
-from foundry.policy.itsm_effects import ITSMEffect, ITSM_EFFECT_METADATA
-from foundry.policy.healthcare_effects import HealthcareEffect, HEALTHCARE_EFFECT_METADATA
-from foundry.policy.legal_effects import LegalEffect, LEGAL_EFFECT_METADATA
-from foundry.policy.compliance_effects import ComplianceEffect, COMPLIANCE_EFFECT_METADATA
-
-# ── Policy & Manifest ─────────────────────────────────────────────────────────
-from foundry.policy.builder import EffectRequestBuilder
-from foundry.scaffold.manifest import AgentManifest, load_manifest
-from foundry.scaffold.base import BaseAgent
-from foundry.scaffold import load_manifest  # noqa: F811 — convenience re-export
-
-# ── ControlTower ──────────────────────────────────────────────────────────────
-from foundry.tollgate import (
-    ControlTower,
-    YamlPolicyEvaluator,
-    JsonlAuditSink,
-    ApprovalOutcome,
-    AutoApprover,
-    CliApprover,
-    AsyncQueueApprover,
-    InMemoryGrantStore,
-    InMemoryRateLimiter,
-    InMemoryCircuitBreaker,
-)
-from foundry.tollgate.types import (
-    AuditEvent,
-    Decision,
-    DecisionType,
-    Effect,
-    Outcome,
-    Intent,
-    ToolRequest,
-    AgentContext,
+    effects_by_tier,
+    effects_requiring_review,
 )
 
-# ── Observability ─────────────────────────────────────────────────────────────
-from foundry.observability.tracker import OutcomeTracker
+# ── Foundry-backed re-exports (lazy until each module migrates) ──────────────
+# Map from public attribute name → (foundry module path, attribute in that module).
+_LAZY_FOUNDRY_EXPORTS: dict[str, tuple[str, str]] = {
+    # Policy & manifest
+    "EffectRequestBuilder": ("foundry.policy.builder", "EffectRequestBuilder"),
+    "AgentManifest":        ("foundry.scaffold.manifest", "AgentManifest"),
+    "load_manifest":        ("foundry.scaffold.manifest", "load_manifest"),
+    "BaseAgent":            ("foundry.scaffold.base", "BaseAgent"),
+    # ControlTower
+    "ControlTower":          ("foundry.tollgate", "ControlTower"),
+    "YamlPolicyEvaluator":   ("foundry.tollgate", "YamlPolicyEvaluator"),
+    "JsonlAuditSink":        ("foundry.tollgate", "JsonlAuditSink"),
+    "ApprovalOutcome":       ("foundry.tollgate", "ApprovalOutcome"),
+    "AutoApprover":          ("foundry.tollgate", "AutoApprover"),
+    "CliApprover":           ("foundry.tollgate", "CliApprover"),
+    "AsyncQueueApprover":    ("foundry.tollgate", "AsyncQueueApprover"),
+    "InMemoryGrantStore":    ("foundry.tollgate", "InMemoryGrantStore"),
+    "InMemoryRateLimiter":   ("foundry.tollgate", "InMemoryRateLimiter"),
+    "InMemoryCircuitBreaker": ("foundry.tollgate", "InMemoryCircuitBreaker"),
+    # Tollgate types
+    "AuditEvent":   ("foundry.tollgate.types", "AuditEvent"),
+    "Decision":     ("foundry.tollgate.types", "Decision"),
+    "DecisionType": ("foundry.tollgate.types", "DecisionType"),
+    "Effect":       ("foundry.tollgate.types", "Effect"),
+    "Outcome":      ("foundry.tollgate.types", "Outcome"),
+    "Intent":       ("foundry.tollgate.types", "Intent"),
+    "ToolRequest":  ("foundry.tollgate.types", "ToolRequest"),
+    "AgentContext": ("foundry.tollgate.types", "AgentContext"),
+    # Observability
+    "OutcomeTracker": ("foundry.observability.tracker", "OutcomeTracker"),
+    # Gateway
+    "GatewayConnector":     ("foundry.gateway.base", "GatewayConnector"),
+    "MockGatewayConnector": ("foundry.gateway.base", "MockGatewayConnector"),
+    "HttpGateway":          ("foundry.gateway.base", "HttpGateway"),
+    "MultiGateway":         ("foundry.gateway.base", "MultiGateway"),
+    "DataRequest":          ("foundry.gateway.base", "DataRequest"),
+    "DataResponse":         ("foundry.gateway.base", "DataResponse"),
+}
 
-# ── Gateway ───────────────────────────────────────────────────────────────────
-from foundry.gateway.base import (
-    GatewayConnector,
-    MockGatewayConnector,
-    HttpGateway,
-    MultiGateway,
-    DataRequest,
-    DataResponse,
-)
+
+def __getattr__(name: str) -> Any:
+    """PEP 562 lazy attribute access for foundry-backed re-exports."""
+    target = _LAZY_FOUNDRY_EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_path, attr = target
+    from importlib import import_module
+    module = import_module(module_path)
+    value = getattr(module, attr)
+    globals()[name] = value  # cache so subsequent access skips this dispatch
+    return value
+
+
+def __dir__() -> list[str]:
+    """Make tab-completion and dir() see the lazy names."""
+    return sorted({*globals(), *_LAZY_FOUNDRY_EXPORTS})
+
 
 __all__ = [
-    # Effects
+    # Effects (native)
     "FinancialEffect", "ITSMEffect", "HealthcareEffect", "LegalEffect", "ComplianceEffect",
-    "EffectTier", "DefaultDecision", "EffectMeta", "effect_meta",
-    "ITSM_EFFECT_METADATA", "HEALTHCARE_EFFECT_METADATA", "LEGAL_EFFECT_METADATA",
-    "COMPLIANCE_EFFECT_METADATA",
-    # Agent
-    "BaseAgent",
-    "AgentManifest", "load_manifest",
-    "EffectRequestBuilder",
-    # ControlTower
-    "ControlTower", "YamlPolicyEvaluator", "JsonlAuditSink",
-    "ApprovalOutcome", "AutoApprover", "CliApprover", "AsyncQueueApprover",
-    "InMemoryGrantStore", "InMemoryRateLimiter", "InMemoryCircuitBreaker",
-    # Types
-    "AuditEvent", "Decision", "DecisionType", "Effect", "Outcome",
-    "Intent", "ToolRequest", "AgentContext",
-    # Observability
-    "OutcomeTracker",
-    # Gateway
-    "GatewayConnector", "MockGatewayConnector", "HttpGateway",
-    "MultiGateway", "DataRequest", "DataResponse",
+    "EffectTier", "DefaultDecision", "EffectMeta",
+    "EFFECT_METADATA", "ITSM_EFFECT_METADATA", "HEALTHCARE_EFFECT_METADATA",
+    "LEGAL_EFFECT_METADATA", "COMPLIANCE_EFFECT_METADATA",
+    "effect_meta", "effects_by_tier", "effects_requiring_review",
+    # Foundry-backed (lazy)
+    *_LAZY_FOUNDRY_EXPORTS,
 ]

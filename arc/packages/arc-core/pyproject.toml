@@ -10,9 +10,12 @@ requires-python = ">=3.11"
 dependencies = [
     "pyyaml>=6.0",
     "pydantic>=2.0",
-    # Migration shim: arc-core re-exports from agent-foundry today. As modules
-    # migrate (see docs/migration-plan.md), imports move to native arc.core
-    # and this dependency is dropped.
+    # Migration shim: arc-core still re-exports several modules from
+    # agent-foundry (manifest, scaffold, gateway, ...). Each migration drops
+    # one foundry import; the dep is removed when the last shim is gone.
+    # arc.core.effects also imports foundry.tollgate.types.Effect to preserve
+    # class identity for foundry's existing isinstance() checks; that switches
+    # to canonical `tollgate` once foundry/tollgate/ is converted to a shim.
     "agent-foundry",
 ]
 
