@@ -27,7 +27,7 @@ jobs:
           for manifest in registry/*/manifest.yaml; do
             echo "──────────────────────────────────────"
             echo "Validating: $manifest"
-            if ! foundry agent validate "$manifest" --strict; then
+            if ! arc agent validate "$manifest" --strict; then
               echo "FAILED: $manifest"
               failed=$((failed + 1))
             fi
@@ -80,7 +80,7 @@ jobs:
       - name: Regenerate registry.yaml
         run: |
           python -c "
-          from foundry.registry.catalog import build_catalog
+          from arc.core.registry import build_catalog
           catalog = build_catalog('registry/')
           catalog.save('registry.yaml')
           summary = catalog.summary()

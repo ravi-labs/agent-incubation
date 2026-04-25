@@ -66,6 +66,7 @@ from arc.core.memory import (
 from arc.core.tools import AgentToolRegistry, GovernedToolDef, ToolRegistry, governed_tool
 from arc.core.observability import OutcomeEvent, OutcomeTracker, generate_report
 from arc.core.lifecycle import LifecycleStage, StageGate, stage_gate
+from arc.core.registry import CatalogEntry, RegistryCatalog, build_catalog
 
 # ── Tollgate (canonical package, vendored copy in foundry/ now shimmed) ──────
 from tollgate import (
@@ -116,6 +117,7 @@ __all__ = [
     "AgentToolRegistry", "ToolRegistry", "governed_tool", "GovernedToolDef",
     "OutcomeTracker", "OutcomeEvent", "generate_report",
     "LifecycleStage", "StageGate", "stage_gate",
+    "CatalogEntry", "RegistryCatalog", "build_catalog",
     # Tollgate primitives (canonical)
     "ControlTower", "YamlPolicyEvaluator", "JsonlAuditSink",
     "ApprovalOutcome", "AutoApprover", "CliApprover", "AsyncQueueApprover",
