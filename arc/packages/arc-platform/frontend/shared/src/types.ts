@@ -47,7 +47,11 @@ export interface AuditSummary {
   DENY: number;
 }
 
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
 export interface PendingApproval {
+  approval_id: string;
+  status: ApprovalStatus;
   agent_id: string;
   current_stage: LifecycleStage;
   target_stage: LifecycleStage;
@@ -56,6 +60,22 @@ export interface PendingApproval {
   requested_at: string;
   decided_at: string;
   reason: string;
+  resolved_at: string;
+  resolved_by: string;
+  resolution_reason: string;
+}
+
+export interface ResolveApprovalRequest {
+  approve: boolean;
+  reviewer: string;
+  reason?: string;
+}
+
+export interface ResolveApprovalResponse {
+  decision: Record<string, unknown>;     // server returns full PromotionDecision dict
+  applied_to_manifest: boolean;
+  agent_id: string;
+  new_stage: string | null;
 }
 
 export interface PromotionSummary {

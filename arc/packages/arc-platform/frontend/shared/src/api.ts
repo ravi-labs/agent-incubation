@@ -13,6 +13,8 @@ import type {
   AuditSummary,
   PendingApproval,
   PromotionSummary,
+  ResolveApprovalRequest,
+  ResolveApprovalResponse,
 } from "./types";
 
 export interface ApiClientOptions {
@@ -36,14 +38,27 @@ export class ApiClient {
   }
 
   private async get<T>(path: string): Promise<T> {
+    return this.request<T>("GET", path);
+  }
+
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    return this.request<T>("POST", path, body);
+  }
+
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
-      headers: { Accept: "application/json" },
+      method,
+      headers: {
+        Accept: "application/json",
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) {
       let detail = res.statusText;
       try {
-        const body = await res.json();
-        if (body?.detail) detail = body.detail;
+        const errBody = await res.json();
+        if (errBody?.detail) detail = errBody.detail;
       } catch {
         /* keep statusText */
       }
@@ -94,6 +109,20 @@ export class ApiClient {
 
   pendingApprovals(): Promise<PendingApproval[]> {
     return this.get("/api/approvals");
+  }
+
+  allApprovals(): Promise<PendingApproval[]> {
+    return this.get("/api/approvals/all");
+  }
+
+  resolveApproval(
+    approvalId: string,
+    body: ResolveApprovalRequest,
+  ): Promise<ResolveApprovalResponse> {
+    return this.post(
+      `/api/approvals/${encodeURIComponent(approvalId)}/decide`,
+      body,
+    );
   }
 }
 

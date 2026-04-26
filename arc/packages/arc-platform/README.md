@@ -35,13 +35,14 @@ arc platform serve
 uvicorn arc.platform.api:create_app --factory --reload --port 8000
 ```
 
-The backend reads three locations by default (override via flags or env):
+The backend reads four locations by default (override via flags or env):
 
 | Source | Default path | Override |
 |---|---|---|
 | Per-agent manifests | `./arc/agents/` | `--manifest-root <DIR>` |
 | Runtime audit log (JSONL) | `./audit.jsonl` | `--audit-log <FILE>` |
 | Promotion-decision log (JSONL) | `./promotions.jsonl` | `--promotion-log <FILE>` |
+| Pending-approval store (JSONL) | `./pending-approvals.jsonl` | `--pending-approvals <FILE>` |
 
 Missing files are not errors — the dashboards stay viewable in a cold environment.
 
@@ -77,7 +78,9 @@ npm run build
 | GET | `/api/audit/summary` | counts (total / ALLOW / ASK / DENY) |
 | GET | `/api/promotions` | `PromotionDecision[]` |
 | GET | `/api/promotions/summary` | counts (total / APPROVED / REJECTED / DEFERRED) |
-| GET | `/api/approvals` | `PendingApproval[]` (DEFERRED items only) |
+| GET | `/api/approvals` | `PendingApproval[]` (PENDING items only) |
+| GET | `/api/approvals/all` | `PendingApproval[]` (incl. resolved) |
+| POST | `/api/approvals/{approval_id}/decide` | `{approve, reviewer, reason}` → records the resolution + (on approve) writes the new stage to the manifest |
 
 TypeScript types for every response live in `frontend/shared/src/types.ts`.
 
@@ -86,18 +89,47 @@ TypeScript types for every response live in `frontend/shared/src/types.ts`.
 **ops dashboard** (`frontend/ops`):
 - `/` — overview: agent count, pending-approval count, allow/ask/deny totals.
 - `/agents` — agent inventory: one row per agent with stage, owner, status, environment.
-- `/approvals` — pending DEFERRED promotions (read-only).
+- `/approvals` — interactive approve / reject for pending DEFERRED promotions. Approving applies the new lifecycle stage to the agent's manifest in the same call.
 
 **dev dashboard** (`frontend/dev`):
 - `/` — engineering overview: audit totals + 5 most recent decisions.
 - `/agents` — engineering agent view: stage, environment, effect count, tags.
 
-## Pages ahead (Phase 2+)
+## Pages ahead (Phase 3+)
 
-- `/approvals` becomes interactive — approve / reject form wired through Tollgate's `AsyncQueueApprover`. Closes the SCALE promotion path. **This is the next commit.**
 - `/audit` — full audit search with filters (agent, effect, decision, time window).
 - `/lifecycle` — promotion-decision history per agent + transition diagrams.
 - Engineer-side: harness runs, eval results, manifest validation status, deploy status.
+
+## How approvals close the SCALE promotion path
+
+```
+PromotionService.promote(req) where target_stage in require_human
+  ↓
+  outcome = DEFERRED
+  ├── audit_log.record(decision)              ← always
+  └── approval_store.enqueue(decision)        ← if store wired
+                                              ↓
+                                   /api/approvals shows it as PENDING
+                                              ↓
+                                Reviewer clicks Approve / Reject
+                                              ↓
+            POST /api/approvals/{id}/decide
+                       ↓
+  PromotionService.resolve_approval(id, approve=True/False, reviewer, reason)
+                       ↓
+  ├── approval_store.resolve(id, …)           ← entry flips to APPROVED/REJECTED
+  ├── audit_log.record(new_decision)          ← APPROVED or REJECTED row
+  └── if approved: apply_decision(decision, manifest_store)
+                                              ↓
+                          manifest.lifecycle_stage = SCALE on disk
+```
+
+Failure modes that the API surfaces as proper HTTP codes:
+- `404` — unknown `approval_id`
+- `409` — already resolved
+- `422` — missing `reviewer` field
+- `503` — server config missing `pending_approvals_path` or `promotion_log_path`
 
 ## Testing
 

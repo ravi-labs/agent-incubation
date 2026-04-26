@@ -17,6 +17,7 @@ from arc.core import (
     DirectoryManifestStore,
     FinancialEffect,
     GateChecker,
+    JsonlPendingApprovalStore,
     JsonlPromotionAuditLog,
     LifecycleStage,
     PromotionRequest,
@@ -69,13 +70,16 @@ def platform_data(tmp_path: Path) -> PlatformData:
         for r in rows:
             f.write(json.dumps(r) + "\n")
 
-    # ── Promotion audit (mix of APPROVED + DEFERRED) ───────────────────
+    # ── Promotion audit + pending approvals (APPROVED + DEFERRED) ──────
     promotion_path = tmp_path / "promotions.jsonl"
-    audit = JsonlPromotionAuditLog(promotion_path)
+    pending_path   = tmp_path / "pending-approvals.jsonl"
+    audit          = JsonlPromotionAuditLog(promotion_path)
+    pending_store  = JsonlPendingApprovalStore(pending_path)
     service = PromotionService(
         GateChecker(),
         audit_log=audit,
         require_human={LifecycleStage.SCALE},
+        approval_store=pending_store,
     )
     # APPROVED: BUILD → VALIDATE on `beta`
     service.promote(PromotionRequest(
@@ -85,7 +89,8 @@ def platform_data(tmp_path: Path) -> PlatformData:
         requester="alice@team",
         justification="sandbox green",
     ))
-    # DEFERRED: GOVERN → SCALE on `gamma` — require_human kicks in
+    # DEFERRED: GOVERN → SCALE on `gamma` — require_human kicks in.
+    # Lands in audit log + pending-approvals store.
     service.promote(PromotionRequest(
         agent_id="gamma",
         current_stage=LifecycleStage.GOVERN,
@@ -98,5 +103,6 @@ def platform_data(tmp_path: Path) -> PlatformData:
         manifest_root=manifest_root,
         audit_log_path=audit_path,
         promotion_log_path=promotion_path,
+        pending_approvals_path=pending_path,
     )
     return PlatformData(config)

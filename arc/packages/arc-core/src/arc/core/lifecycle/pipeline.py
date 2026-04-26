@@ -59,6 +59,8 @@ from .stages import LifecycleStage, stage_gate
 if TYPE_CHECKING:
     from arc.core.manifest import AgentManifest, ManifestStore
 
+    from .approvals import PendingApprovalStore
+
 
 # ── Outcome and result types ─────────────────────────────────────────────────
 
@@ -385,10 +387,17 @@ class PromotionService:
         audit_log: PromotionAuditLog | None = None,
         *,
         require_human: set[LifecycleStage] | None = None,
+        approval_store: "PendingApprovalStore | None" = None,
     ) -> None:
         self.checker = checker
-        self.audit_log = audit_log or InMemoryPromotionAuditLog()
+        # `is None` rather than truthy: InMemoryPromotionAuditLog defines
+        # __len__ so an empty log evaluates falsy and would otherwise be
+        # silently replaced with a fresh (also empty) instance.
+        self.audit_log = audit_log if audit_log is not None else InMemoryPromotionAuditLog()
         self.require_human = require_human or set()
+        # Optional: when set, DEFERRED decisions are also enqueued here so
+        # a reviewer can resolve them later via ``resolve_approval``.
+        self.approval_store = approval_store
 
     def promote(
         self,
@@ -396,7 +405,12 @@ class PromotionService:
         *,
         decided_by: str = "system",
     ) -> PromotionDecision:
-        """Run gate checks, decide outcome, record the decision, return it."""
+        """Run gate checks, decide outcome, record the decision, return it.
+
+        If the outcome is DEFERRED and an ``approval_store`` is configured,
+        the decision is also enqueued there. Use ``resolve_approval`` to
+        process the human's eventual decision.
+        """
         gate_results = self.checker.evaluate(request)
         all_passed = all(g.passed for g in gate_results)
 
@@ -422,7 +436,63 @@ class PromotionService:
             decided_by=decided_by,
         )
         self.audit_log.record(decision)
+
+        # Enqueue DEFERRED decisions for human review (if a store is wired).
+        if outcome == PromotionOutcome.DEFERRED and self.approval_store is not None:
+            self.approval_store.enqueue(decision)
+
         return decision
+
+    def resolve_approval(
+        self,
+        approval_id: str,
+        *,
+        approve: bool,
+        reviewer: str,
+        reason: str = "",
+    ) -> PromotionDecision:
+        """Process a human's decision on a previously DEFERRED promotion.
+
+        Looks up the pending approval, marks it resolved in the store, and
+        records a fresh APPROVED or REJECTED decision in the audit log.
+        Returns the new decision so callers can chain ``apply_decision``
+        to actually update the manifest.
+
+        Raises:
+            RuntimeError: no ``approval_store`` was wired at construction.
+            KeyError:     ``approval_id`` not found in the store.
+            ValueError:   the entry was already resolved.
+        """
+        if self.approval_store is None:
+            raise RuntimeError(
+                "PromotionService.resolve_approval requires an approval_store "
+                "at construction time."
+            )
+
+        # Mark resolved in the pending store first — readers see the new
+        # state immediately. Raises if missing or already resolved.
+        entry = self.approval_store.resolve(
+            approval_id,
+            approved=approve,
+            reviewer=reviewer,
+            reason=reason,
+        )
+
+        # Build and audit the resolution decision. We carry the original
+        # request + gate results forward so the audit row includes the
+        # full evidence the reviewer was looking at.
+        outcome = PromotionOutcome.APPROVED if approve else PromotionOutcome.REJECTED
+        prefix  = "human review approved" if approve else "human review rejected"
+        new_reason = f"{prefix}: {reason}" if reason else prefix
+        new_decision = PromotionDecision(
+            request      = entry.decision.request,
+            outcome      = outcome,
+            gate_results = list(entry.decision.gate_results),
+            reason       = new_reason,
+            decided_by   = reviewer,
+        )
+        self.audit_log.record(new_decision)
+        return new_decision
 
     def demote(
         self,

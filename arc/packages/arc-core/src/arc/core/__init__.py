@@ -70,9 +70,13 @@ from arc.core.lifecycle import (
     GateCheck,
     GateCheckResult,
     GateChecker,
+    InMemoryPendingApprovalStore,
     InMemoryPromotionAuditLog,
+    JsonlPendingApprovalStore,
     JsonlPromotionAuditLog,
     LifecycleStage,
+    PendingApproval,
+    PendingApprovalStore,
     PromotionAuditLog,
     PromotionDecision,
     PromotionOutcome,
@@ -142,6 +146,9 @@ __all__ = [
     "stage_order_check", "evidence_field_check", "artifact_exists_check",
     "reviewer_present_check", "predicate_check",
     "PromotionAuditLog", "InMemoryPromotionAuditLog", "JsonlPromotionAuditLog",
+    # Pending-approval store
+    "PendingApproval", "PendingApprovalStore",
+    "InMemoryPendingApprovalStore", "JsonlPendingApprovalStore",
     "CatalogEntry", "RegistryCatalog", "build_catalog",
     # Tollgate primitives (canonical)
     "ControlTower", "YamlPolicyEvaluator", "JsonlAuditSink",

@@ -3,19 +3,25 @@ arc.platform.api.routes — JSON endpoints consumed by both React frontends.
 
 Endpoint surface:
 
-  GET  /api/agents                  → list[AgentSummary]
-  GET  /api/agents/{agent_id}       → AgentSummary
-  GET  /api/agents/by-stage         → { stage: list[AgentSummary] }
+  GET  /api/agents                       → list[AgentSummary]
+  GET  /api/agents/{agent_id}            → AgentSummary
+  GET  /api/agents/by-stage              → { stage: list[AgentSummary] }
 
-  GET  /api/audit                   → list[AuditEvent]      (?limit=100, ?agent_id=)
-  GET  /api/audit/summary           → counts (total/ALLOW/ASK/DENY)
+  GET  /api/audit                        → list[AuditEvent]   (?limit=100, ?agent_id=)
+  GET  /api/audit/summary                → counts (total/ALLOW/ASK/DENY)
 
-  GET  /api/promotions              → list[PromotionDecisionDTO]
-  GET  /api/promotions/summary      → counts (total/APPROVED/REJECTED/DEFERRED)
+  GET  /api/promotions                   → list[PromotionDecisionDTO]
+  GET  /api/promotions/summary           → counts (total/APPROVED/REJECTED/DEFERRED)
 
-  GET  /api/approvals               → list[PendingApproval]
+  GET  /api/approvals                    → list[PendingApproval] (PENDING only)
+  GET  /api/approvals/all                → list[PendingApproval] (incl. resolved)
+  POST /api/approvals/{approval_id}/decide
+       body: { approve: bool, reviewer: str, reason?: str }
+       Resolves a pending DEFERRED promotion. On approve, also applies
+       the stage transition to the manifest if a manifest store is
+       configured.
 
-  GET  /api/health                  → liveness probe
+  GET  /api/health                       → liveness probe
 
 The ``PlatformData`` instance is injected via FastAPI's dependency-injection
 so tests can swap in a config that points at fixtures.
@@ -27,6 +33,7 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from arc.platform.common import (
     AgentSummary,
@@ -128,4 +135,45 @@ def promotions_summary(data: PlatformData = Depends(get_data)) -> dict[str, int]
 
 @router.get("/approvals", response_model=None)
 def pending_approvals(data: PlatformData = Depends(get_data)) -> list[dict[str, Any]]:
+    """Approvals still in PENDING state — what reviewers act on."""
     return [asdict(a) for a in data.pending_approvals()]
+
+
+@router.get("/approvals/all", response_model=None)
+def all_approvals(data: PlatformData = Depends(get_data)) -> list[dict[str, Any]]:
+    """Pending + resolved. Useful for an audit view."""
+    return [asdict(a) for a in data.all_approvals()]
+
+
+class ResolveApprovalRequest(BaseModel):
+    """Body of ``POST /api/approvals/{approval_id}/decide``."""
+    approve: bool
+    reviewer: str = Field(..., min_length=1, description="Username of the reviewer.")
+    reason: str = ""
+
+
+@router.post("/approvals/{approval_id}/decide", response_model=None)
+def decide_approval(
+    approval_id: str,
+    body: ResolveApprovalRequest,
+    data: PlatformData = Depends(get_data),
+) -> dict[str, Any]:
+    """Resolve a pending DEFERRED promotion (approve or reject).
+
+    On approve + a manifest store configured, the agent's manifest is
+    updated to the target stage in the same call. On reject, the
+    manifest stays put; only the audit + pending-store entries change.
+    """
+    try:
+        return data.resolve_approval(
+            approval_id,
+            approve=body.approve,
+            reviewer=body.reviewer,
+            reason=body.reason,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

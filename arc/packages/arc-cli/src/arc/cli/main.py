@@ -855,6 +855,10 @@ def platform():
               default=None,
               help="Path to a JSONL promotion-decision log. "
                    "Defaults to ./promotions.jsonl.")
+@click.option("--pending-approvals", type=click.Path(exists=False, path_type=Path),
+              default=None,
+              help="Path to a JSONL pending-approval store. "
+                   "Defaults to ./pending-approvals.jsonl.")
 def platform_serve(
     host: str,
     port: int,
@@ -862,6 +866,7 @@ def platform_serve(
     manifest_root: Path | None,
     audit_log: Path | None,
     promotion_log: Path | None,
+    pending_approvals: Path | None,
 ) -> None:
     """Launch the FastAPI backend that serves both React dashboards.
 
@@ -894,13 +899,16 @@ def platform_serve(
         config.audit_log_path = audit_log
     if promotion_log is not None:
         config.promotion_log_path = promotion_log
+    if pending_approvals is not None:
+        config.pending_approvals_path = pending_approvals
 
     data = PlatformData(config)
 
     click.echo(click.style(f"Arc platform API → http://{host}:{port}", fg="green"))
-    click.echo(f"  manifests:      {config.manifest_root}")
-    click.echo(f"  audit log:      {config.audit_log_path}")
-    click.echo(f"  promotion log:  {config.promotion_log_path}")
+    click.echo(f"  manifests:         {config.manifest_root}")
+    click.echo(f"  audit log:         {config.audit_log_path}")
+    click.echo(f"  promotion log:     {config.promotion_log_path}")
+    click.echo(f"  pending approvals: {config.pending_approvals_path}")
     click.echo()
     click.echo("Frontends (run from arc/packages/arc-platform/frontend/):")
     click.echo("  npm install            # first time only")

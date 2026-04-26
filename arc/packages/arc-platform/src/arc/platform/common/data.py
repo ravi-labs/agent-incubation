@@ -22,10 +22,14 @@ from typing import Any
 from arc.core import (
     AgentManifest,
     DirectoryManifestStore,
+    GateChecker,
+    JsonlPendingApprovalStore,
     JsonlPromotionAuditLog,
     LifecycleStage,
     PromotionDecision,
     PromotionOutcome,
+    PromotionService,
+    apply_decision,
 )
 
 
@@ -89,7 +93,14 @@ class AuditEvent:
 
 @dataclass
 class PendingApproval:
-    """A promotion decision currently in DEFERRED state, awaiting human review."""
+    """A promotion decision currently awaiting human review.
+
+    View-model for the dashboard. Adds ``approval_id`` (the store key
+    needed for resolve actions) and ``status`` (PENDING / APPROVED /
+    REJECTED) to the underlying decision data.
+    """
+    approval_id: str
+    status: str
     agent_id: str
     current_stage: str
     target_stage: str
@@ -98,18 +109,28 @@ class PendingApproval:
     requested_at: str
     decided_at: str
     reason: str
+    resolved_at: str = ""
+    resolved_by: str = ""
+    resolution_reason: str = ""
 
     @classmethod
-    def from_decision(cls, d: PromotionDecision) -> "PendingApproval":
+    def from_entry(cls, entry) -> "PendingApproval":
+        """Build a view model from an arc.core.lifecycle.PendingApproval store entry."""
+        d = entry.decision
         return cls(
-            agent_id=d.request.agent_id,
-            current_stage=d.request.current_stage.value,
-            target_stage=d.request.target_stage.value,
-            requester=d.request.requester,
-            justification=d.request.justification,
-            requested_at=d.request.requested_at,
-            decided_at=d.decided_at,
-            reason=d.reason,
+            approval_id       = entry.approval_id,
+            status            = entry.status,
+            agent_id          = d.request.agent_id,
+            current_stage     = d.request.current_stage.value,
+            target_stage      = d.request.target_stage.value,
+            requester         = d.request.requester,
+            justification     = d.request.justification,
+            requested_at      = d.request.requested_at,
+            decided_at        = d.decided_at,
+            reason            = d.reason,
+            resolved_at       = entry.resolved_at,
+            resolved_by       = entry.resolved_by,
+            resolution_reason = entry.resolution_reason,
         )
 
 
@@ -122,13 +143,15 @@ class PlatformDataConfig:
 
     Defaults assume an in-monorepo layout (``arc/agents/`` for manifests,
     ``./audit.jsonl`` for the runtime audit, ``./promotions.jsonl`` for
-    the promotion audit). All paths are optional; missing files yield
-    empty result sets, not errors — the dashboards stay viewable in a
-    cold environment with no traffic yet.
+    the promotion audit, ``./pending-approvals.jsonl`` for the approval
+    queue). All paths are optional; missing files yield empty result
+    sets, not errors — the dashboards stay viewable in a cold environment
+    with no traffic yet.
     """
-    manifest_root: Path | None = None       # DirectoryManifestStore root
-    audit_log_path: Path | None = None      # JsonlAuditSink path
-    promotion_log_path: Path | None = None  # JsonlPromotionAuditLog path
+    manifest_root: Path | None = None             # DirectoryManifestStore root
+    audit_log_path: Path | None = None            # JsonlAuditSink path
+    promotion_log_path: Path | None = None        # JsonlPromotionAuditLog path
+    pending_approvals_path: Path | None = None    # JsonlPendingApprovalStore path
 
     @classmethod
     def default(cls, repo_root: Path | None = None) -> "PlatformDataConfig":
@@ -138,6 +161,7 @@ class PlatformDataConfig:
             manifest_root=root / "arc" / "agents",
             audit_log_path=root / "audit.jsonl",
             promotion_log_path=root / "promotions.jsonl",
+            pending_approvals_path=root / "pending-approvals.jsonl",
         )
 
 
@@ -252,13 +276,99 @@ class PlatformData:
             return []
         return log.history(agent_id=agent_id)
 
+    # ── Pending-approval store (DEFERRED promotion handoff) ─────────────
+
+    def approval_store(self) -> JsonlPendingApprovalStore | None:
+        """Return the JSONL pending-approval store, or None if no path is set."""
+        path = self.config.pending_approvals_path
+        if path is None:
+            return None
+        return JsonlPendingApprovalStore(path)
+
     def pending_approvals(self) -> list[PendingApproval]:
-        """Every DEFERRED promotion decision currently awaiting human review."""
-        return [
-            PendingApproval.from_decision(d)
-            for d in self.list_promotions()
-            if d.outcome == PromotionOutcome.DEFERRED
-        ]
+        """Every approval still in PENDING state — what the dashboard shows."""
+        store = self.approval_store()
+        if store is None:
+            return []
+        return [PendingApproval.from_entry(e) for e in store.list_pending()]
+
+    def all_approvals(self) -> list[PendingApproval]:
+        """Every approval entry, pending or resolved. Useful for audit views."""
+        store = self.approval_store()
+        if store is None:
+            return []
+        return [PendingApproval.from_entry(e) for e in store.list_all()]
+
+    def resolve_approval(
+        self,
+        approval_id: str,
+        *,
+        approve: bool,
+        reviewer: str,
+        reason: str = "",
+    ) -> dict[str, Any]:
+        """Apply a reviewer's decision on a pending DEFERRED promotion.
+
+        Pipes the call through ``PromotionService.resolve_approval`` (records
+        the audit row, flips the pending entry's status) and, when the
+        outcome is APPROVED + a manifest store is configured, applies the
+        stage transition to disk via ``apply_decision``.
+
+        Returns a small dict the API endpoint can serialize directly:
+
+            {
+              "decision":          <to_dict() of the new APPROVED/REJECTED decision>,
+              "applied_to_manifest": True | False,
+              "agent_id":          str,
+              "new_stage":         str | None,
+            }
+
+        Raises:
+            RuntimeError: pending_approvals_path or promotion_log_path not configured
+            KeyError:     approval_id not found
+            ValueError:   approval already resolved
+        """
+        store = self.approval_store()
+        audit = self._promotion_log()
+        if store is None:
+            raise RuntimeError(
+                "PlatformData.resolve_approval requires pending_approvals_path "
+                "in the config."
+            )
+        if audit is None:
+            raise RuntimeError(
+                "PlatformData.resolve_approval requires promotion_log_path "
+                "in the config so the resolution decision is audited."
+            )
+
+        service = PromotionService(
+            GateChecker(),
+            audit_log=audit,
+            approval_store=store,
+        )
+        new_decision = service.resolve_approval(
+            approval_id,
+            approve=approve,
+            reviewer=reviewer,
+            reason=reason,
+        )
+
+        applied = False
+        new_stage: str | None = None
+        if new_decision.approved:
+            manifest_store = self.manifest_store()
+            if manifest_store is not None:
+                updated = apply_decision(new_decision, manifest_store)
+                if updated is not None:
+                    applied = True
+                    new_stage = updated.lifecycle_stage.value
+
+        return {
+            "decision":             new_decision.to_dict(),
+            "applied_to_manifest":  applied,
+            "agent_id":             new_decision.request.agent_id,
+            "new_stage":            new_stage,
+        }
 
     def promotion_summary(self) -> dict[str, int]:
         decisions = self.list_promotions()

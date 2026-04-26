@@ -13,6 +13,15 @@ Two layers:
                 operation for anomaly auto-rollback.
 """
 
+from .approvals import (
+    APPROVED,
+    InMemoryPendingApprovalStore,
+    JsonlPendingApprovalStore,
+    PENDING,
+    REJECTED,
+    PendingApproval,
+    PendingApprovalStore,
+)
 from .pipeline import (
     GateCheck,
     GateCheckResult,
@@ -45,4 +54,8 @@ __all__ = [
     "reviewer_present_check", "predicate_check",
     # Audit log
     "PromotionAuditLog", "InMemoryPromotionAuditLog", "JsonlPromotionAuditLog",
+    # Pending-approval store (DEFERRED handoff)
+    "PendingApproval", "PendingApprovalStore",
+    "InMemoryPendingApprovalStore", "JsonlPendingApprovalStore",
+    "PENDING", "APPROVED", "REJECTED",
 ]
