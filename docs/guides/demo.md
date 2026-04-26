@@ -33,25 +33,16 @@ Run this 5 minutes before the call. Everything below assumes the repo
 root as the working directory.
 
 ```bash
-# 1. Fresh venv (skip if you've already got one with arc-core installed)
-python3 -m venv .venv
+# 1. One-shot install — venv + every workspace package + dev extras
+./setup.sh                          # macOS / Linux / WSL
+# setup.bat                         # Windows
 source .venv/bin/activate
 
-# 2. Install all editable workspace packages
-pip install -e tollgate \
-            -e arc/packages/arc-core \
-            -e arc/packages/arc-connectors \
-            -e arc/packages/arc-cli \
-            -e arc/packages/arc-harness \
-            -e arc/packages/arc-runtime \
-            -e arc/packages/arc-platform \
-            -e arc/packages/arc-orchestrators
-
-# 3. Make a sandbox dir for the demo (everything writes here)
+# 2. Make a sandbox dir for the demo (everything writes here)
 export DEMO=/tmp/arc-demo && rm -rf $DEMO && mkdir -p $DEMO/registry
 cd $DEMO
 
-# 4. Sanity check
+# 3. Sanity check
 arc --help | head -3
 arc agent --help | tail -10
 ```

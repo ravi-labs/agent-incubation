@@ -25,12 +25,16 @@ the whole shape.
 Install the platform from the monorepo root:
 
 ```bash
-pip install -e tollgate/
-pip install -e arc/packages/arc-core/
-pip install -e arc/packages/arc-harness/
-pip install -e arc/packages/arc-runtime/
-pip install -e arc/packages/arc-cli/
+./setup.sh           # macOS / Linux / WSL
+# setup.bat          # Windows
+source .venv/bin/activate
 ```
+
+The script creates a venv, installs every workspace package in
+dependency order with the `dev` extras (pytest, ruff, mypy). Pass
+`--mode aws` if you need the production-like profile with boto3 +
+langchain-aws + all connectors. See [setup.sh](../../setup.sh) for the
+full flag list.
 
 Check it works:
 
