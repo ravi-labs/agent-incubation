@@ -1,6 +1,6 @@
 # Tollgate — Runtime Policy Enforcement Engine
 
-Tollgate is the policy enforcement layer for the [Agent Foundry](../agent-foundry) platform. Every tool call an agent makes flows through Tollgate's ControlTower, which applies declarative YAML policies, routes human-review requests, and writes tamper-evident audit logs before any action executes.
+Tollgate is the policy enforcement layer for the [arc](../arc) platform. Every tool call an agent makes flows through Tollgate's ControlTower, which applies declarative YAML policies, routes human-review requests, and writes tamper-evident audit logs before any action executes.
 
 ## Core Concepts
 
@@ -86,14 +86,14 @@ result = await tower.execute_async(
 | `policy_versioning.py` | Policy version history and diff |
 | `integrations/` | MCP and Strands Agents adapters |
 
-## Relationship to Agent Foundry
+## Relationship to arc
 
-Tollgate is the enforcement layer embedded inside Agent Foundry:
+Tollgate is the enforcement layer embedded inside the arc platform:
 
 ```
 agent-incubation/
 ├── tollgate/           ← this package (standalone)
-├── agent-foundry/      ← imports tollgate via foundry.tollgate (vendored)
+├── arc/                ← imports tollgate directly (every arc-* package)
 ├── agent-registry/
 └── agent-team-template/
 ```

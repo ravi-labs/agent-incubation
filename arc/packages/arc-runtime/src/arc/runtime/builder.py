@@ -5,7 +5,7 @@ Reads TICKET_TARGET env var and instantiates the correct connector
 (PegaCaseConnector or ServiceNowConnector). Wires all Arc components
 into a production-ready agent instance.
 
-Contrast with HarnessBuilder (foundry.harness) — same fluent interface,
+Contrast with HarnessBuilder (arc.harness) — same fluent interface,
 real connectors instead of fixture mocks.
 
 Usage:
@@ -60,6 +60,8 @@ class RuntimeBuilder:
         """
         Args:
             config:   RuntimeConfig instance (from RuntimeConfig.from_env()).
+                      The ``llm`` field on the config supplies the platform
+                      default LLM provider; the manifest can override.
             manifest: Path to the agent's manifest.yaml.
             policy:   Path to the agent's policy.yaml.
         """
@@ -68,6 +70,8 @@ class RuntimeBuilder:
         self._policy_path   = Path(policy)
         self._orchestrator  = None
         self._extra_kwargs: dict = {}
+        # Set via with_llm(); takes precedence over manifest + config.
+        self._llm_explicit: Any = None
 
     # ── Fluent configuration ──────────────────────────────────────────────────
 
@@ -86,6 +90,17 @@ class RuntimeBuilder:
         self._extra_kwargs.update(kwargs)
         return self
 
+    def with_llm(self, llm: Any) -> "RuntimeBuilder":
+        """Inject a pre-built LLMClient (highest precedence).
+
+        Overrides both the manifest's ``llm:`` block and the platform
+        default in ``config.llm``. Use for tests, scripts, or special-case
+        deploys that need to wire a specific client without touching the
+        manifest or the platform config.
+        """
+        self._llm_explicit = llm
+        return self
+
     # ── Build ─────────────────────────────────────────────────────────────────
 
     def build(self, agent_cls: Type[AgentT]) -> AgentT:
@@ -102,7 +117,7 @@ class RuntimeBuilder:
         Returns:
             An instance of agent_cls ready to run in production.
         """
-        from arc.core import load_manifest
+        from arc.core import load_manifest, resolve_llm
         from tollgate import ControlTower, YamlPolicyEvaluator, JsonlAuditSink
         from arc.core.gateway import MultiGateway, MockGatewayConnector
 
@@ -132,10 +147,20 @@ class RuntimeBuilder:
         policy   = YamlPolicyEvaluator(self._policy_path)
         tower    = ControlTower(policy=policy, approver=approver, audit=audit)
 
+        # ── Resolve LLMClient by precedence ───────────────────────────────────
+        # explicit with_llm()  >  manifest.llm  >  config.llm  >  None
+        llm = resolve_llm(
+            explicit         = self._llm_explicit,
+            manifest_config  = manifest.llm,
+            platform_default = getattr(self._config, "llm", None),
+        )
+
         # ── Instantiate agent ──────────────────────────────────────────────────
         kwargs = dict(self._extra_kwargs)
         if self._orchestrator is not None:
             kwargs["orchestrator"] = self._orchestrator
+        if llm is not None:
+            kwargs.setdefault("llm", llm)
 
         agent = agent_cls(
             manifest=manifest,
@@ -148,10 +173,11 @@ class RuntimeBuilder:
             agent.orchestrator = self._orchestrator  # type: ignore[attr-defined]
 
         logger.info(
-            "RuntimeBuilder: built %s (ticket_target=%s, orchestrator=%s)",
+            "RuntimeBuilder: built %s (ticket_target=%s, orchestrator=%s, llm=%s)",
             agent_cls.__name__,
             ticket_target,
             type(self._orchestrator).__name__ if self._orchestrator else "None",
+            type(llm).__name__ if llm is not None else "None",
         )
         return agent
 

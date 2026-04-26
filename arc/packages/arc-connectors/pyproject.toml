@@ -16,7 +16,16 @@ dependencies = [
 outlook = ["msal>=1.28"]
 pega = []
 servicenow = []
-all = ["msal>=1.28"]
+# Bedrock connectors (KB, LLM, Guardrails, Agent client)
+aws = ["boto3>=1.34", "botocore>=1.34"]
+# LiteLLM — unified interface to 100+ model providers
+# (Anthropic, OpenAI, Bedrock, Vertex, Cohere, Ollama, …)
+litellm = ["litellm>=1.40"]
+all = [
+    "msal>=1.28",
+    "boto3>=1.34", "botocore>=1.34",
+    "litellm>=1.40",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/arc"]

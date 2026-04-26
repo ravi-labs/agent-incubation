@@ -5,8 +5,9 @@ members = [
     "packages/arc-orchestrators",
     "packages/arc-connectors",
     "packages/arc-runtime",
-    # arc-platform is reserved for Phase 3 (web portals); add to workspace
-    # once it has a pyproject.toml and source.
+    "packages/arc-cli",
+    "packages/arc-eval",
+    "packages/arc-platform",
 ]
 
 [tool.ruff]

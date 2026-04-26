@@ -50,7 +50,7 @@ class CatalogEntry:
     success_metrics: list[str]
     tags: list[str]
     team_repo: str
-    foundry_version: str
+    arc_version: str
     registered_at: str = ""      # ISO timestamp of first registry submission
     updated_at: str = ""         # ISO timestamp of last update
     manifest_source: str = ""    # Path to manifest in registry repo
@@ -77,7 +77,7 @@ class CatalogEntry:
             success_metrics=manifest.success_metrics,
             tags=manifest.tags,
             team_repo=manifest.team_repo,
-            foundry_version=manifest.foundry_version,
+            arc_version=manifest.arc_version,
             registered_at=registered_at or now,
             updated_at=updated_at or now,
             manifest_source=manifest_source,
@@ -99,7 +99,7 @@ class RegistryCatalog:
       - Compliance audit (what was running on date X at policy version Y?)
     """
     generated_at: str = field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
-    foundry_version: str = ""
+    arc_version: str = ""
     agents: list[CatalogEntry] = field(default_factory=list)
 
     # ── Queries ───────────────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ class RegistryCatalog:
         """Persist the catalog to a YAML file."""
         data = {
             "generated_at": self.generated_at,
-            "foundry_version": self.foundry_version,
+            "arc_version": self.arc_version,
             "summary": self.summary(),
             "agents": [a.to_dict() for a in self.agents],
         }
@@ -173,17 +173,23 @@ class RegistryCatalog:
         with open(path) as f:
             data = yaml.safe_load(f)
 
+        # Back-compat: accept legacy `foundry_version` key from catalogs
+        # written before the foundry → arc rename, in both the top-level
+        # catalog metadata and per-agent entries.
+        for a in data.get("agents", []):
+            if "foundry_version" in a and "arc_version" not in a:
+                a["arc_version"] = a.pop("foundry_version")
         agents = [CatalogEntry(**a) for a in data.get("agents", [])]
         return cls(
             generated_at=data.get("generated_at", ""),
-            foundry_version=data.get("foundry_version", ""),
+            arc_version=data.get("arc_version", data.get("foundry_version", "")),
             agents=agents,
         )
 
 
 def build_catalog(
     registry_dir: str | Path,
-    foundry_version: str = "",
+    arc_version: str = "",
 ) -> RegistryCatalog:
     """
     Build a RegistryCatalog by scanning a registry directory for manifests.
@@ -198,7 +204,7 @@ def build_catalog(
 
     Args:
         registry_dir:    Root of the registry directory.
-        foundry_version: The version string recorded in the catalog.
+        arc_version: The version string recorded in the catalog.
 
     Returns:
         RegistryCatalog with all agents indexed.
@@ -224,6 +230,6 @@ def build_catalog(
             warnings.warn(f"Skipped invalid manifest: {err}", stacklevel=2)
 
     return RegistryCatalog(
-        foundry_version=foundry_version,
+        arc_version=arc_version,
         agents=entries,
     )

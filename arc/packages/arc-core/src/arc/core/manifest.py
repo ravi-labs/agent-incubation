@@ -24,6 +24,7 @@ Manifest YAML schema:
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Protocol
 
 import yaml
 
@@ -36,6 +37,8 @@ from arc.core.effects import (
 )
 
 from arc.core.lifecycle import LifecycleStage
+from arc.core.llm import LLMConfig
+from arc.core.slo import SLOConfig
 
 # All known effect enums — tried in order when parsing manifest YAML.
 # Add new domain taxonomies here to make them available in manifests.
@@ -91,7 +94,15 @@ class AgentManifest:
     tags: list[str] = field(default_factory=list)
     status: AgentStatus = AgentStatus.ACTIVE
     team_repo: str = ""
-    foundry_version: str = ""
+    arc_version: str = ""
+    # Optional per-agent LLM override. When set, takes precedence over
+    # the platform default in RuntimeConfig.llm. None = use platform default.
+    llm: LLMConfig | None = None
+    # Optional Service-Level Objective declaration. When set + non-empty,
+    # the auto-demotion watcher (``arc agent watch``) evaluates outcomes
+    # against these rules and either queues a PendingApproval or demotes
+    # the agent one stage on sustained breach. None = no auto-demotion.
+    slo: SLOConfig | None = None
 
     @property
     def manifest_version(self) -> str:
@@ -133,8 +144,18 @@ class AgentManifest:
         """
         return load_manifest(path)
 
+    def save(self, path: "str | Path") -> None:
+        """
+        Persist this manifest to a YAML file.
+
+        Round-trips with ``load_manifest`` — saving then loading produces
+        an equal AgentManifest. Used by the promotion pipeline to write
+        stage transitions back to disk.
+        """
+        save_manifest(self, path)
+
     def to_dict(self) -> dict:
-        return {
+        out: dict = {
             "agent_id": self.agent_id,
             "version": self.version,
             "owner": self.owner,
@@ -148,8 +169,17 @@ class AgentManifest:
             "environment": self.environment,
             "tags": self.tags,
             "team_repo": self.team_repo,
-            "foundry_version": self.foundry_version,
+            "arc_version": self.arc_version,
         }
+        # Only emit `llm:` when the agent overrides the platform default.
+        # Manifests without an llm: block stay clean.
+        if self.llm is not None and not self.llm.is_empty():
+            out["llm"] = self.llm.to_dict()
+        # Only emit `slo:` when the agent declares one. Manifests without
+        # an slo block stay clean and aren't subject to auto-demotion.
+        if self.slo is not None and not self.slo.is_empty():
+            out["slo"] = self.slo.to_dict()
+        return out
 
 
 def load_manifest(path: str | Path) -> AgentManifest:
@@ -198,6 +228,18 @@ def load_manifest(path: str | Path) -> AgentManifest:
             f"Invalid status '{raw_status}'. Must be one of: {valid}"
         ) from None
 
+    # Optional per-agent LLM override. Missing → None (use platform default).
+    llm_block = data.get("llm")
+    llm_config: LLMConfig | None = None
+    if isinstance(llm_block, dict) and llm_block:
+        llm_config = LLMConfig.from_dict(llm_block)
+
+    # Optional SLO block. Missing or empty → no auto-demotion for this agent.
+    slo_block = data.get("slo")
+    slo_config: SLOConfig | None = None
+    if isinstance(slo_block, dict) and slo_block:
+        slo_config = SLOConfig.from_dict(slo_block)
+
     return AgentManifest(
         agent_id=data["agent_id"],
         version=data["version"],
@@ -212,5 +254,155 @@ def load_manifest(path: str | Path) -> AgentManifest:
         tags=data.get("tags", []),
         status=status,
         team_repo=data.get("team_repo", ""),
-        foundry_version=data.get("foundry_version", ""),
+        # Accept legacy `foundry_version` key for back-compat with manifests
+        # written before the foundry → arc rename. New manifests should use
+        # `arc_version`; the loader prefers it when both are present.
+        arc_version=data.get("arc_version", data.get("foundry_version", "")),
+        llm=llm_config,
+        slo=slo_config,
     )
+
+
+def save_manifest(manifest: AgentManifest, path: str | Path) -> None:
+    """
+    Persist an AgentManifest to a YAML file.
+
+    Round-trips with ``load_manifest``. Creates parent directories if needed.
+    Output uses block style with stable key order so diffs stay readable.
+
+    Args:
+        manifest: The manifest to write.
+        path:     Destination YAML file. Parent directories are created.
+    """
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(
+            manifest.to_dict(),
+            f,
+            sort_keys=False,
+            default_flow_style=False,
+        )
+
+
+# ── ManifestStore — pluggable persistence for AgentManifest ─────────────────
+
+
+class ManifestStore(Protocol):
+    """
+    Persistence layer for ``AgentManifest``.
+
+    The promotion pipeline produces decisions; a ManifestStore is what
+    actually writes the new ``lifecycle_stage`` (or status, version, etc.)
+    back to durable storage.
+
+    Two built-in implementations cover the common cases:
+
+      - ``LocalFileManifestStore`` — single ``manifest.yaml`` in a team's
+        own repo. The store knows one agent.
+
+      - ``DirectoryManifestStore`` — directory tree like the agent-registry
+        layout (``<root>/<agent_id>/manifest.yaml``). The store knows many.
+
+    Custom backends (S3, DynamoDB, a registry API) just need to implement
+    these three methods.
+    """
+
+    def load(self, agent_id: str) -> AgentManifest:
+        """Load the manifest for ``agent_id``. Raises if not found."""
+        ...
+
+    def save(self, manifest: AgentManifest) -> None:
+        """Persist a manifest, replacing any prior version for the same agent."""
+        ...
+
+    def exists(self, agent_id: str) -> bool:
+        """True iff a manifest is stored for ``agent_id``."""
+        ...
+
+
+class LocalFileManifestStore:
+    """
+    Manifest store backed by a single YAML file (one agent per store).
+
+    Use when an agent's manifest lives at a known path in its own repo —
+    typically the team-template layout where each team repo has one or a
+    few manifests, each with a fixed location.
+    """
+
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path)
+
+    def load(self, agent_id: str | None = None) -> AgentManifest:
+        manifest = load_manifest(self.path)
+        if agent_id is not None and manifest.agent_id != agent_id:
+            raise ValueError(
+                f"manifest at {self.path} declares agent_id={manifest.agent_id!r}, "
+                f"requested {agent_id!r}"
+            )
+        return manifest
+
+    def save(self, manifest: AgentManifest) -> None:
+        save_manifest(manifest, self.path)
+
+    def exists(self, agent_id: str | None = None) -> bool:
+        if not self.path.exists():
+            return False
+        if agent_id is None:
+            return True
+        try:
+            return load_manifest(self.path).agent_id == agent_id
+        except Exception:
+            return False
+
+
+class DirectoryManifestStore:
+    """
+    Manifest store backed by a directory tree, one subdirectory per agent.
+
+    Layout (matches ``agent-registry/registry/`` and ``arc/agents/``):
+
+        <root>/
+          retirement-trajectory/manifest.yaml
+          fiduciary-watchdog/manifest.yaml
+          ...
+
+    Use this for the central governance catalog, where many agents'
+    manifests live side by side and are looked up by agent_id.
+    """
+
+    def __init__(
+        self,
+        root: str | Path,
+        *,
+        manifest_filename: str = "manifest.yaml",
+    ) -> None:
+        self.root = Path(root)
+        self.manifest_filename = manifest_filename
+
+    def _path_for(self, agent_id: str) -> Path:
+        return self.root / agent_id / self.manifest_filename
+
+    def load(self, agent_id: str) -> AgentManifest:
+        path = self._path_for(agent_id)
+        if not path.exists():
+            raise FileNotFoundError(
+                f"no manifest for agent_id={agent_id!r} at {path}"
+            )
+        return load_manifest(path)
+
+    def save(self, manifest: AgentManifest) -> None:
+        save_manifest(manifest, self._path_for(manifest.agent_id))
+
+    def exists(self, agent_id: str) -> bool:
+        return self._path_for(agent_id).exists()
+
+    def agent_ids(self) -> list[str]:
+        """List every agent_id with a manifest under ``root``."""
+        if not self.root.exists():
+            return []
+        return sorted(
+            sub.name
+            for sub in self.root.iterdir()
+            if sub.is_dir() and (sub / self.manifest_filename).exists()
+        )

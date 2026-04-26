@@ -1,5 +1,5 @@
 """
-foundry.tollgate.backends.sqs_approver
+tollgate.backends.sqs_approver
 ────────────────────────────────────────
 SQS-based Approver for async human review workflows.
 
@@ -15,7 +15,7 @@ return immediately (or wait up to its configured timeout), while reviewers
 process the queue asynchronously.
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "tollgate[aws]"
 
 Architecture:
 
@@ -36,9 +36,9 @@ Usage:
     from tollgate.backends.sqs_approver import SQSApprover
     from tollgate.approvals import AsyncQueueApprover
 
-    store    = DynamoDBApprovalStore(table_name="foundry-approvals")
+    store    = DynamoDBApprovalStore(table_name="arc-approvals")
     approver = SQSApprover(
-        queue_url="https://sqs.us-east-1.amazonaws.com/123456789/foundry-review",
+        queue_url="https://sqs.us-east-1.amazonaws.com/123456789/arc-review",
         store=store,
         timeout=3600.0,
     )
@@ -75,7 +75,7 @@ class SQSApprover:
         timeout: float = 3600.0,            # 1 hour default
         default_outcome: ApprovalOutcome = ApprovalOutcome.DENIED,
         region: str | None = None,
-        message_group_id: str = "foundry-approvals",  # for FIFO queues
+        message_group_id: str = "arc-approvals",  # for FIFO queues
     ):
         """
         Args:
@@ -100,7 +100,7 @@ class SQSApprover:
                 import boto3
             except ImportError as exc:
                 raise ImportError(
-                    "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+                    "boto3 is not installed. Run: pip install 'tollgate[aws]'"
                 ) from exc
             kwargs: dict[str, Any] = {}
             if self.region:
@@ -180,7 +180,7 @@ class SQSApprover:
         reviewer must pass back to set_decision().
         """
         return {
-            "foundry_event": "approval_requested",
+            "arc_event": "approval_requested",
             "approval_id":   approval_id,
             "expires_at":    expiry,
             "agent": {

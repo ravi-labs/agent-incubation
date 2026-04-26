@@ -1,7 +1,7 @@
 """
-foundry.integrations.bedrock_guardrails
+arc.connectors.bedrock_guardrails
 ─────────────────────────────────────────
-Amazon Bedrock Guardrails integration for agent-foundry.
+Amazon Bedrock Guardrails integration for arc agents.
 
 Bedrock Guardrails is a content filtering and safety layer for LLM inputs and
 outputs. This module integrates it as an additional defence layer ALONGSIDE
@@ -30,7 +30,7 @@ Architecture:
     User
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "arc-connectors[aws]"
 
 Usage — standalone (wrap execute calls):
 
@@ -198,7 +198,7 @@ class BedrockGuardrailsAdapter:
             except ImportError as exc:
                 raise ImportError(
                     "boto3 is required for BedrockGuardrailsAdapter. "
-                    "Run: pip install 'agent-foundry[aws]'"
+                    "Run: pip install 'arc-connectors[aws]'"
                 ) from exc
             self._client = boto3.client("bedrock-runtime", region_name=self._region)
         return self._client

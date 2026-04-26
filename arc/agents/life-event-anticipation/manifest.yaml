@@ -23,7 +23,7 @@ environment: sandbox
 status: active
 
 team_repo: https://github.com/ravi-labs/participant-experience-agents
-foundry_version: ">=0.1.0"
+arc_version: ">=0.1.0"
 
 allowed_effects:
   - participant.data.read

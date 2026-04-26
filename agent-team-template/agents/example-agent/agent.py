@@ -2,7 +2,7 @@
 Example Agent — Template Implementation
 
 Replace this with your actual agent logic.
-See examples/ in agent-foundry for full reference implementations.
+See arc/agents/ in the agent-incubation monorepo for full reference implementations.
 """
 
 import asyncio

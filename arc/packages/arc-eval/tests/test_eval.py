@@ -1,5 +1,5 @@
 """
-Tests for foundry.eval — FoundryEvaluator and EvalScenario.
+Tests for arc.eval — Evaluator and EvalScenario.
 
 Strategy: wire a real BaseAgent + real ControlTower (AutoApprover) so the
 evaluator runs against the actual policy pipeline, exactly as documented.
@@ -9,7 +9,7 @@ Covers:
     - name property
     - default field values
 
-  FoundryEvaluator:
+  Evaluator:
     - ALLOW effect recorded correctly
     - DENY effect (PermissionError) recorded correctly
     - ASK effect (TollgateDeferred) recorded correctly
@@ -34,7 +34,7 @@ Covers:
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from arc.eval import EvalScenario, EvalResult, FoundryEvaluator
+from arc.eval import EvalScenario, EvalResult, Evaluator
 from arc.core.effects import FinancialEffect
 from arc.core.manifest import AgentManifest, AgentStatus
 from arc.core.lifecycle import LifecycleStage
@@ -122,9 +122,9 @@ class TestEvalScenario:
         assert s.tags == []
 
 
-# ─── FoundryEvaluator ─────────────────────────────────────────────────────────
+# ─── Evaluator ─────────────────────────────────────────────────────────
 
-class TestFoundryEvaluator:
+class TestEvaluator:
 
     @pytest.mark.asyncio
     async def test_allow_decision_recorded(self):
@@ -136,7 +136,7 @@ class TestFoundryEvaluator:
             intent_action="read", intent_reason="testing",
         ))
 
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         results = await evaluator.run([EvalScenario(name="allow-test")])
         result = results[0]
         allow_decisions = [d for _, d in result.effects_invoked if d == "ALLOW"]
@@ -159,7 +159,7 @@ class TestFoundryEvaluator:
             return {"done": True}
 
         agent = make_agent(manifest, tower, execute_fn=execute_with_deny)
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         results = await evaluator.run([EvalScenario(name="deny-test")])
         result = results[0]
         deny_decisions = [d for _, d in result.effects_invoked if d == "DENY"]
@@ -179,7 +179,7 @@ class TestFoundryEvaluator:
             return {}
 
         agent = make_agent(manifest, tower, execute_fn=execute_fn)
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenario = EvalScenario(
             name="allow-assertion",
             expect_effects_allowed=["participant.data.read"],
@@ -193,7 +193,7 @@ class TestFoundryEvaluator:
         tower = make_tower("ALLOW")
         agent = make_agent(manifest, tower)  # execute() does nothing special
 
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenario = EvalScenario(
             name="allow-fail",
             expect_effects_allowed=["participant.data.read"],  # never invoked
@@ -208,7 +208,7 @@ class TestFoundryEvaluator:
         tower = make_tower("ALLOW")
         agent = make_agent(manifest, tower)
 
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenario = EvalScenario(name="clean-run", expect_no_exception=True)
         results = await evaluator.run([scenario])
         assert results[0].passed
@@ -222,7 +222,7 @@ class TestFoundryEvaluator:
             raise ValueError("something went wrong")
 
         agent = make_agent(manifest, tower, execute_fn=raise_fn)
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenario = EvalScenario(name="raises-test", expect_no_exception=True)
         results = await evaluator.run([scenario])
         assert not results[0].passed
@@ -237,7 +237,7 @@ class TestFoundryEvaluator:
             raise ValueError("expected error")
 
         agent = make_agent(manifest, tower, execute_fn=raise_fn)
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenario = EvalScenario(
             name="exception-type-test",
             expect_exception_type="ValueError",
@@ -255,7 +255,7 @@ class TestFoundryEvaluator:
             return {"score": 0.5, "processed": 10}
 
         agent = make_agent(manifest, tower, execute_fn=fn)
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenario = EvalScenario(
             name="output-contains",
             expect_output_contains={"score", "processed"},
@@ -272,7 +272,7 @@ class TestFoundryEvaluator:
             return {"score": 0.5}  # missing "processed"
 
         agent = make_agent(manifest, tower, execute_fn=fn)
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenario = EvalScenario(
             name="output-contains-fail",
             expect_output_contains={"score", "processed"},
@@ -289,7 +289,7 @@ class TestFoundryEvaluator:
             return {"exact": True}
 
         agent = make_agent(manifest, tower, execute_fn=fn)
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenario = EvalScenario(
             name="output-equals",
             expect_output_equals={"exact": True},
@@ -306,7 +306,7 @@ class TestFoundryEvaluator:
             return {"score": 0.9}
 
         agent = make_agent(manifest, tower, execute_fn=fn)
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenario = EvalScenario(
             name="output-fn",
             expect_output_fn=lambda output: output.get("score", 0) > 0.5,
@@ -320,7 +320,7 @@ class TestFoundryEvaluator:
         tower = make_tower("ALLOW")
         agent = make_agent(manifest, tower)
 
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         results = await evaluator.run([EvalScenario(name="latency")])
         assert results[0].latency_ms >= 0
 
@@ -330,7 +330,7 @@ class TestFoundryEvaluator:
         tower = make_tower("ALLOW")
         agent = make_agent(manifest, tower)
 
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenarios = [
             EvalScenario(name="fail", expect_effects_allowed=["never.invoked"]),
             EvalScenario(name="should-not-run"),
@@ -345,7 +345,7 @@ class TestFoundryEvaluator:
         tower = make_tower("ALLOW")
         agent = make_agent(manifest, tower)
 
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         scenarios = [EvalScenario(name=f"s{i}") for i in range(5)]
         results = await evaluator.run(scenarios)
         assert [r.name for r in results] == [f"s{i}" for i in range(5)]
@@ -356,7 +356,7 @@ class TestFoundryEvaluator:
         tower = make_tower("ALLOW")
         agent = make_agent(manifest, tower)
 
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         results = await evaluator.run([EvalScenario(name="named-scenario")])
         assert results[0].name == "named-scenario"
 
@@ -367,7 +367,7 @@ class TestFoundryEvaluator:
         tower = make_tower("ALLOW")
         agent = make_agent(manifest, tower)
 
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
 
         # Capture the instrumented wrapper during the run
         instrumented_ref = []

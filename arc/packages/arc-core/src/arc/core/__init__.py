@@ -2,11 +2,9 @@
 arc.core — governance engine.
 
 The foundation everything else builds on. Typed effects, policy evaluation,
-ControlTower pre-execution gating, and the audit trail.
-
-Every export below is native — arc-core no longer depends on agent-foundry
-at runtime. Tollgate primitives (ControlTower, YamlPolicyEvaluator, etc.)
-come from the canonical `tollgate` package directly.
+ControlTower pre-execution gating, and the audit trail. Tollgate primitives
+(ControlTower, YamlPolicyEvaluator, etc.) come from the canonical `tollgate`
+package directly.
 
 Public API:
     from arc.core import (
@@ -17,11 +15,6 @@ Public API:
         JsonlAuditSink,
         ITSMEffect, FinancialEffect, ComplianceEffect,
     )
-
-Implementation note: this module used to use a PEP 562 ``__getattr__``
-to lazy-load foundry re-exports during the migration. After Phase 2 +
-the vendored-tollgate cleanup, all exports are native eager imports and
-the lazy table is gone.
 """
 
 # ── Effects, scaffold, gateway, memory, tools, observability, lifecycle ──────
@@ -44,7 +37,25 @@ from arc.core.effects import (
     effects_requiring_review,
 )
 from arc.core.policy import EffectRequestBuilder
-from arc.core.manifest import AgentManifest, AgentStatus, load_manifest
+from arc.core.manifest import (
+    AgentManifest,
+    AgentStatus,
+    DirectoryManifestStore,
+    LocalFileManifestStore,
+    ManifestStore,
+    load_manifest,
+    save_manifest,
+)
+from arc.core.llm import LLMClient, LLMConfig, resolve_llm
+from arc.core.slo import (
+    DemotionMode,
+    SLOConfig,
+    SLOEvaluation,
+    SLOReport,
+    SLORule,
+    evaluate_slo,
+    parse_window_seconds,
+)
 from arc.core.agent import BaseAgent
 from arc.core.gateway import (
     DataRequest,
@@ -57,7 +68,7 @@ from arc.core.gateway import (
 from arc.core.memory import (
     ConversationBuffer,
     DynamoDBMemoryBackend,
-    FoundryMemoryStore,
+    AgentMemoryStore,
     LocalJsonStore,
     MemoryBackend,
     MemoryEntry,
@@ -65,10 +76,43 @@ from arc.core.memory import (
 )
 from arc.core.tools import AgentToolRegistry, GovernedToolDef, ToolRegistry, governed_tool
 from arc.core.observability import OutcomeEvent, OutcomeTracker, generate_report
-from arc.core.lifecycle import LifecycleStage, StageGate, stage_gate
+from arc.core.lifecycle import (
+    BreachState,
+    BreachStateStore,
+    DEFAULT_CONSECUTIVE_BREACHES_REQUIRED,
+    DEFAULT_COOLDOWN_HOURS,
+    DemotionWatcher,
+    GateCheck,
+    GateCheckResult,
+    GateChecker,
+    InMemoryBreachStateStore,
+    InMemoryPendingApprovalStore,
+    InMemoryPromotionAuditLog,
+    JsonlBreachStateStore,
+    JsonlPendingApprovalStore,
+    JsonlPromotionAuditLog,
+    KILL_SWITCH_ENV,
+    LifecycleStage,
+    PendingApproval,
+    PendingApprovalStore,
+    PromotionAuditLog,
+    PromotionDecision,
+    PromotionOutcome,
+    PromotionRequest,
+    PromotionService,
+    StageGate,
+    WatchResult,
+    apply_decision,
+    artifact_exists_check,
+    evidence_field_check,
+    predicate_check,
+    reviewer_present_check,
+    stage_gate,
+    stage_order_check,
+)
 from arc.core.registry import CatalogEntry, RegistryCatalog, build_catalog
 
-# ── Tollgate (canonical package, vendored copy in foundry/ now shimmed) ──────
+# ── Tollgate (canonical policy engine — sibling package at the repo root) ───
 from tollgate import (
     ApprovalOutcome,
     AsyncQueueApprover,
@@ -92,10 +136,6 @@ from tollgate.types import (
     ToolRequest,
 )
 
-# All re-exports above are now native imports — the lazy foundry table is
-# empty. arc-core no longer needs `agent-foundry` at runtime for any of its
-# public surface.
-
 
 __all__ = [
     # Effects
@@ -106,17 +146,39 @@ __all__ = [
     "effect_meta", "effects_by_tier", "effects_requiring_review",
     # Manifest + scaffold + builder
     "EffectRequestBuilder",
-    "AgentManifest", "AgentStatus", "load_manifest",
+    "AgentManifest", "AgentStatus", "load_manifest", "save_manifest",
+    "ManifestStore", "LocalFileManifestStore", "DirectoryManifestStore",
     "BaseAgent",
+    "LLMClient", "LLMConfig", "resolve_llm",
+    # SLOs (auto-demotion)
+    "SLOConfig", "SLORule", "SLOEvaluation", "SLOReport",
+    "DemotionMode", "evaluate_slo", "parse_window_seconds",
     # Gateway, memory, tools, observability
     "GatewayConnector", "DataRequest", "DataResponse",
     "MockGatewayConnector", "HttpGateway", "MultiGateway",
     "ConversationBuffer", "Message",
-    "FoundryMemoryStore", "MemoryEntry", "MemoryBackend",
+    "AgentMemoryStore", "MemoryEntry", "MemoryBackend",
     "LocalJsonStore", "DynamoDBMemoryBackend",
     "AgentToolRegistry", "ToolRegistry", "governed_tool", "GovernedToolDef",
     "OutcomeTracker", "OutcomeEvent", "generate_report",
     "LifecycleStage", "StageGate", "stage_gate",
+    # Promotion pipeline
+    "PromotionRequest", "PromotionDecision", "PromotionOutcome",
+    "GateCheck", "GateCheckResult", "GateChecker", "PromotionService",
+    "apply_decision",
+    "stage_order_check", "evidence_field_check", "artifact_exists_check",
+    "reviewer_present_check", "predicate_check",
+    "PromotionAuditLog", "InMemoryPromotionAuditLog", "JsonlPromotionAuditLog",
+    # Pending-approval store
+    "PendingApproval", "PendingApprovalStore",
+    "InMemoryPendingApprovalStore", "JsonlPendingApprovalStore",
+    # Auto-demotion watcher
+    "DemotionWatcher", "WatchResult",
+    "BreachState", "BreachStateStore",
+    "InMemoryBreachStateStore", "JsonlBreachStateStore",
+    "DEFAULT_CONSECUTIVE_BREACHES_REQUIRED",
+    "DEFAULT_COOLDOWN_HOURS",
+    "KILL_SWITCH_ENV",
     "CatalogEntry", "RegistryCatalog", "build_catalog",
     # Tollgate primitives (canonical)
     "ControlTower", "YamlPolicyEvaluator", "JsonlAuditSink",

@@ -42,14 +42,12 @@ Graph topology (for a single fund):
                                                        END
 
 Install:
-    pip install "agent-foundry[langgraph]"
+    pip install "arc-orchestrators[langgraph]"
 
 Run locally (sandbox):
     python graph_agent.py
 
-Or with the foundry CLI:
-    foundry run manifest.yaml --agent graph_agent:FiduciaryWatchdogGraphAgent \\
-        --param fund_id=FUND001 --param plan_id=PLAN001
+Or wire through arc.runtime.RuntimeBuilder for production deployment.
 """
 
 from __future__ import annotations
@@ -58,7 +56,7 @@ import asyncio
 import logging
 from typing import Any, Optional
 
-from arc.orchestrators.langgraph_agent import END, START, FoundryState, GraphAgent
+from arc.orchestrators.langgraph_agent import END, START, AgentState, GraphAgent
 from arc.core.effects import FinancialEffect
 from arc.core.manifest import AgentManifest
 from arc.core.gateway import GatewayConnector
@@ -71,7 +69,7 @@ logger = logging.getLogger(__name__)
 # ── State schema ───────────────────────────────────────────────────────────────
 
 
-class WatchdogState(FoundryState):
+class WatchdogState(AgentState):
     """
     State that flows through all nodes in the Fiduciary Watchdog graph.
 

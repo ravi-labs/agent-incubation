@@ -13,6 +13,21 @@ Two layers:
                 operation for anomaly auto-rollback.
 """
 
+from .approvals import (
+    APPROVED,
+    InMemoryPendingApprovalStore,
+    JsonlPendingApprovalStore,
+    PENDING,
+    REJECTED,
+    PendingApproval,
+    PendingApprovalStore,
+)
+from .breach_state import (
+    BreachState,
+    BreachStateStore,
+    InMemoryBreachStateStore,
+    JsonlBreachStateStore,
+)
 from .pipeline import (
     GateCheck,
     GateCheckResult,
@@ -24,6 +39,7 @@ from .pipeline import (
     PromotionOutcome,
     PromotionRequest,
     PromotionService,
+    apply_decision,
     artifact_exists_check,
     evidence_field_check,
     predicate_check,
@@ -31,6 +47,13 @@ from .pipeline import (
     stage_order_check,
 )
 from .stages import LifecycleStage, StageGate, stage_gate
+from .watcher import (
+    DEFAULT_CONSECUTIVE_BREACHES_REQUIRED,
+    DEFAULT_COOLDOWN_HOURS,
+    KILL_SWITCH_ENV,
+    DemotionWatcher,
+    WatchResult,
+)
 
 __all__ = [
     # Stage definitions
@@ -38,9 +61,21 @@ __all__ = [
     # Promotion pipeline core
     "PromotionRequest", "PromotionDecision", "PromotionOutcome",
     "GateCheck", "GateCheckResult", "GateChecker", "PromotionService",
+    "apply_decision",
     # Built-in check primitives
     "stage_order_check", "evidence_field_check", "artifact_exists_check",
     "reviewer_present_check", "predicate_check",
     # Audit log
     "PromotionAuditLog", "InMemoryPromotionAuditLog", "JsonlPromotionAuditLog",
+    # Pending-approval store (DEFERRED handoff)
+    "PendingApproval", "PendingApprovalStore",
+    "InMemoryPendingApprovalStore", "JsonlPendingApprovalStore",
+    "PENDING", "APPROVED", "REJECTED",
+    # Auto-demotion watcher
+    "DemotionWatcher", "WatchResult",
+    "BreachState", "BreachStateStore",
+    "InMemoryBreachStateStore", "JsonlBreachStateStore",
+    "DEFAULT_CONSECUTIVE_BREACHES_REQUIRED",
+    "DEFAULT_COOLDOWN_HOURS",
+    "KILL_SWITCH_ENV",
 ]

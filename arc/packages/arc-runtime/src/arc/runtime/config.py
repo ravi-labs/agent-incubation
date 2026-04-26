@@ -16,6 +16,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
+from arc.core import LLMConfig
+
 
 @dataclass
 class OutlookConfig:
@@ -128,6 +130,9 @@ class RuntimeConfig:
     servicenow:       ServiceNowConfig | None = None
     agentcore:        AgentCoreConfig | None = None
 
+    # LLM provider (platform default; per-agent manifest can override)
+    llm:              "LLMConfig | None" = None
+
     # Audit
     audit_sink:       str = "jsonl"          # "jsonl" | "cloudwatch" | "s3"
     audit_path:       str = "arc_audit.jsonl"
@@ -162,6 +167,11 @@ class RuntimeConfig:
         if os.getenv("AGENTCORE_AGENT_ID"):
             agentcore = AgentCoreConfig.from_env()
 
+        # LLM platform default — empty by default (no LLM injected). Set
+        # ARC_LLM_PROVIDER=bedrock|litellm to enable. Agents can override
+        # via their manifest's llm: block.
+        llm = LLMConfig.from_env()
+
         return cls(
             bedrock        = BedrockConfig.from_env(),
             outlook        = outlook,
@@ -169,6 +179,7 @@ class RuntimeConfig:
             pega_knowledge = pega_kb,
             servicenow     = snow,
             agentcore      = agentcore,
+            llm            = llm if not llm.is_empty() else None,
             audit_sink     = os.getenv("ARC_AUDIT_SINK", "jsonl"),
             audit_path     = os.getenv("ARC_AUDIT_PATH", "arc_audit.jsonl"),
             approver_mode  = os.getenv("ARC_APPROVER_MODE", "sqs"),

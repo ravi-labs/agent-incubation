@@ -1,5 +1,5 @@
 """
-foundry.tollgate.backends.dynamodb_store
+tollgate.backends.dynamodb_store
 ─────────────────────────────────────────
 DynamoDB-backed ApprovalStore for production deployments.
 
@@ -7,13 +7,13 @@ Replaces InMemoryApprovalStore (lost on Lambda restart) with a persistent,
 serverless store suitable for ASK-decision effects (human review workflows).
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "tollgate[aws]"
 
 Usage:
     from tollgate.backends.dynamodb_store import DynamoDBApprovalStore
     from tollgate.approvals import AsyncQueueApprover
 
-    store    = DynamoDBApprovalStore(table_name="foundry-approvals")
+    store    = DynamoDBApprovalStore(table_name="arc-approvals")
     approver = AsyncQueueApprover(store=store, timeout=3600.0)
     tower    = ControlTower(policy=policy, approver=approver, audit=audit)
 
@@ -25,7 +25,7 @@ DynamoDB Table Schema:
 
 Create the table via CDK (see deploy/cdk/) or manually:
     aws dynamodb create-table \\
-      --table-name foundry-approvals \\
+      --table-name arc-approvals \\
       --attribute-definitions AttributeName=approval_id,AttributeType=S \\
       --key-schema AttributeName=approval_id,KeyType=HASH \\
       --billing-mode PAY_PER_REQUEST \\
@@ -70,7 +70,7 @@ class DynamoDBApprovalStore(ApprovalStore):
     ):
         """
         Args:
-            table_name:    DynamoDB table name (e.g., "foundry-approvals").
+            table_name:    DynamoDB table name (e.g., "arc-approvals").
             region:        AWS region (defaults to boto3 default / AWS_DEFAULT_REGION).
             poll_interval: Seconds between DynamoDB polls while waiting for a decision.
         """
@@ -85,7 +85,7 @@ class DynamoDBApprovalStore(ApprovalStore):
                 import boto3
             except ImportError as exc:
                 raise ImportError(
-                    "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+                    "boto3 is not installed. Run: pip install 'tollgate[aws]'"
                 ) from exc
             kwargs: dict[str, Any] = {}
             if self.region:

@@ -1,7 +1,5 @@
 """
 Tests for arc.core.gateway — MockGatewayConnector, HttpGateway, MultiGateway.
-Native after migration module 6. Foundry exercises the same code via the shim
-(agent-foundry/tests/test_gateway.py).
 
 Covers:
   - MockGatewayConnector: hit, miss, meta flag

@@ -1,7 +1,5 @@
 """
-Tests for arc.core.manifest — AgentManifest loading and validation. Native
-in arc-core after migration module 3. Foundry has equivalent coverage via
-the shim (agent-foundry/tests/test_manifest.py).
+Tests for arc.core.manifest — AgentManifest loading and validation.
 
 Validates that:
   - Valid manifests load correctly
@@ -43,7 +41,7 @@ VALID_MANIFEST_DATA = {
     "success_metrics": ["Metric one", "Metric two"],
     "tags": ["test"],
     "team_repo": "https://github.com/test/test-agents",
-    "foundry_version": ">=0.1.0",
+    "arc_version": ">=0.1.0",
 }
 
 
@@ -112,7 +110,83 @@ class TestValidManifest:
         assert d["status"] == "active"
         assert "allowed_effects" in d
         assert "team_repo" in d
-        assert "foundry_version" in d
+        assert "arc_version" in d
+
+
+class TestSLOBlock:
+    """SLO block is optional; loaders + dumpers must be back-compat clean."""
+
+    def test_no_slo_block_means_none(self, tmp_path):
+        p = write_manifest(tmp_path, VALID_MANIFEST_DATA)
+        manifest = load_manifest(p)
+        assert manifest.slo is None
+        # And to_dict() should NOT emit an empty `slo:` key on a manifest
+        # that didn't declare one.
+        assert "slo" not in manifest.to_dict()
+
+    def test_slo_block_round_trips(self, tmp_path):
+        from arc.core import DemotionMode
+
+        data = {**VALID_MANIFEST_DATA}
+        data["slo"] = {
+            "window":     "7d",
+            "min_volume": 200,
+            "rules": [
+                {"metric": "error_rate",     "op": "<", "threshold": 0.05},
+                {"metric": "p95_latency_ms", "op": "<", "threshold": 2000},
+            ],
+            "demotion_mode": "auto",
+        }
+        p = write_manifest(tmp_path, data)
+        manifest = load_manifest(p)
+        assert manifest.slo is not None
+        assert manifest.slo.window == "7d"
+        assert manifest.slo.min_volume == 200
+        assert manifest.slo.demotion_mode == DemotionMode.AUTO
+        assert len(manifest.slo.rules) == 2
+        # Round-trip back to dict matches what we wrote (modulo ordering).
+        out = manifest.to_dict()
+        assert out["slo"]["window"] == "7d"
+        assert out["slo"]["demotion_mode"] == "auto"
+
+    def test_invalid_window_rejected_at_load(self, tmp_path):
+        data = {**VALID_MANIFEST_DATA}
+        data["slo"] = {
+            "window":     "always",     # bogus
+            "min_volume": 100,
+            "rules": [{"metric": "error_rate", "op": "<", "threshold": 0.05}],
+        }
+        p = write_manifest(tmp_path, data)
+        with pytest.raises(ValueError, match="window"):
+            load_manifest(p)
+
+
+class TestLegacyFoundryVersionField:
+    """Pre-rename manifests written with `foundry_version:` must still load.
+
+    The field was renamed `foundry_version` → `arc_version` during the
+    foundry → arc consolidation. ``load_manifest`` accepts the legacy
+    key as a fallback so existing manifest.yaml files keep working.
+    """
+
+    def test_legacy_foundry_version_key_still_loads(self, tmp_path):
+        legacy = {**VALID_MANIFEST_DATA}
+        # Strip the new key, write the legacy one
+        legacy.pop("arc_version", None)
+        legacy["foundry_version"] = ">=0.1.0"
+
+        p = write_manifest(tmp_path, legacy)
+        manifest = load_manifest(p)
+        assert manifest.arc_version == ">=0.1.0"
+
+    def test_arc_version_wins_when_both_keys_present(self, tmp_path):
+        data = {**VALID_MANIFEST_DATA}
+        data["arc_version"] = ">=0.2.0"
+        data["foundry_version"] = ">=0.1.0"   # should be ignored
+
+        p = write_manifest(tmp_path, data)
+        manifest = load_manifest(p)
+        assert manifest.arc_version == ">=0.2.0"
 
 
 # ─── Required Fields ──────────────────────────────────────────────────────────

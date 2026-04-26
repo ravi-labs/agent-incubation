@@ -3,46 +3,52 @@ Retirement Trajectory Intervention Agent — Example Implementation
 
 Demonstrates two modes:
   - Algorithmic (default): pure Python scoring + template-based message drafting.
-  - Bedrock LLM (set USE_BEDROCK=1): Claude writes the intervention message
-    via BedrockLLMClient, routed through the policy engine like any other effect.
+  - LLM-driven: any LLMClient (BedrockLLMClient, LiteLLMClient, …) can be
+    injected to have a model write the intervention message. The call is
+    routed through run_effect() and policy-enforced like any other effect.
 
 This is the canonical reference for:
   - Loading a manifest from YAML
   - Wiring ControlTower with financial services policy
   - Using Gateway for data access
   - Running effects through the policy engine
-  - Calling Claude via Bedrock inside run_effect() using BedrockLLMClient
+  - Resolving an LLMClient via the manifest / platform / env-var precedence
   - Logging outcomes for ROI tracking
 
 Run this example:
-    python examples/retirement_trajectory/agent.py           # algorithmic drafting
-    USE_BEDROCK=1 python examples/retirement_trajectory/agent.py  # Claude drafting
+    # Algorithmic drafting (no model dependency)
+    python arc/agents/retirement-trajectory/agent.py
+
+    # Claude on Bedrock — set the platform LLM via env vars
+    # (requires arc-connectors[aws] + AWS creds)
+    ARC_LLM_PROVIDER=bedrock \\
+        ARC_LLM_MODEL=anthropic.claude-3-5-sonnet-20241022-v2:0 \\
+        ARC_LLM_REGION=us-east-1 \\
+        python arc/agents/retirement-trajectory/agent.py
+
+    # LiteLLM (requires arc-connectors[litellm] + the right provider key)
+    ARC_LLM_PROVIDER=litellm \\
+        ARC_LLM_MODEL=anthropic/claude-3-5-sonnet-20241022 \\
+        python arc/agents/retirement-trajectory/agent.py
+
+    # Manifest override — uncomment the ``llm:`` block in manifest.yaml to
+    # pin a specific provider/model for this agent regardless of platform default.
 """
 
 import asyncio
 import logging
-import os
 from pathlib import Path
 
 from arc.core.gateway import MockGatewayConnector
 from arc.core.observability import OutcomeTracker
 from arc.core.effects import FinancialEffect
-from arc.core import BaseAgent, load_manifest
+from arc.core import BaseAgent, LLMClient, LLMConfig, load_manifest, resolve_llm
 from tollgate import (
     AutoApprover,
     ControlTower,
     JsonlAuditSink,
     YamlPolicyEvaluator,
 )
-
-# BedrockLLMClient is optional — only needed when USE_BEDROCK=1
-# Install: pip install "agent-foundry[aws]"
-USE_BEDROCK = os.environ.get("USE_BEDROCK", "0") == "1"
-if USE_BEDROCK:
-    try:
-        from arc.connectors.bedrock_llm import BedrockLLMClient
-    except ImportError:
-        raise ImportError("Run: pip install 'agent-foundry[aws]' to use Bedrock LLM")
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -152,17 +158,23 @@ class RetirementTrajectoryAgent(BaseAgent):
       1. Reads participant data and cohort benchmarks via Gateway
       2. Computes a retirement trajectory risk score
       3. Drafts a personalized intervention if the participant is at-risk
-         — either via algorithmic template OR Claude via Bedrock (USE_BEDROCK=1)
+         — algorithmic template by default, or via the injected LLMClient
+         (Bedrock / LiteLLM / any arc.core.LLMClient impl) when configured
       4. Sends the intervention (subject to policy engine approval)
       5. Logs outcomes for ROI tracking
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, llm: LLMClient | None = None, **kwargs):
+        """
+        Args:
+            llm: Optional LLM client (BedrockLLMClient, LiteLLMClient, or any
+                 ``arc.core.LLMClient`` impl). When set, Step 4 uses the model
+                 to draft the intervention prose. When None, falls back to a
+                 deterministic algorithmic template. The LLM call is policy-
+                 enforced via run_effect() regardless of which client is wired.
+        """
         super().__init__(*args, **kwargs)
-        # Wire up Bedrock LLM client when USE_BEDROCK=1
-        # BedrockLLMClient routes every Claude call through run_effect() so it
-        # is policy-enforced, audit-logged, and counted against the manifest.
-        self.llm = BedrockLLMClient(agent=self) if USE_BEDROCK else None
+        self.llm = llm
 
     async def execute(self, participant_ids: list[str]) -> dict:
         results = {"processed": 0, "at_risk": 0, "interventions_sent": 0, "errors": 0}
@@ -218,12 +230,14 @@ class RetirementTrajectoryAgent(BaseAgent):
 
         # Step 4: Draft intervention (ALLOW — internal)
         # Mode A: algorithmic template (default, no LLM dependency)
-        # Mode B: Claude via Bedrock (USE_BEDROCK=1) — personalised, empathetic prose
+        # Mode B: LLM-driven (Bedrock, LiteLLM, …) — personalised, empathetic prose
         if self.llm is not None:
-            # ── Bedrock / Claude path ─────────────────────────────────────────
-            # run_effect() is called INSIDE BedrockLLMClient.generate() —
-            # the LLM call is policy-enforced just like any other effect.
+            # ── LLM path ──────────────────────────────────────────────────────
+            # run_effect() is called INSIDE self.llm.generate() — the model
+            # call is policy-enforced like any other effect, regardless of
+            # which provider (Bedrock, LiteLLM-routed) is wired.
             llm_text = await self.llm.generate(
+                agent=self,
                 effect=FinancialEffect.INTERVENTION_DRAFT,
                 intent_action="draft_intervention",
                 intent_reason=f"Generate personalised retirement intervention for participant {pid}",
@@ -248,7 +262,7 @@ class RetirementTrajectoryAgent(BaseAgent):
                 "message_type":   "projection" if score["income_replacement_pct"] < 55 else "informational",
                 "body":           llm_text,
                 "channel":        "email",
-                "generated_by":   "bedrock-claude",
+                "generated_by":   type(self.llm).__name__,
             }
         else:
             # ── Algorithmic path (default) ────────────────────────────────────
@@ -295,7 +309,17 @@ class RetirementTrajectoryAgent(BaseAgent):
 # ─── Wiring ───────────────────────────────────────────────────────────────────
 
 def build_agent() -> RetirementTrajectoryAgent:
-    """Wire up the agent with its policy, gateway, and tower."""
+    """Wire up the agent with its policy, gateway, tower, and (optional) LLM.
+
+    The LLMClient is resolved via :func:`arc.core.resolve_llm` with the
+    standard precedence:
+
+        manifest.llm  >  platform default (LLMConfig.from_env)  >  None
+
+    In production both ``HarnessBuilder`` and ``RuntimeBuilder`` do this
+    resolution for you; this script does it inline because it bypasses the
+    builders to stay self-contained.
+    """
     manifest = load_manifest(MANIFEST_PATH)
 
     policy = YamlPolicyEvaluator(POLICY_PATH)
@@ -310,11 +334,17 @@ def build_agent() -> RetirementTrajectoryAgent:
 
     tracker = OutcomeTracker(path="outcomes.jsonl")
 
+    llm = resolve_llm(
+        manifest_config  = manifest.llm,
+        platform_default = LLMConfig.from_env(),
+    )
+
     return RetirementTrajectoryAgent(
         manifest=manifest,
         tower=tower,
         gateway=gateway,
         tracker=tracker,
+        llm=llm,
     )
 
 

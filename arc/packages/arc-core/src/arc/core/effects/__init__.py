@@ -22,12 +22,7 @@ from enum import Enum
 
 from .base import DefaultDecision, EffectMeta, EffectTier
 from .compliance import COMPLIANCE_EFFECT_METADATA, ComplianceEffect
-from .financial import (
-    EFFECT_METADATA,
-    FinancialEffect,
-    effects_by_tier,
-    effects_requiring_review,
-)
+from .financial import EFFECT_METADATA, FinancialEffect
 from .healthcare import HEALTHCARE_EFFECT_METADATA, HealthcareEffect
 from .itsm import ITSM_EFFECT_METADATA, ITSMEffect
 from .legal import LEGAL_EFFECT_METADATA, LegalEffect
@@ -63,6 +58,30 @@ def effect_meta(effect: Enum) -> EffectMeta:
         f"No EffectMeta registered for {effect!r} (type {cls_name}). "
         f"Add it to {cls_name}'s metadata dict."
     )
+
+
+def effects_by_tier(tier: EffectTier) -> list[Enum]:
+    """Return every effect in the given tier across every registered domain.
+
+    Iterates `_REGISTRIES` so the result includes FinancialEffect,
+    HealthcareEffect, LegalEffect, ITSMEffect, and ComplianceEffect values
+    that match the tier — not just one domain.
+    """
+    out: list[Enum] = []
+    for registry in _REGISTRIES.values():
+        out.extend(e for e, m in registry.items() if m.tier == tier)
+    return out
+
+
+def effects_requiring_review() -> list[Enum]:
+    """Return every effect whose default is to require human review.
+
+    Cross-domain — see ``effects_by_tier`` for the same iteration pattern.
+    """
+    out: list[Enum] = []
+    for registry in _REGISTRIES.values():
+        out.extend(e for e, m in registry.items() if m.requires_human_review)
+    return out
 
 
 __all__ = [

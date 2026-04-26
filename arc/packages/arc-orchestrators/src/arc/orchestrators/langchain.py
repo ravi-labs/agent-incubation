@@ -1,33 +1,33 @@
 """
-foundry.integrations.langchain
-────────────────────────────────
-LangChain integration for agent-foundry.
+arc.orchestrators.langchain
+────────────────────────────
+LangChain integration for arc agents.
 
 Provides two primary adapters:
 
-  1. FoundryTool — a LangChain StructuredTool that wraps a single
+  1. ArcTool — a LangChain StructuredTool that wraps a single
      FinancialEffect + run_effect() call. Drop into any LangChain
      AgentExecutor or LCEL chain.
 
-  2. FoundryToolkit — a collection of FoundryTools derived automatically
+  2. ArcToolkit — a collection of ArcTools derived automatically
      from an agent manifest's declared effects, ready for use with
      LangChain's initialize_agent().
 
-  3. FoundryRunnable — makes BaseAgent implement LangChain's Runnable
+  3. ArcRunnable — makes BaseAgent implement LangChain's Runnable
      protocol so agents can be composed with | in LCEL pipelines:
 
-         chain = retriever | FoundryRunnable(agent) | output_parser
+         chain = retriever | ArcRunnable(agent) | output_parser
 
 Install:
-    pip install "agent-foundry[langchain]"
+    pip install "arc-orchestrators[langchain]"
 
 Quick start — single tool:
 
-    from arc.orchestrators.langchain import FoundryTool, FoundryToolkit
+    from arc.orchestrators.langchain import ArcTool, ArcToolkit
     from arc.core.effects import FinancialEffect
 
     # Wrap a single effect as a LangChain tool
-    risk_tool = FoundryTool.from_effect(
+    risk_tool = ArcTool.from_effect(
         agent=my_agent,
         effect=FinancialEffect.RISK_SCORE_COMPUTE,
         description="Compute retirement readiness risk score for a participant",
@@ -35,7 +35,7 @@ Quick start — single tool:
     )
 
     # Build all tools from manifest
-    toolkit = FoundryToolkit.from_agent(my_agent)
+    toolkit = ArcToolkit.from_agent(my_agent)
     tools   = toolkit.get_tools()
 
     # Use with LangChain AgentExecutor
@@ -49,12 +49,12 @@ Quick start — single tool:
 
 Quick start — LCEL composition:
 
-    from arc.orchestrators.langchain import FoundryRunnable
+    from arc.orchestrators.langchain import ArcRunnable
     from langchain_core.output_parsers import StrOutputParser
 
     chain = (
         {"fund_id": lambda x: x["fund_id"], "plan_id": lambda x: x["plan_id"]}
-        | FoundryRunnable(watchdog_agent)
+        | ArcRunnable(watchdog_agent)
         | StrOutputParser()
     )
     result = chain.invoke({"fund_id": "FUND001", "plan_id": "PLAN001"})
@@ -81,14 +81,14 @@ def _require_langchain() -> None:
     except ImportError as exc:
         raise ImportError(
             "LangChain is not installed. "
-            "Run: pip install 'agent-foundry[langchain]'"
+            "Run: pip install 'arc-orchestrators[langchain]'"
         ) from exc
 
 
-# ── FoundryTool ────────────────────────────────────────────────────────────────
+# ── ArcTool ────────────────────────────────────────────────────────────────
 
 
-class FoundryTool:
+class ArcTool:
     """
     A LangChain StructuredTool wrapper around a single FinancialEffect.
 
@@ -99,7 +99,7 @@ class FoundryTool:
     and audit logging are preserved even inside a LangChain agent.
 
     Usage:
-        tool = FoundryTool.from_effect(
+        tool = ArcTool.from_effect(
             agent=my_agent,
             effect=FinancialEffect.RISK_SCORE_COMPUTE,
             description="Compute retirement risk score for a participant.",
@@ -138,9 +138,9 @@ class FoundryTool:
         description: str,
         intent_reason: str = "LangChain agent tool invocation",
         args_schema: type | None = None,
-    ) -> "FoundryTool":
+    ) -> "ArcTool":
         """
-        Create a FoundryTool for a specific FinancialEffect.
+        Create a ArcTool for a specific FinancialEffect.
 
         Args:
             agent:         The BaseAgent that will execute the effect.
@@ -150,7 +150,7 @@ class FoundryTool:
             args_schema:   Optional Pydantic BaseModel for input validation.
 
         Returns:
-            A FoundryTool ready for use with LangChain.
+            A ArcTool ready for use with LangChain.
         """
         tool_name = effect.value.replace(".", "_")
         return cls(
@@ -193,7 +193,7 @@ class FoundryTool:
 
     def as_langchain_tool(self) -> Any:
         """
-        Return a LangChain StructuredTool wrapping this FoundryTool.
+        Return a LangChain StructuredTool wrapping this ArcTool.
 
         The returned tool is compatible with AgentExecutor, LCEL chains,
         and any LangChain component that accepts Tool objects.
@@ -209,7 +209,7 @@ class FoundryTool:
         except ImportError as exc:
             raise ImportError(
                 "langchain-core is not installed. "
-                "Run: pip install 'agent-foundry[langchain]'"
+                "Run: pip install 'arc-orchestrators[langchain]'"
             ) from exc
 
         tool_self = self
@@ -233,31 +233,31 @@ class FoundryTool:
         return self._lc_tool
 
     def __repr__(self) -> str:
-        return f"FoundryTool(effect={self.effect!r}, name={self.tool_name!r})"
+        return f"ArcTool(effect={self.effect!r}, name={self.tool_name!r})"
 
 
-# ── FoundryToolkit ─────────────────────────────────────────────────────────────
+# ── ArcToolkit ─────────────────────────────────────────────────────────────
 
 
-class FoundryToolkit:
+class ArcToolkit:
     """
-    A collection of FoundryTools derived from an agent manifest.
+    A collection of ArcTools derived from an agent manifest.
 
-    Automatically creates a FoundryTool for each effect declared in the
+    Automatically creates a ArcTool for each effect declared in the
     agent's manifest, with descriptions pulled from the EffectMeta registry.
 
     Usage:
-        toolkit = FoundryToolkit.from_agent(my_agent)
+        toolkit = ArcToolkit.from_agent(my_agent)
         tools   = toolkit.get_tools()               # → list[StructuredTool]
 
         # With AgentExecutor
         executor = AgentExecutor(agent=agent, tools=tools)
 
-        # Or just the raw FoundryTool wrappers
-        foundry_tools = toolkit.get_foundry_tools()  # → list[FoundryTool]
+        # Or just the raw ArcTool wrappers
+        arc_tools = toolkit.get_tools()  # → list[ArcTool]
     """
 
-    def __init__(self, tools: list[FoundryTool]):
+    def __init__(self, tools: list[ArcTool]):
         self._tools = tools
 
     @classmethod
@@ -268,9 +268,9 @@ class FoundryToolkit:
         include_tiers: list[int] | None = None,
         exclude_effects: list[str] | None = None,
         intent_reason: str = "LangChain AgentExecutor tool invocation",
-    ) -> "FoundryToolkit":
+    ) -> "ArcToolkit":
         """
-        Build a FoundryToolkit from an agent's declared effects.
+        Build a ArcToolkit from an agent's declared effects.
 
         Args:
             agent:           The BaseAgent to build tools for.
@@ -280,12 +280,12 @@ class FoundryToolkit:
             intent_reason:   Default audit intent reason for all tools.
 
         Returns:
-            A FoundryToolkit with one FoundryTool per declared effect.
+            A ArcToolkit with one ArcTool per declared effect.
         """
         from arc.core.effects import FinancialEffect, EFFECT_METADATA
 
         exclude = set(exclude_effects or [])
-        tools: list[FoundryTool] = []
+        tools: list[ArcTool] = []
 
         for effect in agent.manifest.allowed_effects:
             # allowed_effects contains FinancialEffect instances (not raw strings).
@@ -319,7 +319,7 @@ class FoundryToolkit:
             default_str = f" — default policy: {default_dec.value}" if default_dec else ""
             full_description = f"[{tier_label}{default_str}] {description}"
 
-            tools.append(FoundryTool.from_effect(
+            tools.append(ArcTool.from_effect(
                 agent=agent,
                 effect=effect,
                 description=full_description,
@@ -327,7 +327,7 @@ class FoundryToolkit:
             ))
 
         logger.info(
-            "FoundryToolkit.from_agent agent=%s tools=%d",
+            "ArcToolkit.from_agent agent=%s tools=%d",
             agent.manifest.agent_id, len(tools),
         )
         return cls(tools)
@@ -336,12 +336,12 @@ class FoundryToolkit:
         """Return LangChain StructuredTool objects for all effects."""
         return [t.as_langchain_tool() for t in self._tools]
 
-    def get_foundry_tools(self) -> list[FoundryTool]:
-        """Return the raw FoundryTool wrappers (before LangChain wrapping)."""
+    def get_tools(self) -> list[ArcTool]:
+        """Return the raw ArcTool wrappers (before LangChain wrapping)."""
         return list(self._tools)
 
-    def get_tool(self, effect_value: str) -> FoundryTool | None:
-        """Get a specific FoundryTool by effect value (e.g. 'risk.score.compute')."""
+    def get_tool(self, effect_value: str) -> ArcTool | None:
+        """Get a specific ArcTool by effect value (e.g. 'risk.score.compute')."""
         for tool in self._tools:
             effect_val = tool.effect.value if hasattr(tool.effect, "value") else str(tool.effect)
             if effect_val == effect_value:
@@ -352,30 +352,30 @@ class FoundryToolkit:
         return len(self._tools)
 
     def __repr__(self) -> str:
-        return f"FoundryToolkit(tools={len(self._tools)})"
+        return f"ArcToolkit(tools={len(self._tools)})"
 
 
-# ── FoundryRunnable ────────────────────────────────────────────────────────────
+# ── ArcRunnable ────────────────────────────────────────────────────────────
 
 
-class FoundryRunnable:
+class ArcRunnable:
     """
     Makes a BaseAgent usable as a LangChain Runnable in LCEL pipelines.
 
     Implements the Runnable protocol (invoke, ainvoke, stream, astream)
-    so a foundry agent can be composed using LangChain's | operator:
+    so an arc agent can be composed using LangChain's | operator:
 
-        chain = retrieval_runnable | FoundryRunnable(agent) | output_parser
+        chain = retrieval_runnable | ArcRunnable(agent) | output_parser
 
     The agent's execute(**kwargs) is called with the input dict unpacked
     as keyword arguments. The result is passed downstream as-is.
 
     Usage:
 
-        from arc.orchestrators.langchain import FoundryRunnable
+        from arc.orchestrators.langchain import ArcRunnable
         from langchain_core.output_parsers import JsonOutputParser
 
-        runnable = FoundryRunnable(watchdog_agent)
+        runnable = ArcRunnable(watchdog_agent)
 
         # Direct invocation
         result = runnable.invoke({"fund_id": "FUND001", "plan_id": "PLAN001"})
@@ -386,7 +386,7 @@ class FoundryRunnable:
         # LCEL composition
         chain = (
             RunnablePassthrough()
-            | FoundryRunnable(watchdog_agent)
+            | ArcRunnable(watchdog_agent)
             | JsonOutputParser()
         )
         output = chain.invoke({"fund_id": "FUND001", "plan_id": "PLAN001"})
@@ -473,7 +473,7 @@ class FoundryRunnable:
 
     def __or__(self, other: Any) -> Any:
         """
-        Support LCEL pipe composition: FoundryRunnable(agent) | next_step.
+        Support LCEL pipe composition: ArcRunnable(agent) | next_step.
 
         Returns a LangChain RunnableSequence.
         """
@@ -483,18 +483,18 @@ class FoundryRunnable:
         except ImportError:
             raise ImportError(
                 "langchain-core is not installed. "
-                "Run: pip install 'agent-foundry[langchain]'"
+                "Run: pip install 'arc-orchestrators[langchain]'"
             )
 
     def __ror__(self, other: Any) -> Any:
-        """Support LCEL pipe composition: prev_step | FoundryRunnable(agent)."""
+        """Support LCEL pipe composition: prev_step | ArcRunnable(agent)."""
         try:
             from langchain_core.runnables import RunnableSequence
             return RunnableSequence(other, self)
         except ImportError:
             raise ImportError(
                 "langchain-core is not installed. "
-                "Run: pip install 'agent-foundry[langchain]'"
+                "Run: pip install 'arc-orchestrators[langchain]'"
             )
 
     # ── Helpers ────────────────────────────────────────────────────────────
@@ -519,22 +519,22 @@ class FoundryRunnable:
         return {"input": input}
 
     def __repr__(self) -> str:
-        return f"FoundryRunnable(agent={self.agent.manifest.agent_id!r})"
+        return f"ArcRunnable(agent={self.agent.manifest.agent_id!r})"
 
 
 # ── LangChain Runnable ABC compliance ──────────────────────────────────────────
-# Register FoundryRunnable as a virtual subclass of Runnable if available,
+# Register ArcRunnable as a virtual subclass of Runnable if available,
 # so isinstance(runnable, Runnable) returns True in LangChain environments.
 
 try:
     from langchain_core.runnables import Runnable as _LCRunnable
-    _LCRunnable.register(FoundryRunnable)   # type: ignore[attr-defined]
+    _LCRunnable.register(ArcRunnable)   # type: ignore[attr-defined]
 except (ImportError, AttributeError):
     pass
 
 
 __all__ = [
-    "FoundryTool",
-    "FoundryToolkit",
-    "FoundryRunnable",
+    "ArcTool",
+    "ArcToolkit",
+    "ArcRunnable",
 ]

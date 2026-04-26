@@ -38,6 +38,22 @@ data_access:
 # Path to this agent's YAML policy file.
 policy_path: examples/retirement_trajectory/policy.yaml
 
+# Optional per-agent LLM override.
+# Takes precedence over the platform default (RuntimeConfig.llm /
+# ARC_LLM_* env vars) but loses to a builder's with_llm(...). Uncomment
+# and edit to pin this agent to a specific provider + model.
+#
+# llm:
+#   provider: bedrock
+#   model:    anthropic.claude-3-5-sonnet-20241022-v2:0
+#   region:   us-east-1
+#
+# llm:
+#   provider: litellm
+#   model:    openai/gpt-4o
+#   fallback_models:
+#     - anthropic/claude-3-5-sonnet-20241022
+
 # Success metrics — what "good" looks like after 30 days.
 success_metrics:
   - "Intervention engagement rate increases vs. no-intervention control group"

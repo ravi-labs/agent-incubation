@@ -1,7 +1,7 @@
 """
-foundry.tools.registry
-───────────────────────
-Governed tool registration and invocation for Foundry agents.
+arc.core.tools.registry
+────────────────────────
+Governed tool registration and invocation for arc agents.
 
 Provides a framework-agnostic way to register Python callables as governed
 tools, independent of LangChain. Every tool call goes through run_effect()
@@ -59,7 +59,7 @@ Usage — explicit registration:
 Tool schema:
     @governed_tool supports an optional `params_schema` (dict mapping param name
     to type string) for documentation and input validation. This is also surfaced
-    to FoundryToolkit when building LangChain tools from a ToolRegistry.
+    to ArcToolkit when building LangChain tools from a ToolRegistry.
 """
 
 from __future__ import annotations
@@ -166,7 +166,7 @@ class AgentToolRegistry:
     Registry of governed tools attached to a BaseAgent.
 
     Renamed from ``ToolRegistry`` to avoid collision with
-    ``foundry.tollgate.ToolRegistry`` (which is Tollgate's internal
+    ``tollgate.ToolRegistry`` (which is Tollgate's internal
     resource-type registry, a different concept). A backward-compatible
     ``ToolRegistry`` alias is exported from this module.
 
@@ -351,5 +351,5 @@ class AgentToolRegistry:
 
 
 # Backward-compatible alias — keeps existing code working while avoiding
-# the name collision with foundry.tollgate.ToolRegistry.
+# the name collision with tollgate.ToolRegistry.
 ToolRegistry = AgentToolRegistry

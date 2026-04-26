@@ -37,7 +37,7 @@ Production swap:
 from pathlib import Path
 from typing import Any, Type, TypeVar
 
-from arc.core import BaseAgent, load_manifest
+from arc.core import BaseAgent, LLMClient, LLMConfig, load_manifest, resolve_llm
 from arc.core.observability import OutcomeTracker
 from tollgate import ControlTower, YamlPolicyEvaluator
 
@@ -64,11 +64,18 @@ class HarnessBuilder:
         self,
         manifest: str | Path,
         policy:   str | Path,
+        *,
+        llm_config: LLMConfig | None = None,
     ):
         """
         Args:
-            manifest: Path to the agent's manifest.yaml
-            policy:   Path to the agent's policy.yaml
+            manifest:   Path to the agent's manifest.yaml
+            policy:     Path to the agent's policy.yaml
+            llm_config: Optional platform-default LLM config. If set, the
+                        builder constructs an LLMClient and injects it
+                        unless the manifest overrides or ``with_llm()`` is
+                        called explicitly. ``LLMConfig.from_env()`` reads
+                        ``ARC_LLM_PROVIDER`` / ``ARC_LLM_MODEL`` / etc.
         """
         self._manifest_path = Path(manifest)
         self._policy_path   = Path(policy)
@@ -76,6 +83,8 @@ class HarnessBuilder:
         self._tracker_path: str | None = None
         self._orchestrator: Any = None
         self._extra_kwargs: dict = {}
+        self._llm_config: LLMConfig | None = llm_config
+        self._llm_explicit: LLMClient | None = None
 
     # ── Fluent configuration ──────────────────────────────────────────────
 
@@ -121,6 +130,17 @@ class HarnessBuilder:
         self._extra_kwargs.update(kwargs)
         return self
 
+    def with_llm(self, llm: LLMClient) -> "HarnessBuilder":
+        """Inject a pre-built LLMClient (highest precedence).
+
+        Overrides both the manifest's ``llm:`` block and the platform
+        default supplied via ``llm_config=``. Use for tests + one-off
+        scripts that want to wire a fake or specific client without
+        touching the manifest.
+        """
+        self._llm_explicit = llm
+        return self
+
     # ── Build ─────────────────────────────────────────────────────────────
 
     def build(self, agent_cls: Type[AgentT]) -> AgentT:
@@ -144,9 +164,19 @@ class HarnessBuilder:
         gateway  = self._fixtures.to_gateway()
         tracker  = OutcomeTracker(path=self._tracker_path) if self._tracker_path else None
 
+        # Resolve LLMClient by precedence:
+        #   explicit with_llm()  >  manifest.llm  >  platform llm_config  >  None
+        llm = resolve_llm(
+            explicit         = self._llm_explicit,
+            manifest_config  = manifest.llm,
+            platform_default = self._llm_config,
+        )
+
         kwargs = dict(self._extra_kwargs)
         if self._orchestrator is not None:
             kwargs["orchestrator"] = self._orchestrator
+        if llm is not None:
+            kwargs.setdefault("llm", llm)
 
         agent = agent_cls(
             manifest=manifest,

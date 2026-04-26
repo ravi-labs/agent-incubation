@@ -5,9 +5,9 @@ Provides:
   - EvalScenario       describe a test case (inputs, expected policy decisions,
                        expected outputs)
   - EvalResult         structured result from running a scenario
-  - FoundryEvaluator   runs EvalScenarios against a live agent and reports pass/fail
+  - Evaluator   runs EvalScenarios against a live agent and reports pass/fail
 """
 
-from .evaluator import EvalResult, EvalScenario, FoundryEvaluator
+from .evaluator import EvalResult, EvalScenario, Evaluator
 
-__all__ = ["EvalScenario", "EvalResult", "FoundryEvaluator"]
+__all__ = ["EvalScenario", "EvalResult", "Evaluator"]

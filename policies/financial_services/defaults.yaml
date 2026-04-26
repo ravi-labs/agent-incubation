@@ -1,4 +1,4 @@
-# Agent Foundry — Default Financial Services Policy
+# Arc — Default Financial Services Policy
 # ─────────────────────────────────────────────────
 # This policy defines the default ALLOW/ASK/DENY decisions for every
 # effect in the FinancialEffect taxonomy. Individual agents layer their

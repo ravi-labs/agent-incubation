@@ -16,6 +16,12 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff", "mypy"]
 
+# Async HTTP gateway (arc.core.gateway.HttpGateway)
+http = ["httpx>=0.27"]
+
+# AWS-backed memory store (DynamoDBMemoryBackend) and other boto3-using primitives
+aws = ["boto3>=1.34", "botocore>=1.34"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/arc"]
 

@@ -289,15 +289,16 @@ class TestManifestWithComplianceEffect:
         assert "compliance.gap.identify" in effect_values
 
     def test_manifest_itsm_still_loads(self):
-        """Existing email_triage manifest with ITSMEffect values still loads."""
-        foundry_manifest = (
-            Path(__file__).parent.parent.parent.parent.parent.parent.parent /
-            "agent-foundry" / "examples" / "email_triage" / "manifest.yaml"
+        """Existing email-triage manifest with ITSMEffect values still loads."""
+        # arc/packages/arc-core/tests/<this> → parents[3] is arc/
+        manifest_path = (
+            Path(__file__).resolve().parents[3] /
+            "agents" / "email-triage" / "manifest.yaml"
         )
-        if not foundry_manifest.exists():
-            pytest.skip("Foundry email_triage manifest not found")
+        if not manifest_path.exists():
+            pytest.skip(f"email-triage manifest not found at {manifest_path}")
 
         from arc.core.manifest import load_manifest
-        manifest = load_manifest(foundry_manifest)
+        manifest = load_manifest(manifest_path)
         assert manifest.agent_id == "email-triage"
         assert len(manifest.allowed_effects) > 0

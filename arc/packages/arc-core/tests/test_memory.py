@@ -1,5 +1,5 @@
 """
-Tests for foundry.memory — ConversationBuffer and FoundryMemoryStore.
+Tests for arc.core.memory — ConversationBuffer and AgentMemoryStore.
 
 Covers:
   ConversationBuffer:
@@ -11,7 +11,7 @@ Covers:
     - ring-buffer eviction at max_turns
     - clear / clear_all / session_count / turn_count / sessions()
 
-  FoundryMemoryStore + LocalJsonStore:
+  AgentMemoryStore + LocalJsonStore:
     - get hit / miss
     - set and retrieve
     - TTL expiry
@@ -31,7 +31,7 @@ import pytest
 
 from arc.core.memory import (
     ConversationBuffer,
-    FoundryMemoryStore,
+    AgentMemoryStore,
     LocalJsonStore,
     MemoryEntry,
     Message,
@@ -196,13 +196,13 @@ class TestConversationBuffer:
         assert "1" in repr(buf)
 
 
-# ─── LocalJsonStore + FoundryMemoryStore ──────────────────────────────────────
+# ─── LocalJsonStore + AgentMemoryStore ──────────────────────────────────────
 
-class TestFoundryMemoryStore:
+class TestAgentMemoryStore:
 
-    def make_store(self, tmp_path) -> FoundryMemoryStore:
+    def make_store(self, tmp_path) -> AgentMemoryStore:
         backend = LocalJsonStore(tmp_path / "memory.json")
-        return FoundryMemoryStore(agent_id="test-agent", backend=backend)
+        return AgentMemoryStore(agent_id="test-agent", backend=backend)
 
     @pytest.mark.asyncio
     async def test_get_returns_none_on_miss(self, tmp_path):
@@ -337,12 +337,12 @@ class TestFoundryMemoryStore:
     async def test_persists_to_disk_and_reloads(self, tmp_path):
         path = tmp_path / "memory.json"
         backend1 = LocalJsonStore(path)
-        store1 = FoundryMemoryStore(agent_id="test-agent", backend=backend1)
+        store1 = AgentMemoryStore(agent_id="test-agent", backend=backend1)
         await store1.set("ns", "key", {"persisted": True})
 
         # Create a fresh backend pointing to the same file
         backend2 = LocalJsonStore(path)
-        store2 = FoundryMemoryStore(agent_id="test-agent", backend=backend2)
+        store2 = AgentMemoryStore(agent_id="test-agent", backend=backend2)
         result = await store2.get("ns", "key")
         assert result == {"persisted": True}
 
@@ -350,7 +350,7 @@ class TestFoundryMemoryStore:
     async def test_file_is_valid_json(self, tmp_path):
         path = tmp_path / "memory.json"
         backend = LocalJsonStore(path)
-        store = FoundryMemoryStore(agent_id="test-agent", backend=backend)
+        store = AgentMemoryStore(agent_id="test-agent", backend=backend)
         await store.set("ns", "key", {"hello": "world"})
 
         with open(path) as f:

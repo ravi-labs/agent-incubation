@@ -393,11 +393,7 @@ EFFECT_METADATA: dict[FinancialEffect, EffectMeta] = {
 }
 
 
-def effects_by_tier(tier: EffectTier) -> list[FinancialEffect]:
-    """Return all FinancialEffect values in a given tier."""
-    return [e for e, m in EFFECT_METADATA.items() if m.tier == tier]
-
-
-def effects_requiring_review() -> list[FinancialEffect]:
-    """Return all FinancialEffect values that require human review by default."""
-    return [e for e, m in EFFECT_METADATA.items() if m.requires_human_review]
+# effects_by_tier and effects_requiring_review have moved to
+# arc.core.effects.__init__ where they iterate every registered domain
+# (FinancialEffect, HealthcareEffect, LegalEffect, ITSMEffect,
+# ComplianceEffect), not just FinancialEffect.

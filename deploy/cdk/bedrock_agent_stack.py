@@ -1,16 +1,16 @@
 """
-foundry.deploy.cdk.bedrock_agent_stack
-────────────────────────────────────────
+arc.deploy.cdk.bedrock_agent_stack
+────────────────────────────────────
 CDK construct that creates the Amazon Bedrock Agent and its dependencies.
 
-Usage alongside FoundryAgentStack:
+Usage alongside ArcAgentStack:
 
-    from foundry_stack import FoundryAgentStack
+    from arc_stack import ArcAgentStack
     from bedrock_agent_stack import BedrockAgentConstruct
 
     app = cdk.App()
 
-    infra = FoundryAgentStack(app, "FiduciaryWatchdogInfra",
+    infra = ArcAgentStack(app, "FiduciaryWatchdogInfra",
         agent_id="fiduciary-watchdog",
         environment="production",
         ecr_image_uri="<ECR_URI>/fiduciary-watchdog:latest",
@@ -30,7 +30,7 @@ Usage alongside FoundryAgentStack:
     app.synth()
 
 The BedrockAgentConstruct:
-  - Creates foundry-bedrock-agent-role (IAM role that Bedrock assumes)
+  - Creates arc-bedrock-agent-role (IAM role that Bedrock assumes)
   - Creates the AWS::Bedrock::Agent resource
   - Creates an Action Group linked to the Lambda function
   - Prepares the agent (DRAFT → PREPARED)
@@ -58,7 +58,7 @@ if TYPE_CHECKING:
 
 class BedrockAgentConstruct(Construct):
     """
-    CDK construct for an Amazon Bedrock Agent backed by a foundry Lambda handler.
+    CDK construct for an Amazon Bedrock Agent backed by an arc Lambda handler.
 
     Creates:
       - IAM role for Bedrock to assume (bedrock-agent-role)
@@ -95,7 +95,7 @@ class BedrockAgentConstruct(Construct):
         # ── IAM role that Bedrock assumes to invoke the Lambda ─────────────────
         self.agent_role = iam.Role(
             self, "BedrockAgentRole",
-            role_name=f"foundry-bedrock-{agent_id}-role",
+            role_name=f"arc-bedrock-{agent_id}-role",
             assumed_by=iam.ServicePrincipal(
                 "bedrock.amazonaws.com",
                 conditions={
@@ -106,9 +106,9 @@ class BedrockAgentConstruct(Construct):
             description=f"Role assumed by Bedrock Agent Core to invoke {agent_id}",
         )
 
-        # Allow Bedrock to invoke the foundry Lambda
+        # Allow Bedrock to invoke the arc Lambda
         self.agent_role.add_to_policy(iam.PolicyStatement(
-            sid="InvokeFoundryLambda",
+            sid="InvokeArcLambda",
             effect=iam.Effect.ALLOW,
             actions=["lambda:InvokeFunction"],
             resources=[

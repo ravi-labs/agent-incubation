@@ -1,10 +1,5 @@
 """
-Smoke + behavior tests for arc.harness — native after migration module 5.
-
-Foundry continues to exercise the harness through the shim
-(via the example agents in agent-foundry/examples/), so cross-coverage stays.
-This file pins arc.harness's own behavior end-to-end without touching
-foundry import paths.
+Smoke + behavior tests for arc.harness.
 """
 
 import pytest

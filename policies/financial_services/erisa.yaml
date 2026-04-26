@@ -1,4 +1,4 @@
-# ERISA / DOL / FINRA Policy Overlay — Agent Foundry
+# ERISA / DOL / FINRA Policy Overlay — Arc
 # ─────────────────────────────────────────────────────────────────────────────
 # This file contains regulatory-specific policy rules layered ON TOP of
 # defaults.yaml. Rules here cannot be overridden by individual agent

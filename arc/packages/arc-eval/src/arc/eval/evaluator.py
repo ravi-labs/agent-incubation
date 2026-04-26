@@ -1,9 +1,9 @@
 """
-foundry.eval.evaluator
-───────────────────────
-Scenario-based evaluation framework for Foundry agents.
+arc.eval.evaluator
+───────────────────
+Scenario-based evaluation framework for arc agents.
 
-FoundryEvaluator runs structured EvalScenarios against a live agent and
+Evaluator runs structured EvalScenarios against a live agent and
 verifies that:
   - The agent's policy decisions match expectations (ALLOW / ASK / DENY)
   - The agent's output contains or matches expected values
@@ -16,9 +16,9 @@ entire pipeline including policy evaluation and audit logging.
 
 Usage:
 
-    from arc.eval import FoundryEvaluator, EvalScenario
+    from arc.eval import Evaluator, EvalScenario
 
-    evaluator = FoundryEvaluator(agent)
+    evaluator = Evaluator(agent)
 
     results = await evaluator.run([
         EvalScenario(
@@ -48,12 +48,12 @@ CI integration:
 
     # In your test file:
     import pytest
-    from arc.eval import FoundryEvaluator, EvalScenario
+    from arc.eval import Evaluator, EvalScenario
 
     @pytest.mark.asyncio
     async def test_agent_policy_compliance(make_agent):
         agent = make_agent()
-        evaluator = FoundryEvaluator(agent)
+        evaluator = Evaluator(agent)
         results = await evaluator.run(COMPLIANCE_SCENARIOS)
         failures = [r for r in results if not r.passed]
         assert not failures, "\\n".join(f"  {r.name}: {r.failure_reason}" for r in failures)
@@ -79,7 +79,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class EvalScenario:
     """
-    A single evaluation scenario for a Foundry agent.
+    A single evaluation scenario for a arc agent.
 
     Describes what inputs to send, what policy decisions to expect,
     and what the agent output should look like.
@@ -165,9 +165,9 @@ class EvalResult:
 # ── Evaluator ──────────────────────────────────────────────────────────────────
 
 
-class FoundryEvaluator:
+class Evaluator:
     """
-    Runs EvalScenarios against a live Foundry agent.
+    Runs EvalScenarios against a live arc agent.
 
     Instruments the agent's ControlTower to capture policy decisions
     for each effect invocation, then checks them against the scenario's
@@ -385,7 +385,7 @@ class FoundryEvaluator:
         passed = sum(1 for r in results if r.passed)
         total  = len(results)
         print(f"\n{'='*60}")
-        print(f"  Foundry Eval Report — {self._agent.manifest.agent_id}")
+        print(f"  Arc Eval Report — {self._agent.manifest.agent_id}")
         print(f"  {passed}/{total} scenarios passed")
         print(f"{'='*60}")
         for r in results:

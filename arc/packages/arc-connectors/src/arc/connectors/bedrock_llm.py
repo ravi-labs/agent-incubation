@@ -1,38 +1,41 @@
 """
-foundry.integrations.bedrock_llm
+arc.connectors.bedrock_llm
 ──────────────────────────────────
-Amazon Bedrock LLM client for agent-foundry.
+Amazon Bedrock LLM client for arc agents — implements ``arc.core.LLMClient``.
 
-Routes every Claude invocation through run_effect() so LLM calls are
-policy-enforced, audit-logged, and counted against the agent's declared
+Routes every Claude invocation through ``agent.run_effect()`` so LLM calls
+are policy-enforced, audit-logged, and counted against the agent's declared
 manifest — exactly like any other tool call.
 
+The client is **stateless w.r.t. the agent**: the agent passes itself in at
+call time, not at construction. One ``BedrockLLMClient`` can be shared
+across agents.
+
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "arc-connectors[aws]"
 
-Usage inside an agent's execute() or a LangGraph node:
+Usage:
 
-    from arc.connectors.bedrock_llm import BedrockLLMClient
-    from arc.core.effects import FinancialEffect
+    from arc.connectors import BedrockLLMClient
+
+    llm = BedrockLLMClient(
+        model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        region="us-east-1",
+    )
 
     class RetirementTrajectoryAgent(BaseAgent):
-
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args, llm: LLMClient | None = None, **kwargs):
             super().__init__(*args, **kwargs)
-            self.llm = BedrockLLMClient(
-                agent=self,
-                model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
-            )
+            self.llm = llm
 
         async def execute(self, **kwargs):
-            draft = await self.llm.generate(
+            text = await self.llm.generate(
+                agent=self,
                 effect=FinancialEffect.INTERVENTION_DRAFT,
                 intent_action="draft_intervention",
                 intent_reason="Personalise retirement message for at-risk participant",
-                system="You are a retirement planning assistant. Write clear, empathetic messages.",
-                prompt=f"Write a 2-sentence retirement savings nudge for {participant['name']}, "
-                       f"age {participant['age']}, currently replacing "
-                       f"{score['income_replacement_pct']}% of their income.",
+                system="You are a retirement planning assistant...",
+                prompt="Write a 2-sentence retirement savings nudge for ...",
             )
 
 Model IDs (Anthropic on Bedrock):
@@ -48,8 +51,6 @@ import json
 import logging
 from typing import Any
 
-from arc.core.effects import FinancialEffect
-
 logger = logging.getLogger(__name__)
 
 # Default Bedrock model — Claude Sonnet is the best value for financial services
@@ -59,33 +60,34 @@ BEDROCK_API_VERSION = "bedrock-2023-05-31"
 
 class BedrockLLMClient:
     """
-    Calls Claude on Amazon Bedrock, routing each call through run_effect().
+    Calls Claude on Amazon Bedrock, routing each call through the agent's
+    ``run_effect()``. Conforms to ``arc.core.LLMClient``.
 
     Why route LLM calls through run_effect()?
-    - Every Claude invocation is audit-logged with its intent and effect
-    - The policy engine can DENY or ASK-for-approval on sensitive prompts
-    - Token usage and call counts are tracked in the outcome store
-    - The manifest must declare the effect — teams can't silently add LLM calls
+      - Every Claude invocation is audit-logged with its intent and effect.
+      - The policy engine can DENY or ASK-for-approval on sensitive prompts.
+      - Token counts and call rates are tracked in the outcome store.
+      - The manifest must declare the effect — teams can't silently add
+        LLM calls without going through the registry review.
 
-    The agent must declare the effect(s) used in its manifest's allowed_effects.
-    Typically this is a Tier 3 (Draft) or Tier 4 (Output) effect.
+    The agent must declare the effect(s) it uses in ``manifest.allowed_effects``.
+    Typically Tier 3 (Draft) or Tier 4 (Output).
     """
 
     def __init__(
         self,
-        agent: Any,          # BaseAgent — typed as Any to avoid circular import
+        *,
         model_id: str = DEFAULT_MODEL_ID,
         region: str | None = None,
         max_retries: int = 3,
     ):
         """
         Args:
-            agent:       The BaseAgent instance (provides run_effect, manifest).
             model_id:    Bedrock model ID for Claude.
-            region:      AWS region (defaults to boto3 session default / AWS_DEFAULT_REGION).
+            region:      AWS region (defaults to boto3 session default /
+                         AWS_DEFAULT_REGION).
             max_retries: Number of retries on throttling / transient errors.
         """
-        self.agent = agent
         self.model_id = model_id
         self.region = region
         self.max_retries = max_retries
@@ -98,7 +100,7 @@ class BedrockLLMClient:
                 import boto3
             except ImportError as exc:
                 raise ImportError(
-                    "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+                    "boto3 is not installed. Run: pip install 'arc-connectors[aws]'"
                 ) from exc
             kwargs: dict[str, Any] = {}
             if self.region:
@@ -106,12 +108,13 @@ class BedrockLLMClient:
             self._client = boto3.client("bedrock-runtime", **kwargs)
         return self._client
 
-    # ── Core generate ──────────────────────────────────────────────────────────
+    # ── LLMClient protocol surface ─────────────────────────────────────────────
 
     async def generate(
         self,
         *,
-        effect: FinancialEffect,
+        agent: Any,
+        effect: Any,
         intent_action: str,
         intent_reason: str,
         prompt: str,
@@ -121,21 +124,23 @@ class BedrockLLMClient:
         metadata: dict[str, Any] | None = None,
     ) -> str:
         """
-        Call Claude and return the response text.
+        Call Claude via Bedrock and return the response text.
 
-        The call goes through run_effect() → ControlTower → ERISA policy.
-        The prompt is NOT stored in the policy engine — only the effect, intent,
-        token count, and model ID are audit-logged.
+        Goes through ``agent.run_effect()`` → ControlTower → policy engine.
+        The prompt is NOT stored in the policy engine — only the effect,
+        intent, token estimate, and model ID are audit-logged.
 
         Args:
-            effect:         FinancialEffect to log (must be in manifest.allowed_effects).
+            agent:          The BaseAgent making the call. Provides
+                            ``run_effect`` and the active manifest.
+            effect:         Domain effect to log (must be in manifest.allowed_effects).
             intent_action:  Short descriptor (e.g., "draft_intervention").
-            intent_reason:  Human-readable reason for audit log.
-            prompt:         The user-turn prompt for Claude.
+            intent_reason:  Human-readable reason for the audit log.
+            prompt:         User-turn prompt.
             system:         Optional system prompt.
             max_tokens:     Maximum tokens in the response.
             temperature:    Sampling temperature (0.0 = deterministic, 1.0 = creative).
-            metadata:       Extra metadata for policy when: conditions.
+            metadata:       Extra metadata for policy ``when:`` conditions.
 
         Returns:
             Claude's response text.
@@ -151,7 +156,7 @@ class BedrockLLMClient:
                 temperature=temperature,
             )
 
-        result = await self.agent.run_effect(
+        result = await agent.run_effect(
             effect=effect,
             tool="bedrock",
             action="invoke_model",
@@ -164,6 +169,7 @@ class BedrockLLMClient:
             intent_reason=intent_reason,
             metadata={
                 "llm_model":    self.model_id,
+                "llm_provider": "bedrock",
                 "prompt_chars": len(prompt),
                 **(metadata or {}),
             },
@@ -172,14 +178,15 @@ class BedrockLLMClient:
 
         logger.debug(
             "bedrock_generate model=%s effect=%s chars=%d",
-            self.model_id, effect.value, len(result),
+            self.model_id, getattr(effect, "value", effect), len(result),
         )
         return result
 
     async def generate_json(
         self,
         *,
-        effect: FinancialEffect,
+        agent: Any,
+        effect: Any,
         intent_action: str,
         intent_reason: str,
         prompt: str,
@@ -191,11 +198,8 @@ class BedrockLLMClient:
         """
         Call Claude and parse the response as JSON.
 
-        Appends a JSON instruction to the system prompt automatically.
-        Raises ValueError if Claude's response is not valid JSON.
-
-        Returns:
-            Parsed dict from Claude's response.
+        Appends a JSON-only system instruction. Strips any accidental
+        code fences. Raises ``ValueError`` if the response isn't valid JSON.
         """
         json_system = (
             (system + "\n\n" if system else "") +
@@ -203,6 +207,7 @@ class BedrockLLMClient:
         )
 
         text = await self.generate(
+            agent=agent,
             effect=effect,
             intent_action=intent_action,
             intent_reason=intent_reason,
@@ -213,7 +218,6 @@ class BedrockLLMClient:
             metadata=metadata,
         )
 
-        # Strip any accidental code fences
         clean = text.strip()
         if clean.startswith("```"):
             clean = clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()

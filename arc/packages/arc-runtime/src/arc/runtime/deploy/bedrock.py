@@ -1,7 +1,7 @@
 """
-foundry.deploy.bedrock
+arc.runtime.deploy.bedrock
 ───────────────────────
-Amazon Bedrock Agent Core adapter for agent-foundry.
+Amazon Bedrock Agent Core adapter for arc agents.
 
 Bedrock Agent Core invokes your agent via Action Groups using one of two
 invocation models:
@@ -31,7 +31,7 @@ This module handles all of the above:
      Action Group, Lambda permission, and alias in one call.
 
 Install:
-    pip install "agent-foundry[aws]"
+    pip install "arc-runtime[aws]"
 
 Bedrock event shapes handled by BedrockEventParser:
 
@@ -333,7 +333,7 @@ class BedrockAgentAdapter:
         session_updates: dict | None = None,
     ) -> dict:
         """
-        Wrap a foundry agent result into Bedrock Agent Core's response format.
+        Wrap a arc agent result into Bedrock Agent Core's response format.
 
         Args:
             parsed_event:    BedrockEventParser from parse_event().
@@ -346,7 +346,7 @@ class BedrockAgentAdapter:
         """
         # Build response body
         if isinstance(result, dict) and "statusCode" in result:
-            # Foundry envelope — unwrap it
+            # arc envelope — unwrap it
             payload     = result.get("result", result)
             status_code = result.get("statusCode", 200)
         else:
@@ -534,7 +534,7 @@ def generate_action_schema(manifest: Any) -> dict:
     agent_id    = manifest.agent_id
     description = (
         f"{manifest.description or agent_id} — "
-        f"managed by agent-foundry incubation platform. "
+        f"managed by the arc agent incubation platform. "
         f"All operations are policy-enforced via Tollgate ControlTower."
     )
 
@@ -571,8 +571,8 @@ def generate_action_schema(manifest: Any) -> dict:
                 "operationId":  operation_id,
                 "summary":      effect_value,
                 "description":  description_text,
-                "x-foundry-effect": effect_value,
-                "x-foundry-tier":   tier.value,
+                "x-arc-effect": effect_value,
+                "x-arc-tier":   tier.value,
                 "x-tollgate-default-decision": default_str,
                 "requestBody": {
                     "required": True,
@@ -611,8 +611,8 @@ def generate_action_schema(manifest: Any) -> dict:
             "title":       agent_id,
             "version":     manifest.version,
             "description": description,
-            "x-foundry-lifecycle-stage": manifest.lifecycle_stage.value,
-            "x-foundry-owner":           manifest.owner,
+            "x-arc-lifecycle-stage": manifest.lifecycle_stage.value,
+            "x-arc-owner":           manifest.owner,
             "x-tollgate-policy-path":    manifest.policy_path,
         },
         "paths": paths,
@@ -635,7 +635,7 @@ def upload_schema_to_s3(schema: dict, bucket: str, key: str) -> str:
         import boto3
     except ImportError as exc:
         raise ImportError(
-            "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+            "boto3 is not installed. Run: pip install 'arc-runtime[aws]'"
         ) from exc
 
     s3   = boto3.client("s3")
@@ -667,7 +667,7 @@ def register_bedrock_agent(
     alias_name: str = "production",
 ) -> dict:
     """
-    Register a foundry agent with Amazon Bedrock Agent Core via boto3.
+    Register a arc agent with Amazon Bedrock Agent Core via boto3.
 
     This function:
       1. Creates the Bedrock Agent (or updates if it exists)
@@ -689,7 +689,7 @@ def register_bedrock_agent(
 
     Returns:
         dict with keys:
-            agent_id:    Bedrock Agent ID (not the foundry agent_id)
+            agent_id:    Bedrock Agent ID (not the arc agent_id)
             agent_arn:   Full ARN of the Bedrock Agent
             alias_id:    ID of the created alias (if create_alias=True)
             alias_arn:   Full ARN of the alias (if create_alias=True)
@@ -699,7 +699,7 @@ def register_bedrock_agent(
         import boto3
     except ImportError as exc:
         raise ImportError(
-            "boto3 is not installed. Run: pip install 'agent-foundry[aws]'"
+            "boto3 is not installed. Run: pip install 'arc-runtime[aws]'"
         ) from exc
 
     bedrock_client = boto3.client("bedrock-agent", region_name=region)
@@ -711,7 +711,7 @@ def register_bedrock_agent(
 
     # Step 2 — Create (or retrieve) the Bedrock Agent
     agent_name   = manifest.agent_id
-    description  = manifest.description or f"{manifest.agent_id} — managed by agent-foundry"
+    description  = manifest.description or f"{manifest.agent_id} — managed by arc"
 
     try:
         create_resp = bedrock_client.create_agent(
@@ -721,7 +721,7 @@ def register_bedrock_agent(
             foundationModel=foundation_model,
             instruction=(
                 f"You are {manifest.agent_id}, a governed financial-services agent "
-                f"managed by the agent-foundry incubation platform. "
+                f"managed by the arc agent incubation platform. "
                 f"All actions are policy-enforced by Tollgate ControlTower. "
                 f"Owner: {manifest.owner}."
             ),

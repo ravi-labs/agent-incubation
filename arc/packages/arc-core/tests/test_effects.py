@@ -1,7 +1,5 @@
 """
-Tests for arc.core.effects — the FinancialEffect taxonomy lives natively in
-arc-core after migration module 1. Foundry has the same coverage via its
-shim modules (agent-foundry/tests/test_effects.py).
+Tests for arc.core.effects — the FinancialEffect taxonomy.
 
 Validates that:
   - All effects have complete metadata
@@ -160,11 +158,16 @@ class TestUtilityFunctions:
         for tier in EffectTier:
             assert len(effects_by_tier(tier)) > 0, f"No effects found for tier {tier.name}"
 
-    def test_effects_requiring_review_subset(self):
-        """effects_requiring_review() should be a subset of all effects."""
-        review_effects = effects_requiring_review()
-        all_effects = set(FinancialEffect)
-        assert set(review_effects).issubset(all_effects)
+    def test_effects_requiring_review_all_marked_for_review(self):
+        """Every effect returned by effects_requiring_review() must actually
+        be marked requires_human_review in its metadata. The helper is
+        cross-domain (Financial + Healthcare + Legal + ITSM + Compliance),
+        so we validate the predicate, not the source domain."""
+        for effect in effects_requiring_review():
+            assert effect_meta(effect).requires_human_review, (
+                f"{effect!r} returned by effects_requiring_review() but its "
+                f"metadata says requires_human_review=False"
+            )
 
     def test_effects_requiring_review_not_empty(self):
         assert len(effects_requiring_review()) > 0

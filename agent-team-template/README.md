@@ -1,14 +1,17 @@
 # your-team-agents
 
-AI agents built on [agent-foundry](https://github.com/ravi-labs/agent-foundry) — the enterprise agent incubation platform.
+AI agents built on [arc](https://github.com/ravi-labs/agent-incubation) — the enterprise agent incubation platform.
 
 ## Getting Started
 
 ```bash
-# Install agent-foundry
-pip install agent-foundry
+# Install arc (editable, from a sibling clone of the agent-incubation monorepo)
+pip install -e ../agent-incubation/tollgate
+pip install -e ../agent-incubation/arc/packages/arc-core
+pip install -e ../agent-incubation/arc/packages/arc-harness
+pip install -e ../agent-incubation/arc/packages/arc-cli
 
-# Or install this repo in editable mode (includes agent-foundry as a dependency)
+# Then install this repo in editable mode (with dev extras)
 pip install -e ".[dev]"
 ```
 
@@ -16,13 +19,13 @@ pip install -e ".[dev]"
 
 ```bash
 # Scaffold a new agent in the agents/ directory
-foundry agent new your-agent-name --dir agents
+arc agent new your-agent-name --dir agents
 
 # Validate your manifest
-foundry agent validate agents/your-agent-name/manifest.yaml
+arc agent validate agents/your-agent-name/manifest.yaml
 
 # List all agents in this repo
-foundry agent list
+arc agent list
 ```
 
 ## Agent Structure
@@ -54,10 +57,10 @@ When your agent reaches `lifecycle_stage: GOVERN`:
 
 ```bash
 # Update stage in manifest
-foundry agent promote agents/your-agent-name/manifest.yaml --to GOVERN
+arc agent promote agents/your-agent-name/manifest.yaml --to GOVERN
 
 # Submit to the central registry
-foundry registry submit agents/your-agent-name/manifest.yaml \
+arc registry submit agents/your-agent-name/manifest.yaml \
   --registry-dir ../agent-registry
 ```
 
@@ -68,10 +71,10 @@ and opens a PR checklist for compliance review.
 
 ```bash
 # See all available effects
-foundry effects list
+arc effects list
 
 # Get details on a specific effect
-foundry effects show participant.communication.send
+arc effects show participant.communication.send
 ```
 
 ## Running Tests

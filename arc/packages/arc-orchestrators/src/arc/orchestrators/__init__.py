@@ -37,11 +37,11 @@ def __getattr__(name: str):
     if name == "StrandsOrchestrator":
         from .strands import StrandsOrchestrator
         return StrandsOrchestrator
-    # Migrated from foundry.integrations (module 14)
-    if name in ("FoundryTool", "FoundryToolkit", "FoundryRunnable"):
+    # LangChain bridge
+    if name in ("ArcTool", "ArcToolkit", "ArcRunnable"):
         from . import langchain
         return getattr(langchain, name)
-    if name in ("GraphAgent", "FoundryState"):
+    if name in ("GraphAgent", "AgentState"):
         from . import langgraph_agent
         return getattr(langgraph_agent, name)
     raise AttributeError(f"module 'arc.orchestrators' has no attribute {name!r}")
@@ -52,7 +52,7 @@ __all__ = [
     "LangGraphOrchestrator",
     "AgentCoreOrchestrator",
     "StrandsOrchestrator",
-    # Migrated from foundry.integrations
-    "FoundryTool", "FoundryToolkit", "FoundryRunnable",  # langchain.py
-    "GraphAgent", "FoundryState",                         # langgraph_agent.py
+    # LangChain bridge
+    "ArcTool", "ArcToolkit", "ArcRunnable",  # langchain.py
+    "GraphAgent", "AgentState",              # langgraph_agent.py
 ]

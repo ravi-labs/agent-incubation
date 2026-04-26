@@ -1,5 +1,5 @@
 """
-Tests for foundry.tools — AgentToolRegistry and @governed_tool decorator.
+Tests for arc.core.tools — AgentToolRegistry and @governed_tool decorator.
 
 Covers:
   @governed_tool decorator:
