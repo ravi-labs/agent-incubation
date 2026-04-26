@@ -207,8 +207,11 @@ A concrete trace, top-to-bottom:
    token estimate land in `metadata` on the same audit row.
 
 7. **Observer** tails the JSONL audit log and the OutcomeTracker stream.
-   Anomalies feed the (forthcoming) auto-demotion watcher, which calls
-   `service.demote()` to roll back stage state.
+   The `arc agent watch` CLI evaluates each agent's `slo:` block over a
+   rolling window; sustained breaches enqueue a demotion proposal (or,
+   in `auto` mode, call `service.demote()` directly). Hysteresis +
+   24h cooldown + a kill switch (`ARC_AUTO_DEMOTE_DISABLED=1`) keep it
+   safe.
 
 Every step has a typed primitive, a test fixture, and an audit row.
 Nothing is implicit.
@@ -220,6 +223,8 @@ Nothing is implicit.
 | If you want to… | Read |
 |---|---|
 | Build an agent end-to-end | [Build an agent](guides/build-an-agent.md) |
+| Show the platform end-to-end in 20 min | [Demo plan](guides/demo.md) |
+| See what's shipped vs in-flight vs backlog | [Roadmap](roadmap.md) |
 | Understand effects + tiers | [Effects](concepts/effects.md) |
 | Understand policy enforcement | [Governance](concepts/governance.md) |
 | Understand stages + promotion | [Lifecycle](concepts/lifecycle.md) |

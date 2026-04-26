@@ -137,7 +137,7 @@ manifest = apply_decision(decision, store)
 |---|---|
 | APPROVED | Load manifest, set `lifecycle_stage = target_stage`, save back, return updated manifest. |
 | REJECTED | No-op. Returns `None`. The audit log already records why. |
-| DEFERRED | No-op. Returns `None`. Wait for the human approval handoff (forthcoming) to resume. |
+| DEFERRED | No-op. Returns `None`. The decision is also enqueued in the `PendingApprovalStore`; a reviewer resolves it via `service.resolve_approval(...)` and the caller chains a fresh `apply_decision`. |
 
 The split is intentional: the pipeline produces the *decision*, and the
 caller decides *when* to apply it. A workflow that requires a second
@@ -409,6 +409,10 @@ Follow-ups (not yet built):
 
 ## Where to read next
 
+- [Roadmap](../roadmap.md) — what's shipped vs in-flight on the lifecycle
+  layer (and the platform overall).
+- [Demo plan](../guides/demo.md) — runnable script that walks the
+  lifecycle end-to-end, including auto-demotion.
 - [Architecture](../architecture.md) — how the lifecycle layer fits with
   governance and runtime.
 - [Governance](governance.md) — the runtime sibling: governance over
