@@ -204,5 +204,6 @@ Nothing is implicit.
 | Understand effects + tiers | [Effects](concepts/effects.md) |
 | Understand policy enforcement | [Governance](concepts/governance.md) |
 | Understand stages + promotion | [Lifecycle](concepts/lifecycle.md) |
+| Wire an LLM (Bedrock, LiteLLM, …) | [LLM clients](concepts/llm-clients.md) |
 | Deploy to AWS | [`deploy/bedrock-agent-core.md`](../deploy/bedrock-agent-core.md) |
 | See real agents | [`arc/agents/`](../arc/agents/) (7 reference implementations) |

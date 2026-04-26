@@ -30,10 +30,12 @@ from .pega_knowledge import PegaKnowledgeConnector
 from .servicenow import ServiceNowConnector
 
 
-# Bedrock connectors. Lazy-loaded because they require boto3
-# (extras: arc-connectors[aws]).
+# Lazy-loaded clients. Each requires its own optional dependency:
+#   Bedrock*  → arc-connectors[aws]   (boto3)
+#   LiteLLM*  → arc-connectors[litellm] (litellm)
 def __getattr__(name: str):
-    bedrock_map = {
+    lazy_map = {
+        # Bedrock (boto3)
         "BedrockKBClient":             ("bedrock_kb",            "BedrockKBClient"),
         "RetrievedPassage":            ("bedrock_kb",            "RetrievedPassage"),
         "BedrockLLMClient":            ("bedrock_llm",           "BedrockLLMClient"),
@@ -43,10 +45,12 @@ def __getattr__(name: str):
         "GuardrailAssessment":         ("bedrock_guardrails",    "GuardrailAssessment"),
         "BedrockAgentStreamingClient": ("bedrock_agent_client",  "BedrockAgentStreamingClient"),
         "AgentChunk":                  ("bedrock_agent_client",  "AgentChunk"),
+        # LiteLLM (multi-provider)
+        "LiteLLMClient":               ("litellm_client",        "LiteLLMClient"),
     }
-    if name in bedrock_map:
+    if name in lazy_map:
         from importlib import import_module
-        mod_name, attr = bedrock_map[name]
+        mod_name, attr = lazy_map[name]
         mod = import_module(f"arc.connectors.{mod_name}")
         return getattr(mod, attr)
     raise AttributeError(f"module 'arc.connectors' has no attribute {name!r}")
@@ -66,4 +70,6 @@ __all__ = [
     "BedrockGuardrailsAdapter", "GuardrailsMixin",
     "GuardrailIntervention", "GuardrailAssessment",
     "BedrockAgentStreamingClient", "AgentChunk",
+    # LiteLLM client (lazy, requires arc-connectors[litellm])
+    "LiteLLMClient",
 ]

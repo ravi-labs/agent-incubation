@@ -135,6 +135,7 @@ arc agent validate my-agent/manifest.yaml --strict
   - [Effects](docs/concepts/effects.md) — typed taxonomy, six tiers, default decisions
   - [Governance](docs/concepts/governance.md) — Tollgate ControlTower, policy YAML, audit trail
   - [Lifecycle](docs/concepts/lifecycle.md) — six-stage pipeline, promotion service, manifest write-back
+  - [LLM clients](docs/concepts/llm-clients.md) — `LLMClient` Protocol with Bedrock + LiteLLM impls
 - **Hands-on:** [Build an agent](docs/guides/build-an-agent.md)
 - **Deploy:** [`deploy/bedrock-agent-core.md`](deploy/bedrock-agent-core.md)
 - Engineering overview: [docs/vision/engineering-overview.docx](docs/vision/engineering-overview.docx)
