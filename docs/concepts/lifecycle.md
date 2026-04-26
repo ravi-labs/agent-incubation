@@ -409,6 +409,9 @@ Follow-ups (not yet built):
 
 ## Where to read next
 
+- [Architecture diagrams](../architecture-diagrams.md) — visual companion;
+  diagrams 1, 5, and 6 cover stages, promotion-with-approval, and the
+  auto-demotion watcher pass.
 - [Roadmap](../roadmap.md) — what's shipped vs in-flight on the lifecycle
   layer (and the platform overall).
 - [Demo plan](../guides/demo.md) — runnable script that walks the

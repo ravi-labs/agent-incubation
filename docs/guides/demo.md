@@ -365,6 +365,9 @@ is captured today, the rollup view isn't built.
 
 ## Where to read next
 
+- [Architecture diagrams](../architecture-diagrams.md) — visual
+  reference for everything in this demo. Pull diagram 1 up on the
+  shared screen during stage 1, diagram 6 during stage 7.
 - [Architecture](../architecture.md) — the layered picture this demo walks through.
 - [Lifecycle](../concepts/lifecycle.md) — the deepest concept doc;
   covers promotion, demotion, audit trail, and SLO schema in full.

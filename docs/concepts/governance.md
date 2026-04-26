@@ -196,6 +196,9 @@ Each is a separate test in `arc-core/tests/test_base_agent.py` and
 
 ## Where to read next
 
+- [Architecture diagrams](../architecture-diagrams.md#3-layered-governance--every-action-funnels-through-the-same-stack)
+  — diagrams 3 and 4 show the layered governance stack and the canonical
+  `run_effect` sequence.
 - [Effects](effects.md) — the typed vocabulary that ControlTower
   evaluates.
 - [Lifecycle](lifecycle.md) — governance over time (the promotion

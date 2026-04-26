@@ -314,6 +314,8 @@ shape, you're in.
 
 ## Where to read next
 
+- [Architecture diagrams](../architecture-diagrams.md#7-sequence-llm-call-with-policy)
+  — diagram 7 shows the LLM call routing through `run_effect` step by step.
 - [Effects](effects.md) — what `effect=` actually means.
 - [Governance](governance.md) — what `run_effect()` does after an
   `LLMClient` call hands control to ControlTower.
