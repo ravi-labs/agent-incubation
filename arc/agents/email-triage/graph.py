@@ -13,7 +13,10 @@ Conditional edges:
     - create_ticket:   P1/P2 → interrupt (ASK), P3/P4 → continue if confidence >= 0.85
 
 LLM:
-    - Real: ChatBedrockConverse (us.anthropic.claude-3-5-sonnet-20241022-v2:0)
+    - Real: ChatBedrockConverse (us.anthropic.claude-3-5-sonnet-20241022-v2:0),
+      wrapped at the call site with ``arc.orchestrators.governed_chat_model``
+      so every model invocation routes through ``agent.run_effect()``
+      and lands in ControlTower's audit log alongside any other effect.
     - Harness: MockBedrockLLM (deterministic, keyword-based — same interface)
 
 Usage:
@@ -250,9 +253,23 @@ def _make_classify_node(agent: Any, llm: Any):
         eid    = state.get("email_id", email.get("id", "unknown"))
 
         if isinstance(llm, MockBedrockLLM):
+            # Harness path. The mock isn't a real BaseChatModel, so we
+            # can't wrap it with governed_chat_model — record the result
+            # via run_effect directly. Same audit shape, no LLM metadata.
             result = llm.classify(email)
+            await agent.run_effect(
+                effect=ITSMEffect.EMAIL_CLASSIFY,
+                tool="classifier", action="classify",
+                params={"email_id": eid, "subject": email.get("subject")},
+                intent_action="classify_email",
+                intent_reason=f"Classify intent and priority for email {eid}",
+                exec_fn=lambda: result,
+            )
         else:
-            # Real LLM: structured classification via Bedrock
+            # Real LLM path. Wrap ChatBedrockConverse (or any BaseChatModel)
+            # so the LLM call itself is the governed effect — ControlTower
+            # sees prompt size + provider + model in the audit row.
+            from arc.orchestrators import governed_chat_model  # type: ignore[import]
             from langchain_core.messages import HumanMessage  # type: ignore[import]
             from pydantic import BaseModel, Field  # type: ignore[import]
 
@@ -270,7 +287,16 @@ def _make_classify_node(agent: Any, llm: Any):
                 "priority (P1/P2/P3/P4), confidence (0.0-1.0), "
                 "sentiment (positive/neutral/negative/urgent)."
             )
-            structured_llm = llm.with_structured_output(Classification)
+
+            governed = governed_chat_model(
+                chat_model    = llm,
+                agent         = agent,
+                effect        = ITSMEffect.EMAIL_CLASSIFY,
+                intent_action = "classify_email",
+                intent_reason = f"Classify intent and priority for email {eid}",
+                metadata      = {"email_id": eid},
+            )
+            structured_llm = governed.with_structured_output(Classification)
             classification = await structured_llm.ainvoke([HumanMessage(content=prompt)])
             result = {
                 "intent":     classification.intent,
@@ -278,16 +304,6 @@ def _make_classify_node(agent: Any, llm: Any):
                 "confidence": classification.confidence,
                 "sentiment":  classification.sentiment,
             }
-
-        # Run through governance for each classification effect
-        classification = await agent.run_effect(
-            effect=ITSMEffect.EMAIL_CLASSIFY,
-            tool="classifier", action="classify",
-            params={"email_id": eid, "subject": email.get("subject")},
-            intent_action="classify_email",
-            intent_reason=f"Classify intent and priority for email {eid}",
-            exec_fn=lambda: result,
-        )
 
         await agent.run_effect(
             effect=ITSMEffect.PRIORITY_INFER,
@@ -330,8 +346,18 @@ def _make_extract_entities_node(agent: Any, llm: Any):
         eid   = state.get("email_id", email.get("id", "unknown"))
 
         if isinstance(llm, MockBedrockLLM):
+            # Harness path — same shape as classify_node above.
             entities = llm.extract_entities(email)
+            entities = await agent.run_effect(
+                effect=ITSMEffect.ENTITY_EXTRACT,
+                tool="entity-extractor", action="extract",
+                params={"email_id": eid},
+                intent_action="extract_entities",
+                intent_reason=f"Extract structured entities from email {eid}",
+                exec_fn=lambda: entities,
+            )
         else:
+            from arc.orchestrators import governed_chat_model  # type: ignore[import]
             from langchain_core.messages import HumanMessage  # type: ignore[import]
             from pydantic import BaseModel, Field  # type: ignore[import]
 
@@ -348,7 +374,16 @@ def _make_extract_entities_node(agent: Any, llm: Any):
                 f"Body: {email.get('body', '')[:1000]}\n\n"
                 "Extract: systems mentioned, error codes, ticket references, sender email, sender name."
             )
-            structured_llm = llm.with_structured_output(Entities)
+
+            governed = governed_chat_model(
+                chat_model    = llm,
+                agent         = agent,
+                effect        = ITSMEffect.ENTITY_EXTRACT,
+                intent_action = "extract_entities",
+                intent_reason = f"Extract structured entities from email {eid}",
+                metadata      = {"email_id": eid},
+            )
+            structured_llm = governed.with_structured_output(Entities)
             extracted = await structured_llm.ainvoke([HumanMessage(content=prompt)])
             entities = extracted.model_dump()
             if not entities.get("sender"):
@@ -356,16 +391,7 @@ def _make_extract_entities_node(agent: Any, llm: Any):
             if not entities.get("sender_name"):
                 entities["sender_name"] = email.get("sender_name", "")
 
-        result = await agent.run_effect(
-            effect=ITSMEffect.ENTITY_EXTRACT,
-            tool="entity-extractor", action="extract",
-            params={"email_id": eid},
-            intent_action="extract_entities",
-            intent_reason=f"Extract structured entities from email {eid}",
-            exec_fn=lambda: entities,
-        )
-
-        return {"entities": result}
+        return {"entities": entities}
 
     return extract_entities_node
 

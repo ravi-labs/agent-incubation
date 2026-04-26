@@ -44,6 +44,10 @@ def __getattr__(name: str):
     if name in ("GraphAgent", "AgentState"):
         from . import langgraph_agent
         return getattr(langgraph_agent, name)
+    # Governed LangChain chat model — closes the LangGraph governance gap.
+    if name in ("GovernedChatModel", "governed_chat_model"):
+        from . import langchain_chat_model
+        return getattr(langchain_chat_model, name)
     raise AttributeError(f"module 'arc.orchestrators' has no attribute {name!r}")
 
 __all__ = [
@@ -55,4 +59,6 @@ __all__ = [
     # LangChain bridge
     "ArcTool", "ArcToolkit", "ArcRunnable",  # langchain.py
     "GraphAgent", "AgentState",              # langgraph_agent.py
+    # Governed BaseChatModel wrapper
+    "GovernedChatModel", "governed_chat_model",  # langchain_chat_model.py
 ]
