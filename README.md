@@ -48,7 +48,7 @@ Native, self-contained, fully tested. This is what every agent runs on:
   and Strands so agent code is orchestrator-agnostic; LangChain bridge.
 - **arc-connectors** — Outlook, Pega (case + knowledge), ServiceNow, Bedrock
   (KB, LLM, Guardrails, Agent client), plus a mock for tests.
-- **arc-platform** — reserved for Phase 3 web portals (empty placeholder).
+- **arc-platform** — FastAPI backend + two React dashboards. **`frontend/ops`** for business users (approval queue, agent inventory, audit trail) and **`frontend/dev`** for engineers (audit details, agent dev workflow). Launch the API with `arc platform serve`; run frontends from `arc/packages/arc-platform/frontend/` via `npm run dev:ops` / `dev:dev`.
 - **arc/agents/** — 7 reference agents (retirement-trajectory, fiduciary-watchdog,
   life-event-anticipation, plan-design-optimizer, email-triage, care-coordinator,
   contract-review).

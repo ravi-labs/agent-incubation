@@ -1,0 +1,17 @@
+{
+  "name": "arc-platform-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Arc platform — React frontends (ops + dev) plus shared types/client.",
+  "workspaces": [
+    "shared",
+    "ops",
+    "dev"
+  ],
+  "scripts": {
+    "dev:ops": "npm --workspace ops run dev",
+    "dev:dev": "npm --workspace dev run dev",
+    "build": "npm --workspace shared run build && npm --workspace ops run build && npm --workspace dev run build",
+    "typecheck": "npm --workspaces --if-present run typecheck"
+  }
+}

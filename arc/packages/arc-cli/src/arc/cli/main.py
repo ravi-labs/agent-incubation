@@ -830,6 +830,92 @@ def effects_show(effect_name: str):
         ))
 
 
+# ─── arc platform ─────────────────────────────────────────────────────────
+
+@cli.group()
+def platform():
+    """Run the arc web platform — FastAPI backend for the ops + dev React dashboards."""
+
+
+@platform.command("serve")
+@click.option("--host", default="127.0.0.1", show_default=True,
+              help="Bind address for the FastAPI backend.")
+@click.option("--port", default=8000, type=int, show_default=True,
+              help="Port for the FastAPI backend.")
+@click.option("--reload", is_flag=True,
+              help="Enable uvicorn auto-reload (development only).")
+@click.option("--manifest-root", type=click.Path(exists=False, path_type=Path),
+              default=None,
+              help="Directory containing per-agent manifest.yaml files. "
+                   "Defaults to ./arc/agents.")
+@click.option("--audit-log", type=click.Path(exists=False, path_type=Path),
+              default=None,
+              help="Path to a JSONL audit log. Defaults to ./audit.jsonl.")
+@click.option("--promotion-log", type=click.Path(exists=False, path_type=Path),
+              default=None,
+              help="Path to a JSONL promotion-decision log. "
+                   "Defaults to ./promotions.jsonl.")
+def platform_serve(
+    host: str,
+    port: int,
+    reload: bool,
+    manifest_root: Path | None,
+    audit_log: Path | None,
+    promotion_log: Path | None,
+) -> None:
+    """Launch the FastAPI backend that serves both React dashboards.
+
+    Frontends run separately via ``npm run dev`` from
+    ``arc/packages/arc-platform/frontend/{ops,dev}``. Vite proxies
+    ``/api/*`` to this backend automatically.
+
+    Examples:
+
+        arc platform serve
+        arc platform serve --port 8080 --reload
+        arc platform serve --manifest-root ./my-agents --audit-log ./audit.jsonl
+    """
+    try:
+        import uvicorn
+        from arc.platform.api import build_app
+        from arc.platform.common import PlatformData, PlatformDataConfig
+    except ImportError as exc:
+        click.echo(click.style(
+            f"✗ arc-platform is not installed. Run: pip install -e arc/packages/arc-platform/\n"
+            f"  ({exc})",
+            fg="red"
+        ), err=True)
+        sys.exit(1)
+
+    config = PlatformDataConfig.default()
+    if manifest_root is not None:
+        config.manifest_root = manifest_root
+    if audit_log is not None:
+        config.audit_log_path = audit_log
+    if promotion_log is not None:
+        config.promotion_log_path = promotion_log
+
+    data = PlatformData(config)
+
+    click.echo(click.style(f"Arc platform API → http://{host}:{port}", fg="green"))
+    click.echo(f"  manifests:      {config.manifest_root}")
+    click.echo(f"  audit log:      {config.audit_log_path}")
+    click.echo(f"  promotion log:  {config.promotion_log_path}")
+    click.echo()
+    click.echo("Frontends (run from arc/packages/arc-platform/frontend/):")
+    click.echo("  npm install            # first time only")
+    click.echo("  npm run dev:ops        # business dashboard → http://localhost:5173")
+    click.echo("  npm run dev:dev        # engineer dashboard → http://localhost:5174")
+    click.echo()
+
+    uvicorn.run(
+        build_app(data),
+        host=host,
+        port=port,
+        reload=reload,
+    )
+
+
 # ─── arc deploy ───────────────────────────────────────────────────────────
 
 @cli.group()
