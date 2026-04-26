@@ -11,9 +11,9 @@ under [`concepts/`](concepts/); hands-on walkthroughs under [`guides/`](guides/)
 
 ---
 
-## The four big abstractions
+## The five big abstractions
 
-Everything in arc reduces to four primitives. Learn these and the rest of
+Everything in arc reduces to five primitives. Learn these and the rest of
 the surface follows.
 
 | Primitive | What it is | Where it lives |
@@ -22,6 +22,7 @@ the surface follows.
 | **Manifest** | The agent's declared scope: which effects, which data, what stage | `arc.core.manifest` |
 | **ControlTower** | Runtime policy enforcement — every tool call passes through it | `tollgate` (canonical) |
 | **Pipeline** | Lifecycle stages + the promotion service that moves agents through them | `arc.core.lifecycle` |
+| **LLMClient** | Provider-agnostic LLM interface — every model call routes through `run_effect` for governance | `arc.core.llm` (Bedrock + LiteLLM impls in `arc-connectors`) |
 
 The execution loop is short:
 
@@ -58,8 +59,8 @@ arc/
     ├── arc-cli/          `arc agent new/list/validate/promote/suspend`
     ├── arc-eval/         scenario-based regression evaluation
     ├── arc-orchestrators/ adapters for LangGraph, AgentCore, Strands, LangChain
-    ├── arc-connectors/   real-system gateways — Outlook, Pega, ServiceNow, Bedrock
-    └── arc-platform/     web portals (reserved for Phase 3)
+    ├── arc-connectors/   real-system gateways — Outlook, Pega, ServiceNow, Bedrock LLM, LiteLLM
+    └── arc-platform/     FastAPI backend + two React dashboards (ops for business users, dev for engineers)
 ```
 
 Plus three sibling packages at the repo root:
@@ -88,6 +89,9 @@ From the top down:
 defines the six stages, the gate-check primitives, and the
 `PromotionService` that orchestrates transitions. `apply_decision()` writes
 the new stage back to a `ManifestStore` (single file or registry directory).
+`PendingApprovalStore` queues `DEFERRED` SCALE promotions for human review;
+`service.resolve_approval(...)` lets a reviewer approve or reject and
+auto-applies the result to the manifest.
 
 This is the layer that compliance officers and platform engineers care
 about: who promotes agents, on what evidence, and where the audit trail
@@ -133,9 +137,14 @@ See: [Effects](concepts/effects.md).
 
 `arc.core.gateway` (data access), `arc.core.memory` (persistent state),
 `arc.core.tools` (governed tool registry), `arc.core.observability`
-(outcome tracker + audit reports). All independently swappable: an
-agent in a test harness uses `MockGatewayConnector` and a JSONL audit
-sink; the same agent in production uses `HttpGateway` and DynamoDB.
+(outcome tracker + audit reports), `arc.core.llm` (provider-agnostic LLM
+interface). All independently swappable: an agent in a test harness uses
+`MockGatewayConnector` and a JSONL audit sink; the same agent in
+production uses `HttpGateway` and DynamoDB. LLM calls go through
+`LLMClient` — `BedrockLLMClient` for AWS-native, `LiteLLMClient` for
+multi-provider (Anthropic, OpenAI, Bedrock, Vertex, Ollama, …) — and
+both route every call through `run_effect` for the same governance and
+audit treatment as any other tool call.
 
 The harness/runtime split (`arc.harness.HarnessBuilder` vs
 `arc.runtime.RuntimeBuilder`) wires the substrate two different ways
@@ -171,8 +180,12 @@ A concrete trace, top-to-bottom:
    `lifecycle_stage`.
 
 3. **Compliance officer** reviews the manifest in the agent-registry PR.
-   On approval, the manifest moves to GOVERN; SCALE requires a second
-   manual sign-off (`require_human={LifecycleStage.SCALE}`).
+   On approval, the manifest moves to GOVERN. Promotion to SCALE always
+   defers (`require_human={LifecycleStage.SCALE}`); the deferred decision
+   lands in the pending-approval store. A reviewer resolves it via the
+   ops dashboard's `/approvals` page (or `POST /api/approvals/{id}/decide`
+   directly), which records the resolution to the audit log and applies
+   the new stage to the manifest in one call.
 
 4. **Runtime** loads the manifest at cold start, builds a `ControlTower`
    wired to the YAML policy, the production approver (DynamoDB-backed),
@@ -187,7 +200,13 @@ A concrete trace, top-to-bottom:
    - Writes an audit row.
    - On ALLOW, runs the executor and returns the result.
 
-6. **Observer** tails the JSONL audit log and the OutcomeTracker stream.
+6. **LLM calls** travel the same path. The agent calls
+   `await self.llm.generate(agent=self, effect=..., prompt=...)`; the
+   `LLMClient` impl routes through `run_effect` before any provider call
+   reaches Bedrock / OpenAI / etc. Provider, model, prompt size, and
+   token estimate land in `metadata` on the same audit row.
+
+7. **Observer** tails the JSONL audit log and the OutcomeTracker stream.
    Anomalies feed the (forthcoming) auto-demotion watcher, which calls
    `service.demote()` to roll back stage state.
 

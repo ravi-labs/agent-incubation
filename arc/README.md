@@ -15,7 +15,7 @@ Arc is a governed agent incubation platform. Developers build agents with typed 
 | `arc-orchestrators` | Framework adapters — LangGraph, AgentCore, Strands | Agent developers |
 | `arc-connectors` | Real system integrations — Outlook, Pega, ServiceNow | Platform / DevOps |
 | `arc-runtime` | Production wiring — RuntimeConfig, env-var driven | Platform / DevOps |
-| `arc-platform` | Web portals + dashboard | Platform team |
+| `arc-platform` | FastAPI backend + two React dashboards (`frontend/ops` for business users, `frontend/dev` for engineers) | Platform team |
 
 ---
 
@@ -120,7 +120,7 @@ arc/
     arc-orchestrators/  framework adapters
     arc-connectors/     real system integrations
     arc-runtime/        production wiring
-    arc-platform/       web portals (Phase 3)
+    arc-platform/       FastAPI backend + ops/dev React dashboards
   domains/
     financial/          FinancialEffect
     itsm/               ITSMEffect

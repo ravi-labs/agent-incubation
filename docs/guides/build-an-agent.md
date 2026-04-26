@@ -362,6 +362,73 @@ for the full Lambda + Bedrock setup.
 
 ---
 
+## Step 10 — Replace the templated draft with an LLM (optional)
+
+The doc-summarizer above uses a `summarizer` tool that returns a fixed
+fixture in tests. In production you'd want a real model writing the
+summary. Two lines of wiring:
+
+```python
+# agent.py
+from arc.core import BaseAgent, LLMClient, ITSMEffect
+
+class DocSummarizerAgent(BaseAgent):
+    def __init__(self, *args, llm: LLMClient | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.llm = llm
+
+    async def execute(self, *, doc_id: str, requester: str) -> dict:
+        doc = await self.run_effect(
+            effect=ITSMEffect.KNOWLEDGE_ARTICLE_READ,
+            tool="knowledge", action="fetch",
+            params={"id": doc_id},
+        )
+
+        if self.llm is not None:
+            # LLM path — call routes through run_effect for governance
+            summary = await self.llm.generate(
+                agent=self,
+                effect=ITSMEffect.EMAIL_DRAFT,
+                intent_action="summarize_doc",
+                intent_reason=f"Summarize doc {doc_id} for {requester}",
+                system="Summarize internal documents in 3 sentences. Plain English.",
+                prompt=doc["body"],
+                max_tokens=200,
+            )
+        else:
+            # Fallback: deterministic, no model dependency
+            summary = doc["body"][:300] + "…"
+        ...
+```
+
+Caller picks the provider:
+
+```python
+# Bedrock — AWS-native, boto3 + IAM
+from arc.connectors import BedrockLLMClient
+agent = HarnessBuilder(...).build(DocSummarizerAgent,
+                                  llm=BedrockLLMClient())
+
+# LiteLLM — multi-provider (Anthropic, OpenAI, Bedrock, Vertex, Ollama, …)
+from arc.connectors import LiteLLMClient
+agent = HarnessBuilder(...).build(DocSummarizerAgent,
+                                  llm=LiteLLMClient(model="anthropic/claude-3-5-sonnet-20241022"))
+
+# No LLM — deterministic fallback for tests
+agent = HarnessBuilder(...).build(DocSummarizerAgent)
+```
+
+The agent code is identical regardless of provider. Tests run with
+`llm=None` (or a fake `LLMClient` returning canned text); production
+wires either Bedrock or LiteLLM.
+
+See [LLM clients](../concepts/llm-clients.md) for the full surface,
+including `generate_json`, fallback chains, and the governance
+guarantees that come with routing every model call through
+`run_effect`.
+
+---
+
 ## What you've actually built
 
 A small agent that:
@@ -390,4 +457,6 @@ Read those next.
   evaluates each `run_effect` call.
 - [Lifecycle](../concepts/lifecycle.md) — how to move agents through
   stages safely.
+- [LLM clients](../concepts/llm-clients.md) — the `LLMClient` Protocol
+  and the two shipped backends (Bedrock, LiteLLM).
 - [`arc/agents/`](../../arc/agents/) — seven full reference agents.

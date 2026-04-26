@@ -222,22 +222,77 @@ agent to that stage and *why*.
 
 ---
 
+## Approval queue handoff (DEFERRED → human → resolved)
+
+When `PromotionService` is constructed with a `PendingApprovalStore` and
+`promote()` produces a `DEFERRED` outcome, the decision is enqueued to
+the store in addition to landing in the audit log. A reviewer later
+resolves it via `service.resolve_approval(approval_id, *, approve,
+reviewer, reason)`, which:
+
+1. Marks the entry in the pending store as `approved` or `rejected`.
+2. Records a fresh `APPROVED` / `REJECTED` decision in the audit log
+   carrying the original gate results and reviewer name.
+3. Returns the new decision so the caller can chain `apply_decision`
+   to update the manifest.
+
+Two store implementations:
+
+| Store | When to use |
+|---|---|
+| `InMemoryPendingApprovalStore` | Tests + harness — state lost on process restart. |
+| `JsonlPendingApprovalStore(path)` | File-backed, append-only. Resolution writes a new line; readers keep the latest entry per `approval_id`. Crash-safe (torn JSON lines skipped). `list_history(id)` returns every state line for a full audit trail. |
+
+Wiring example:
+
+```python
+from arc.core import (
+    GateChecker, JsonlPendingApprovalStore, JsonlPromotionAuditLog,
+    LifecycleStage, PromotionService,
+)
+
+audit  = JsonlPromotionAuditLog("promotions.jsonl")
+queue  = JsonlPendingApprovalStore("pending-approvals.jsonl")
+service = PromotionService(
+    GateChecker(),
+    audit_log=audit,
+    require_human={LifecycleStage.SCALE},
+    approval_store=queue,
+)
+
+# At promotion time:
+decision = service.promote(req)        # DEFERRED → audit row + queue entry
+
+# Later, after a reviewer decides:
+new_decision = service.resolve_approval(
+    approval_id, approve=True, reviewer="alice@compliance", reason="ROI verified",
+)
+manifest = apply_decision(new_decision, manifest_store)   # writes SCALE to disk
+```
+
+**Dashboard integration:** the ops React dashboard at
+`arc-platform/frontend/ops/src/pages/Approvals.tsx` reads
+`/api/approvals` and posts to `/api/approvals/{id}/decide`. A reviewer's
+single click flips the queue entry, audits the resolution, and updates
+the manifest in one round trip. See [arc-platform README](../../arc/packages/arc-platform/README.md) for the full flow.
+
+---
+
 ## What's next on this layer
 
-Three pieces complete the lifecycle picture; one is shipped, two are
-ahead:
+Two pieces of the lifecycle picture remain:
 
 | Feature | Status |
 |---|---|
 | Manifest write-back (`ManifestStore` + `apply_decision`) | **Shipped** |
-| Approval queue handoff for `DEFERRED` decisions | Planned |
+| Approval queue handoff for `DEFERRED` decisions | **Shipped** |
 | Anomaly auto-demotion (watcher → `service.demote()`) | Planned |
 
-The approval-queue work wires `DEFERRED` outcomes to Tollgate's
-`AsyncQueueApprover` so a human approval resumes the promotion
-atomically. The auto-demotion work adds the watcher loop on
-`OutcomeTracker` so the lifecycle layer can react to runtime evidence
-without a human in the loop.
+The auto-demotion work adds a watcher loop on `OutcomeTracker` so the
+lifecycle layer can react to runtime evidence (error rate, latency,
+unexpected DENY rate) and roll an agent back without a human in the
+loop. Demotions still land in the audit log so compliance can review
+why an agent dropped from SCALE.
 
 ---
 

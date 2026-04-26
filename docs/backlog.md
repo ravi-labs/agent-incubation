@@ -63,6 +63,75 @@ when a non-Python team asks.
 
 ---
 
+## 🟡 LangGraph governance gap — `governed_chat_model` adapter
+
+**The ask.** When an agent uses LangChain's `ChatBedrockConverse` (or any
+`BaseChatModel`) inside a LangGraph node, the LLM call **bypasses
+`run_effect`**. ControlTower never sees the prompt, the audit log
+records nothing about the model invocation (only any subsequent
+business effect the node logs after the call), and policy can't gate
+it. `LLMClient` solves this for agents that call a model directly, but
+LangGraph nodes consume the LangChain `Runnable` contract — `LLMClient`
+is not a drop-in substitute. Concrete evidence:
+[`arc/agents/email-triage/graph.py:274`](../arc/agents/email-triage/graph.py).
+
+**The lever.** A `governed_chat_model(llm: LLMClient, agent: BaseAgent,
+default_effect=...)` factory that returns a LangChain `BaseChatModel`
+whose `_agenerate` / `ainvoke` routes through `agent.run_effect` first,
+then delegates to a real chat model (`ChatLiteLLM`, `ChatBedrockConverse`,
+etc.). Drop-in replacement for `ChatBedrockConverse` inside LangGraph
+nodes.
+
+**Scope of the design pass:**
+
+1. **Adapter contract.** Subclass `langchain_core.language_models.BaseChatModel`.
+   Override `_agenerate`/`_generate` to wrap the upstream call in
+   `agent.run_effect(effect=..., tool="...", action="completion",
+   exec_fn=<delegate>)`. Preserve `with_structured_output`, `bind_tools`,
+   `.astream` by delegating to the wrapped model where possible.
+2. **Effect resolution.** Each node call needs a domain effect. Options:
+   per-node override (`governed_chat_model(..., effect=ITSMEffect.EMAIL_CLASSIFY)`),
+   or a default at adapter construction. Probably both.
+3. **Agent reference plumbing.** LangGraph nodes don't have direct agent
+   access. Either add `agent` to the `AgentState` TypedDict (in
+   `arc.orchestrators.langgraph_agent`) or close over it at node
+   construction. ADR should pick one.
+4. **Streaming + structured output.** When the wrapped model supports
+   them, the adapter forwards. Each chunk on `.astream` doesn't get its
+   own audit row — the audit covers the whole call. Document this trade.
+5. **Where it lives.** `arc.orchestrators.langchain.governed_chat_model`
+   (alongside `ArcTool` / `ArcToolkit` / `ArcRunnable`).
+6. **Migration recipe for email-triage.** Replace `ChatBedrockConverse`
+   construction with `governed_chat_model(LiteLLMClient(...), agent,
+   effect=ITSMEffect.EMAIL_CLASSIFY)` in `graph.py`. Delete the
+   post-hoc `agent.run_effect(exec_fn=lambda: result)` since the LLM
+   call itself is now governed. Update the eval scenarios so audit-row
+   counts match.
+
+**Effort estimate:** medium — 200–400 LOC + tests. The hard part is
+preserving `with_structured_output` / `bind_tools` parity through the
+wrapper; the actual `run_effect` integration is straightforward.
+
+**What this would unlock:** LangGraph agents get the same governance
+guarantees as direct-call agents. The audit log captures
+`llm_provider` / `llm_model` / `prompt_chars` / token estimates on
+every model invocation across both call patterns — uniform telemetry.
+
+**What's NOT in scope:** generic LLM-marker effect (`LLM_INVOKE`) — out
+of scope here; can be discussed separately if policies want to target
+all LLM calls regardless of business effect. Tool-calling agents
+(LangChain `bind_tools`) — adapter forwards as-is; deeper integration
+where tool calls themselves get governed is a follow-up.
+
+**Why not now:** the direct-call path (`LLMClient.generate`) covers the
+two reference agents that use real models in production today
+(retirement-trajectory, anything new written under the LLMClient
+pattern). LangGraph nodes are mostly used for orchestration shape, not
+as the primary LLM call site. Capture and revisit when a LangGraph
+agent becomes a production-critical compliance concern.
+
+---
+
 ## How to add to this backlog
 
 Append a new section above with: title, **the ask** (1–2 sentences), the
