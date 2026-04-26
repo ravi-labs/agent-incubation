@@ -110,6 +110,8 @@ table is a candidate for the next focused work session.
 
 ## Where to read next
 
+- [Architecture diagrams](architecture-diagrams.md) — eight Mermaid
+  diagrams from platform overview to per-call sequence flows.
 - [Architecture](architecture.md) — how the layers fit together.
 - [Lifecycle](concepts/lifecycle.md) — the deepest concept doc; covers
   promotion, demotion, and the audit trail.

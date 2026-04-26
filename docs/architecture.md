@@ -222,6 +222,7 @@ Nothing is implicit.
 
 | If you want to… | Read |
 |---|---|
+| See the picture (Mermaid diagrams, high → low level) | [Architecture diagrams](architecture-diagrams.md) |
 | Build an agent end-to-end | [Build an agent](guides/build-an-agent.md) |
 | Show the platform end-to-end in 20 min | [Demo plan](guides/demo.md) |
 | See what's shipped vs in-flight vs backlog | [Roadmap](roadmap.md) |
