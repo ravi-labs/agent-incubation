@@ -168,21 +168,126 @@ decision = service.demote(
     agent_id    = "email-triage",
     from_stage  = LifecycleStage.SCALE,
     to_stage    = LifecycleStage.GOVERN,
-    requester   = "anomaly-watcher",
+    requester   = "auto-demotion-watcher",
     reason      = "error rate exceeded 5% over 1h window",
 )
 apply_decision(decision, store)
 ```
 
-Demotion is the foundation for **anomaly auto-rollback** (forthcoming):
-a watcher process tails the `OutcomeTracker` JSONL stream; when metrics
-drift past thresholds, it calls `service.demote()`, applies the
-decision, and the manifest's `lifecycle_stage` rolls back to a
-sandbox-safe value while a human investigates.
-
 Forward and backward use the same audit mechanism — there's no second
 "demotion log." Every state change of every agent lives in one
 append-only stream.
+
+---
+
+## Anomaly auto-demotion
+
+`service.demote()` is the primitive; the policy layer that decides *when*
+to demote ships as `arc.core.DemotionWatcher` plus the `arc agent watch`
+CLI.
+
+### Declaring SLOs in the manifest
+
+An agent opts in by adding an `slo:` block to its `manifest.yaml`. The
+block is optional — an agent without one is never auto-demoted.
+
+```yaml
+slo:
+  window:        7d                 # rolling window the watcher looks at
+  min_volume:    100                # skip evaluation below this many events
+  rules:
+    - metric:    error_rate         # built-in
+      op:        "<"
+      threshold: 0.05
+    - metric:    p95_latency_ms     # built-in
+      op:        "<"
+      threshold: 2000
+    - metric:    intervention_send_success_rate    # custom; agent emits via OutcomeTracker
+      op:        ">"
+      threshold: 0.8
+  demotion_mode: proposed           # or "auto"
+```
+
+Built-in metrics (computed by `OutcomeTracker.window_stats`):
+`event_count`, `error_rate`, `p50_latency_ms`, `p95_latency_ms`. Custom
+metrics are anything the agent writes into `OutcomeEvent.data` — dotted
+keys are supported (`plan.approval.rate`). Numeric values are averaged;
+booleans become a success rate.
+
+### How the watcher decides
+
+For each agent in a `DirectoryManifestStore`:
+
+1. Load `manifest.slo`. Skip if absent.
+2. Skip if `lifecycle_stage` isn't in `{VALIDATE, GOVERN, SCALE}` (early
+   stages aren't running on real traffic anyway).
+3. Compute window stats from `OutcomeTracker`.
+4. Skip if `event_count < min_volume` — not enough data to act on.
+5. Evaluate every rule; collect breaches.
+6. **Hysteresis:** require **3 consecutive breach evaluations** before
+   firing. A single bad window doesn't move the agent; a sustained
+   regression does. The counter is persisted in a
+   `JsonlBreachStateStore` so it survives across cron runs.
+7. **Cooldown:** look back `24h` in the audit log. If the agent had any
+   APPROVED state change (promotion or demotion), don't fire again — let
+   the recent change settle.
+8. **Kill switch:** `ARC_AUTO_DEMOTE_DISABLED=1` short-circuits the
+   whole pass with no I/O.
+9. **Drop one stage** — `SCALE → GOVERN`, `GOVERN → VALIDATE`. Never two
+   stages at once; most regressions are fixable.
+
+### Two modes
+
+`demotion_mode: proposed` (default — safer)
+
+The watcher writes a `PendingApproval` with `request.kind = "demotion"`.
+The same approval queue UI surfaces it; a human approves or rejects. The
+manifest stage is **not** touched until a human resolves the entry.
+
+`demotion_mode: auto`
+
+The watcher calls `service.demote()` directly. The audit log records it
+as APPROVED. Use only when the breach signal is well-understood and the
+agent's blast radius is small. The watcher CLI's `--apply` flag is what
+flips the manifest stage on disk for AUTO demotions; without it, AUTO
+runs are audit-only (handy for dry runs).
+
+### Running the watcher
+
+The watcher is stateless — designed to be a cron job or k8s `CronJob`.
+
+```bash
+arc agent watch \
+    --registry      arc/agents \
+    --outcomes      outcomes.jsonl \
+    --audit         promotion_audit.jsonl \
+    --breach-state  breach_state.jsonl \
+    --approvals     pending_approvals.jsonl
+```
+
+One pass, one exit. Re-runs every 15 min – 1 h are typical. Restarting
+mid-run loses nothing: cooldown comes from the audit log, hysteresis
+from the breach state file, and both are append-only JSONL.
+
+### Single-watcher constraint
+
+The four JSONL stores (audit, breach state, approvals, outcomes) all
+use append-only writes; concurrent appends from multiple watchers on the
+same machine are not safe (writes can interleave inside a line).
+**Run one watcher per registry**. Multi-host or multi-process setups
+will get a file lock or a registry backend in a follow-up.
+
+### Safety summary
+
+| Concern | Guard |
+|---|---|
+| Transient blip | 3 consecutive breach evaluations required |
+| Flapping (demote-promote-demote) | 24h cooldown after any state change |
+| Cascading demotions | One stage per pass, max one per agent per run |
+| Insufficient data | `min_volume` floor; below it, evaluation is skipped |
+| False positive on opt-in | No `slo:` block → never auto-demoted |
+| Trust building | Default mode `proposed` keeps a human in the loop |
+| Kill switch | `ARC_AUTO_DEMOTE_DISABLED=1` skips the entire pass |
 
 ---
 
@@ -280,19 +385,25 @@ the manifest in one round trip. See [arc-platform README](../../arc/packages/arc
 
 ## What's next on this layer
 
-Two pieces of the lifecycle picture remain:
+The lifecycle layer's core is shipped:
 
 | Feature | Status |
 |---|---|
 | Manifest write-back (`ManifestStore` + `apply_decision`) | **Shipped** |
 | Approval queue handoff for `DEFERRED` decisions | **Shipped** |
-| Anomaly auto-demotion (watcher → `service.demote()`) | Planned |
+| Anomaly auto-demotion (`DemotionWatcher` + `arc agent watch`) | **Shipped** |
 
-The auto-demotion work adds a watcher loop on `OutcomeTracker` so the
-lifecycle layer can react to runtime evidence (error rate, latency,
-unexpected DENY rate) and roll an agent back without a human in the
-loop. Demotions still land in the audit log so compliance can review
-why an agent dropped from SCALE.
+Follow-ups (not yet built):
+
+- **Atomic manifest writes** — `save_manifest` currently uses a plain
+  open-write-close. A write-temp-then-rename swap would survive a kill
+  mid-write. Single-watcher operation makes the current shape safe in
+  practice; this is hardening for multi-writer setups.
+- **Demotion webhook** — fire a Slack/PagerDuty payload on demotion +
+  proposal. The audit log + structured logs cover the same signal today,
+  but a push notification is friendlier for on-call.
+- **Multi-host watcher safety** — file lock or a registry backend so two
+  watcher hosts can't trample each other's appends.
 
 ---
 

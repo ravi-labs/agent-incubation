@@ -92,6 +92,11 @@ class PromotionRequest:
     requested_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+    # Discriminator so the approval dashboard can tell apart a promotion
+    # request from a demotion proposal. ``"promotion"`` is the back-compat
+    # default; the auto-demotion watcher sets ``"demotion"`` when it
+    # enqueues a PendingApproval.
+    kind: str = "promotion"
 
     @property
     def is_demotion(self) -> bool:
@@ -140,6 +145,7 @@ class PromotionDecision:
             "requester":     self.request.requester,
             "justification": self.request.justification,
             "evidence":      self.request.evidence,
+            "kind":          self.request.kind,
             "outcome":       self.outcome.value,
             "reason":        self.reason,
             "decided_by":    self.decided_by,
@@ -346,6 +352,7 @@ def _decision_from_dict(d: dict) -> PromotionDecision:
         justification=d["justification"],
         evidence=d.get("evidence", {}),
         requested_at=d.get("requested_at", ""),
+        kind=d.get("kind", "promotion"),
     )
     return PromotionDecision(
         request=request,

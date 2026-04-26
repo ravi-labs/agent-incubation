@@ -38,6 +38,7 @@ from arc.core.effects import (
 
 from arc.core.lifecycle import LifecycleStage
 from arc.core.llm import LLMConfig
+from arc.core.slo import SLOConfig
 
 # All known effect enums — tried in order when parsing manifest YAML.
 # Add new domain taxonomies here to make them available in manifests.
@@ -97,6 +98,11 @@ class AgentManifest:
     # Optional per-agent LLM override. When set, takes precedence over
     # the platform default in RuntimeConfig.llm. None = use platform default.
     llm: LLMConfig | None = None
+    # Optional Service-Level Objective declaration. When set + non-empty,
+    # the auto-demotion watcher (``arc agent watch``) evaluates outcomes
+    # against these rules and either queues a PendingApproval or demotes
+    # the agent one stage on sustained breach. None = no auto-demotion.
+    slo: SLOConfig | None = None
 
     @property
     def manifest_version(self) -> str:
@@ -169,6 +175,10 @@ class AgentManifest:
         # Manifests without an llm: block stay clean.
         if self.llm is not None and not self.llm.is_empty():
             out["llm"] = self.llm.to_dict()
+        # Only emit `slo:` when the agent declares one. Manifests without
+        # an slo block stay clean and aren't subject to auto-demotion.
+        if self.slo is not None and not self.slo.is_empty():
+            out["slo"] = self.slo.to_dict()
         return out
 
 
@@ -224,6 +234,12 @@ def load_manifest(path: str | Path) -> AgentManifest:
     if isinstance(llm_block, dict) and llm_block:
         llm_config = LLMConfig.from_dict(llm_block)
 
+    # Optional SLO block. Missing or empty → no auto-demotion for this agent.
+    slo_block = data.get("slo")
+    slo_config: SLOConfig | None = None
+    if isinstance(slo_block, dict) and slo_block:
+        slo_config = SLOConfig.from_dict(slo_block)
+
     return AgentManifest(
         agent_id=data["agent_id"],
         version=data["version"],
@@ -243,6 +259,7 @@ def load_manifest(path: str | Path) -> AgentManifest:
         # `arc_version`; the loader prefers it when both are present.
         arc_version=data.get("arc_version", data.get("foundry_version", "")),
         llm=llm_config,
+        slo=slo_config,
     )
 
 

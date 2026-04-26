@@ -55,11 +55,10 @@ of being on the platform.
 have later); production-grade auth (separate ADR); migration tooling for
 existing Python agents (none needed — they keep using the in-process path).
 
-**Why not now:** the platform's other Phase 3 features (anomaly
-auto-demotion, harness improvements, more dashboard views) deliver value
-to existing Python-only users; the multi-language story unblocks new
-audiences only after we have a real demand signal. Capture it; revisit
-when a non-Python team asks.
+**Why not now:** the platform's other Phase 3 features (harness
+improvements, more dashboard views) deliver value to existing Python-only
+users; the multi-language story unblocks new audiences only after we have
+a real demand signal. Capture it; revisit when a non-Python team asks.
 
 ---
 

@@ -109,6 +109,7 @@ def _decision_from_dict(d: dict) -> PromotionDecision:
         justification = d["justification"],
         evidence      = d.get("evidence", {}),
         requested_at  = d.get("requested_at", ""),
+        kind          = d.get("kind", "promotion"),
     )
     return PromotionDecision(
         request      = request,

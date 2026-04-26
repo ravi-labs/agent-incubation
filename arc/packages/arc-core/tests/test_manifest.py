@@ -113,6 +113,54 @@ class TestValidManifest:
         assert "arc_version" in d
 
 
+class TestSLOBlock:
+    """SLO block is optional; loaders + dumpers must be back-compat clean."""
+
+    def test_no_slo_block_means_none(self, tmp_path):
+        p = write_manifest(tmp_path, VALID_MANIFEST_DATA)
+        manifest = load_manifest(p)
+        assert manifest.slo is None
+        # And to_dict() should NOT emit an empty `slo:` key on a manifest
+        # that didn't declare one.
+        assert "slo" not in manifest.to_dict()
+
+    def test_slo_block_round_trips(self, tmp_path):
+        from arc.core import DemotionMode
+
+        data = {**VALID_MANIFEST_DATA}
+        data["slo"] = {
+            "window":     "7d",
+            "min_volume": 200,
+            "rules": [
+                {"metric": "error_rate",     "op": "<", "threshold": 0.05},
+                {"metric": "p95_latency_ms", "op": "<", "threshold": 2000},
+            ],
+            "demotion_mode": "auto",
+        }
+        p = write_manifest(tmp_path, data)
+        manifest = load_manifest(p)
+        assert manifest.slo is not None
+        assert manifest.slo.window == "7d"
+        assert manifest.slo.min_volume == 200
+        assert manifest.slo.demotion_mode == DemotionMode.AUTO
+        assert len(manifest.slo.rules) == 2
+        # Round-trip back to dict matches what we wrote (modulo ordering).
+        out = manifest.to_dict()
+        assert out["slo"]["window"] == "7d"
+        assert out["slo"]["demotion_mode"] == "auto"
+
+    def test_invalid_window_rejected_at_load(self, tmp_path):
+        data = {**VALID_MANIFEST_DATA}
+        data["slo"] = {
+            "window":     "always",     # bogus
+            "min_volume": 100,
+            "rules": [{"metric": "error_rate", "op": "<", "threshold": 0.05}],
+        }
+        p = write_manifest(tmp_path, data)
+        with pytest.raises(ValueError, match="window"):
+            load_manifest(p)
+
+
 class TestLegacyFoundryVersionField:
     """Pre-rename manifests written with `foundry_version:` must still load.
 

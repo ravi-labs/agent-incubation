@@ -47,6 +47,15 @@ from arc.core.manifest import (
     save_manifest,
 )
 from arc.core.llm import LLMClient, LLMConfig, resolve_llm
+from arc.core.slo import (
+    DemotionMode,
+    SLOConfig,
+    SLOEvaluation,
+    SLOReport,
+    SLORule,
+    evaluate_slo,
+    parse_window_seconds,
+)
 from arc.core.agent import BaseAgent
 from arc.core.gateway import (
     DataRequest,
@@ -68,13 +77,21 @@ from arc.core.memory import (
 from arc.core.tools import AgentToolRegistry, GovernedToolDef, ToolRegistry, governed_tool
 from arc.core.observability import OutcomeEvent, OutcomeTracker, generate_report
 from arc.core.lifecycle import (
+    BreachState,
+    BreachStateStore,
+    DEFAULT_CONSECUTIVE_BREACHES_REQUIRED,
+    DEFAULT_COOLDOWN_HOURS,
+    DemotionWatcher,
     GateCheck,
     GateCheckResult,
     GateChecker,
+    InMemoryBreachStateStore,
     InMemoryPendingApprovalStore,
     InMemoryPromotionAuditLog,
+    JsonlBreachStateStore,
     JsonlPendingApprovalStore,
     JsonlPromotionAuditLog,
+    KILL_SWITCH_ENV,
     LifecycleStage,
     PendingApproval,
     PendingApprovalStore,
@@ -84,6 +101,7 @@ from arc.core.lifecycle import (
     PromotionRequest,
     PromotionService,
     StageGate,
+    WatchResult,
     apply_decision,
     artifact_exists_check,
     evidence_field_check,
@@ -132,6 +150,9 @@ __all__ = [
     "ManifestStore", "LocalFileManifestStore", "DirectoryManifestStore",
     "BaseAgent",
     "LLMClient", "LLMConfig", "resolve_llm",
+    # SLOs (auto-demotion)
+    "SLOConfig", "SLORule", "SLOEvaluation", "SLOReport",
+    "DemotionMode", "evaluate_slo", "parse_window_seconds",
     # Gateway, memory, tools, observability
     "GatewayConnector", "DataRequest", "DataResponse",
     "MockGatewayConnector", "HttpGateway", "MultiGateway",
@@ -151,6 +172,13 @@ __all__ = [
     # Pending-approval store
     "PendingApproval", "PendingApprovalStore",
     "InMemoryPendingApprovalStore", "JsonlPendingApprovalStore",
+    # Auto-demotion watcher
+    "DemotionWatcher", "WatchResult",
+    "BreachState", "BreachStateStore",
+    "InMemoryBreachStateStore", "JsonlBreachStateStore",
+    "DEFAULT_CONSECUTIVE_BREACHES_REQUIRED",
+    "DEFAULT_COOLDOWN_HOURS",
+    "KILL_SWITCH_ENV",
     "CatalogEntry", "RegistryCatalog", "build_catalog",
     # Tollgate primitives (canonical)
     "ControlTower", "YamlPolicyEvaluator", "JsonlAuditSink",

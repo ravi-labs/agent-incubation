@@ -585,6 +585,157 @@ def agent_resume(manifest_path: str):
     click.echo(click.style(f"✓ Agent '{manifest.agent_id}' resumed", fg="green"))
 
 
+# ─── arc agent watch ──────────────────────────────────────────────────────
+
+@agent.command("watch")
+@click.option("--registry", "registry_dir", required=True,
+              help="DirectoryManifestStore root (e.g. arc/agents/ or a registry checkout).")
+@click.option("--outcomes", "outcomes_path", required=True,
+              help="Path to the OutcomeTracker JSONL file (the watcher reads stats from here).")
+@click.option("--audit", "audit_path", required=True,
+              help="Path to the JsonlPromotionAuditLog (used for cooldown + write-back).")
+@click.option("--breach-state", "breach_state_path", required=True,
+              help="Path to the JsonlBreachStateStore (consecutive-breach counter).")
+@click.option("--approvals", "approvals_path", default=None,
+              help="Path to JsonlPendingApprovalStore. Required when any agent uses "
+                   "demotion_mode=proposed (the default).")
+@click.option("--consecutive", default=None, type=int,
+              help=f"Consecutive breaches required before firing "
+                   f"(default {3}).")
+@click.option("--cooldown-hours", default=None, type=int,
+              help=f"Hours since last state change before another demotion can fire "
+                   f"(default {24}).")
+@click.option("--apply", is_flag=True,
+              help="When set, AUTO-mode demotions also write back to the manifest "
+                   "via apply_decision. Without it, AUTO demotions are audit-only "
+                   "(useful for first-run dry runs against real data).")
+@click.option("--format", "fmt", type=click.Choice(["table", "json"]), default="table")
+def agent_watch(
+    registry_dir: str,
+    outcomes_path: str,
+    audit_path: str,
+    breach_state_path: str,
+    approvals_path: str | None,
+    consecutive: int | None,
+    cooldown_hours: int | None,
+    apply: bool,
+    fmt: str,
+):
+    """
+    Run one auto-demotion watcher pass over a manifest registry.
+
+    Reads each agent's `slo:` block, computes window stats from the
+    OutcomeTracker JSONL, evaluates the rules, and either:
+
+      • records a breach (hysteresis < threshold)
+      • enqueues a PendingApproval (demotion_mode=proposed, the default)
+      • demotes the agent one stage (demotion_mode=auto)
+
+    Honours the ARC_AUTO_DEMOTE_DISABLED env var as a kill switch — set
+    it to 1 and the watcher exits immediately without touching anything.
+
+    Designed for cron / k8s CronJob: stateless, idempotent, exits 0
+    even when nothing happens.
+
+    Example:
+
+        arc agent watch \\
+            --registry  arc/agents \\
+            --outcomes  outcomes.jsonl \\
+            --audit     promotion_audit.jsonl \\
+            --breach-state breach_state.jsonl \\
+            --approvals pending_approvals.jsonl
+    """
+    import json as _json
+
+    from arc.core import (
+        DEFAULT_CONSECUTIVE_BREACHES_REQUIRED,
+        DEFAULT_COOLDOWN_HOURS,
+        DemotionWatcher,
+        DirectoryManifestStore,
+        JsonlBreachStateStore,
+        JsonlPendingApprovalStore,
+        JsonlPromotionAuditLog,
+        OutcomeTracker,
+        PromotionService,
+        GateChecker,
+        apply_decision,
+    )
+
+    store    = DirectoryManifestStore(Path(registry_dir))
+    tracker  = OutcomeTracker(path=Path(outcomes_path))
+    audit    = JsonlPromotionAuditLog(Path(audit_path))
+    breaches = JsonlBreachStateStore(Path(breach_state_path))
+    approvals = (
+        JsonlPendingApprovalStore(Path(approvals_path))
+        if approvals_path else None
+    )
+
+    # PromotionService needs a GateChecker; demote() bypasses gates so
+    # an empty checker is fine here.
+    service = PromotionService(
+        checker=GateChecker(),
+        audit_log=audit,
+        approval_store=approvals,
+    )
+
+    watcher = DemotionWatcher(
+        manifest_store    = store,
+        outcome_tracker   = tracker,
+        breach_state      = breaches,
+        promotion_service = service,
+        approval_store    = approvals,
+        consecutive_breaches_required = consecutive or DEFAULT_CONSECUTIVE_BREACHES_REQUIRED,
+        cooldown_hours    = cooldown_hours if cooldown_hours is not None else DEFAULT_COOLDOWN_HOURS,
+    )
+
+    agent_ids = store.agent_ids()
+    if not agent_ids:
+        click.echo(click.style(f"No agents found under {registry_dir}", fg="yellow"))
+        return
+
+    results = watcher.run(agent_ids)
+
+    # AUTO demotions: optionally write the new stage back to the manifest.
+    if apply:
+        for r in results:
+            if r.action == "demoted" and r.decision is not None:
+                apply_decision(r.decision, store)
+
+    if fmt == "json":
+        click.echo(_json.dumps(
+            [
+                {
+                    "agent_id": r.agent_id,
+                    "action":   r.action,
+                    "detail":   r.detail,
+                    "consecutive_breaches": r.consecutive_breaches,
+                    "approval_id": r.approval_id,
+                    "breaches": r.breaches,
+                }
+                for r in results
+            ],
+            indent=2,
+        ))
+        return
+
+    # Table output — colour-coded by action.
+    click.echo(click.style(
+        f"{'AGENT':<32} {'ACTION':<22} DETAIL", bold=True))
+    click.echo("─" * 80)
+    for r in results:
+        colour = {
+            "demoted":         "red",
+            "proposed":        "yellow",
+            "cooldown":        "yellow",
+            "breach-pending":  "yellow",
+            "ok":              "green",
+            "error":           "red",
+        }.get(r.action, "white")
+        line = f"{r.agent_id:<32} {r.action:<22} {r.detail}"
+        click.echo(click.style(line, fg=colour))
+
+
 # ─── arc registry submit ──────────────────────────────────────────────────
 
 @registry.command("submit")
