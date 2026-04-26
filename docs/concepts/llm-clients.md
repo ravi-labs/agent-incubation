@@ -134,25 +134,148 @@ class RetirementAgent(BaseAgent):
         return {"body": text, "generated_by": type(self.llm).__name__ if self.llm else "template"}
 ```
 
-Caller side:
+**The agent code is identical regardless of provider.** Tests run with
+`llm=None` (algorithmic path) or with a fake `LLMClient` that returns
+canned text. The wiring of which provider gets injected is owned by
+`LLMConfig` + the builder, not by the agent.
+
+---
+
+## Configuring which provider gets wired — `LLMConfig`
+
+Hard-coding `BedrockLLMClient(...)` at the call site works for examples,
+but in production you want one platform-wide default that every agent
+inherits, with the option for a specific agent to override. That's what
+`LLMConfig` is for.
 
 ```python
-# Bedrock
-from arc.connectors import BedrockLLMClient
-agent = RetirementAgent(manifest, tower, gateway, llm=BedrockLLMClient())
+from arc.core import LLMConfig
 
-# LiteLLM
-from arc.connectors import LiteLLMClient
-agent = RetirementAgent(manifest, tower, gateway,
-                        llm=LiteLLMClient(model="openai/gpt-4o"))
-
-# No LLM — algorithmic path
-agent = RetirementAgent(manifest, tower, gateway)
+# Declarative spec — same dataclass works for the platform default,
+# the per-agent manifest override, and ad-hoc test wiring.
+cfg = LLMConfig(
+    provider="bedrock",
+    model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    region="us-east-1",
+)
+client = cfg.build_client()      # → BedrockLLMClient instance
 ```
 
-**The agent code is identical regardless of provider.** Only the wiring
-differs. Tests run with `llm=None` (algorithmic path) or with a fake
-`LLMClient` that returns canned text.
+`LLMConfig` knows how to build either shipped client. The builder
+chooses based on `provider`:
+
+| `provider`  | builds                                       |
+|-------------|----------------------------------------------|
+| `"bedrock"` | `BedrockLLMClient(model_id, region, …)`      |
+| `"litellm"` | `LiteLLMClient(model, fallback_models, …)`   |
+| `""`        | `None` — agent runs without an LLM           |
+
+### The precedence stack
+
+Three sources can supply an LLM. Higher wins:
+
+```
+explicit (with_llm)   >   manifest.llm   >   platform default   >   None
+```
+
+1. **`with_llm(client)`** on a builder — pre-built `LLMClient` passed
+   programmatically. For tests and one-off scripts. Wins over everything.
+2. **`manifest.llm`** — the agent's `manifest.yaml` declares an `llm:`
+   block. Visible in the registry PR so compliance can review the
+   provider/model. Lets one agent say *"I need GPT-4o for this use case"*
+   even when the platform default is Bedrock.
+3. **Platform default** — `RuntimeConfig.llm`, populated from
+   `ARC_LLM_*` env vars at startup. The fallback every agent gets unless
+   it overrides.
+4. **None** — no LLM available. Agents that can run without one (template
+   path, algorithmic path) do so; agents that require one should fail
+   loudly during build.
+
+`arc.core.resolve_llm` implements the stack — both `HarnessBuilder` and
+`RuntimeBuilder` call it. You don't usually invoke it yourself.
+
+### Platform default — env vars
+
+`RuntimeConfig.from_env()` reads:
+
+| Env var                    | Field             | Notes                                  |
+|----------------------------|-------------------|----------------------------------------|
+| `ARC_LLM_PROVIDER`         | `provider`        | `bedrock` / `litellm` / empty          |
+| `ARC_LLM_MODEL`            | `model`           | provider-specific id                   |
+| `ARC_LLM_REGION`           | `region`          | Bedrock; falls back to `AWS_REGION`    |
+| `ARC_LLM_FALLBACK_MODELS`  | `fallback_models` | comma-separated, LiteLLM only          |
+| `ARC_LLM_API_BASE`         | `api_base`        | LiteLLM proxy / self-hosted Ollama     |
+| `ARC_LLM_MAX_RETRIES`      | `max_retries`     | integer, default `3`                   |
+
+Example platform config (e.g. ECS task env):
+
+```bash
+ARC_LLM_PROVIDER=bedrock
+ARC_LLM_MODEL=anthropic.claude-3-5-sonnet-20241022-v2:0
+ARC_LLM_REGION=us-east-1
+```
+
+### Per-agent manifest override
+
+Add an optional `llm:` block to the agent's `manifest.yaml`:
+
+```yaml
+agent_id: claims-triage
+version: "0.1.0"
+# … allowed_effects, data_access, …
+
+llm:
+  provider: litellm
+  model:    openai/gpt-4o
+  fallback_models:
+    - anthropic/claude-3-5-sonnet-20241022
+```
+
+The block is optional and forward-compatible — unknown keys are ignored,
+so a manifest written today won't break against a newer arc-core.
+
+### Wiring it up — builders own the resolution
+
+Production:
+
+```python
+from arc.runtime.builder import RuntimeBuilder
+from arc.runtime.config  import RuntimeConfig
+
+config = RuntimeConfig.from_env()        # reads ARC_LLM_* env vars
+agent  = (
+    RuntimeBuilder(config=config, manifest="manifest.yaml", policy="policy.yaml")
+        .build(RetirementAgent)          # llm resolved from manifest > config
+)
+```
+
+Harness (tests / sandbox):
+
+```python
+from arc.harness import HarnessBuilder
+from arc.core    import LLMConfig
+
+agent = (
+    HarnessBuilder(
+        manifest="manifest.yaml",
+        policy="policy.yaml",
+        llm_config=LLMConfig(provider="bedrock", model="…"),  # platform default
+    )
+    .build(RetirementAgent)              # uses manifest.llm if set, else llm_config
+)
+```
+
+Override at call site (highest precedence — for tests):
+
+```python
+from arc.connectors import LiteLLMClient
+
+agent = (
+    HarnessBuilder(...)
+        .with_llm(LiteLLMClient(model="ollama/llama3.1"))   # local model for sandbox
+        .build(RetirementAgent)
+)
+```
 
 ---
 

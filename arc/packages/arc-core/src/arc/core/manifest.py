@@ -37,6 +37,7 @@ from arc.core.effects import (
 )
 
 from arc.core.lifecycle import LifecycleStage
+from arc.core.llm import LLMConfig
 
 # All known effect enums — tried in order when parsing manifest YAML.
 # Add new domain taxonomies here to make them available in manifests.
@@ -93,6 +94,9 @@ class AgentManifest:
     status: AgentStatus = AgentStatus.ACTIVE
     team_repo: str = ""
     arc_version: str = ""
+    # Optional per-agent LLM override. When set, takes precedence over
+    # the platform default in RuntimeConfig.llm. None = use platform default.
+    llm: LLMConfig | None = None
 
     @property
     def manifest_version(self) -> str:
@@ -145,7 +149,7 @@ class AgentManifest:
         save_manifest(self, path)
 
     def to_dict(self) -> dict:
-        return {
+        out: dict = {
             "agent_id": self.agent_id,
             "version": self.version,
             "owner": self.owner,
@@ -161,6 +165,11 @@ class AgentManifest:
             "team_repo": self.team_repo,
             "arc_version": self.arc_version,
         }
+        # Only emit `llm:` when the agent overrides the platform default.
+        # Manifests without an llm: block stay clean.
+        if self.llm is not None and not self.llm.is_empty():
+            out["llm"] = self.llm.to_dict()
+        return out
 
 
 def load_manifest(path: str | Path) -> AgentManifest:
@@ -209,6 +218,12 @@ def load_manifest(path: str | Path) -> AgentManifest:
             f"Invalid status '{raw_status}'. Must be one of: {valid}"
         ) from None
 
+    # Optional per-agent LLM override. Missing → None (use platform default).
+    llm_block = data.get("llm")
+    llm_config: LLMConfig | None = None
+    if isinstance(llm_block, dict) and llm_block:
+        llm_config = LLMConfig.from_dict(llm_block)
+
     return AgentManifest(
         agent_id=data["agent_id"],
         version=data["version"],
@@ -227,6 +242,7 @@ def load_manifest(path: str | Path) -> AgentManifest:
         # written before the foundry → arc rename. New manifests should use
         # `arc_version`; the loader prefers it when both are present.
         arc_version=data.get("arc_version", data.get("foundry_version", "")),
+        llm=llm_config,
     )
 
 

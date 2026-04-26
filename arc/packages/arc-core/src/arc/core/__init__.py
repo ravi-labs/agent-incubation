@@ -46,7 +46,7 @@ from arc.core.manifest import (
     load_manifest,
     save_manifest,
 )
-from arc.core.llm import LLMClient
+from arc.core.llm import LLMClient, LLMConfig, resolve_llm
 from arc.core.agent import BaseAgent
 from arc.core.gateway import (
     DataRequest,
@@ -131,7 +131,7 @@ __all__ = [
     "AgentManifest", "AgentStatus", "load_manifest", "save_manifest",
     "ManifestStore", "LocalFileManifestStore", "DirectoryManifestStore",
     "BaseAgent",
-    "LLMClient",
+    "LLMClient", "LLMConfig", "resolve_llm",
     # Gateway, memory, tools, observability
     "GatewayConnector", "DataRequest", "DataResponse",
     "MockGatewayConnector", "HttpGateway", "MultiGateway",

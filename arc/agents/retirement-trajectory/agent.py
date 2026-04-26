@@ -12,30 +12,37 @@ This is the canonical reference for:
   - Wiring ControlTower with financial services policy
   - Using Gateway for data access
   - Running effects through the policy engine
-  - Injecting an arc.core.LLMClient implementation for prose drafting
+  - Resolving an LLMClient via the manifest / platform / env-var precedence
   - Logging outcomes for ROI tracking
 
 Run this example:
     # Algorithmic drafting (no model dependency)
-    python examples/retirement_trajectory/agent.py
+    python arc/agents/retirement-trajectory/agent.py
 
-    # Claude on Bedrock (requires arc-connectors[aws] + AWS creds)
-    USE_BEDROCK=1 python examples/retirement_trajectory/agent.py
+    # Claude on Bedrock — set the platform LLM via env vars
+    # (requires arc-connectors[aws] + AWS creds)
+    ARC_LLM_PROVIDER=bedrock \\
+        ARC_LLM_MODEL=anthropic.claude-3-5-sonnet-20241022-v2:0 \\
+        ARC_LLM_REGION=us-east-1 \\
+        python arc/agents/retirement-trajectory/agent.py
 
     # LiteLLM (requires arc-connectors[litellm] + the right provider key)
-    USE_LITELLM=1 LITELLM_MODEL="anthropic/claude-3-5-sonnet-20241022" \\
-        python examples/retirement_trajectory/agent.py
+    ARC_LLM_PROVIDER=litellm \\
+        ARC_LLM_MODEL=anthropic/claude-3-5-sonnet-20241022 \\
+        python arc/agents/retirement-trajectory/agent.py
+
+    # Manifest override — uncomment the ``llm:`` block in manifest.yaml to
+    # pin a specific provider/model for this agent regardless of platform default.
 """
 
 import asyncio
 import logging
-import os
 from pathlib import Path
 
 from arc.core.gateway import MockGatewayConnector
 from arc.core.observability import OutcomeTracker
 from arc.core.effects import FinancialEffect
-from arc.core import BaseAgent, LLMClient, load_manifest
+from arc.core import BaseAgent, LLMClient, LLMConfig, load_manifest, resolve_llm
 from tollgate import (
     AutoApprover,
     ControlTower,
@@ -301,34 +308,18 @@ class RetirementTrajectoryAgent(BaseAgent):
 
 # ─── Wiring ───────────────────────────────────────────────────────────────────
 
-def _build_llm() -> LLMClient | None:
-    """Pick an LLM client based on env vars. Returns None for algorithmic mode."""
-    if os.environ.get("USE_BEDROCK", "0") == "1":
-        try:
-            from arc.connectors import BedrockLLMClient
-        except ImportError as exc:
-            raise ImportError(
-                "USE_BEDROCK=1 requires arc-connectors[aws]. "
-                "Run: pip install 'arc-connectors[aws]'"
-            ) from exc
-        return BedrockLLMClient()
-
-    if os.environ.get("USE_LITELLM", "0") == "1":
-        try:
-            from arc.connectors import LiteLLMClient
-        except ImportError as exc:
-            raise ImportError(
-                "USE_LITELLM=1 requires arc-connectors[litellm]. "
-                "Run: pip install 'arc-connectors[litellm]'"
-            ) from exc
-        model = os.environ.get("LITELLM_MODEL", "anthropic/claude-3-5-sonnet-20241022")
-        return LiteLLMClient(model=model)
-
-    return None
-
-
 def build_agent() -> RetirementTrajectoryAgent:
-    """Wire up the agent with its policy, gateway, tower, and (optional) LLM."""
+    """Wire up the agent with its policy, gateway, tower, and (optional) LLM.
+
+    The LLMClient is resolved via :func:`arc.core.resolve_llm` with the
+    standard precedence:
+
+        manifest.llm  >  platform default (LLMConfig.from_env)  >  None
+
+    In production both ``HarnessBuilder`` and ``RuntimeBuilder`` do this
+    resolution for you; this script does it inline because it bypasses the
+    builders to stay self-contained.
+    """
     manifest = load_manifest(MANIFEST_PATH)
 
     policy = YamlPolicyEvaluator(POLICY_PATH)
@@ -343,12 +334,17 @@ def build_agent() -> RetirementTrajectoryAgent:
 
     tracker = OutcomeTracker(path="outcomes.jsonl")
 
+    llm = resolve_llm(
+        manifest_config  = manifest.llm,
+        platform_default = LLMConfig.from_env(),
+    )
+
     return RetirementTrajectoryAgent(
         manifest=manifest,
         tower=tower,
         gateway=gateway,
         tracker=tracker,
-        llm=_build_llm(),
+        llm=llm,
     )
 
 
