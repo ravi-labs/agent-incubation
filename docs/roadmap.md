@@ -75,7 +75,6 @@ concrete next step.
 | **Demotion / proposal webhook** | Optional `demotion_webhook_url` on `RuntimeConfig`; POST decision JSON on demote/proposed | [`lifecycle.md` → "Follow-ups"](concepts/lifecycle.md#whats-next-on-this-layer) |
 | **Multi-host watcher safety** | File lock or registry backend so two `arc agent watch` hosts can't trample appends | [`lifecycle.md` → "Single-watcher constraint"](concepts/lifecycle.md#single-watcher-constraint) |
 | **Cost / token telemetry** | `LLMClient` records prompt size today; aggregate cost/token rollups not shipped | [`llm-clients.md` → "What's NOT in this layer"](concepts/llm-clients.md) |
-| **Streaming LLM responses** | Both clients return full strings; streaming is a harness/runtime task | [`llm-clients.md` → "What's NOT in this layer"](concepts/llm-clients.md) |
 | **CloudWatch + S3 audit sinks** | `RuntimeBuilder._build_audit_sink` falls back to JSONL with a TODO | [`builder.py:272`](../arc/packages/arc-runtime/src/arc/runtime/builder.py:272) |
 | **CORS hardening for arc-platform** | Env-var support drafted, not integrated; blocks real cloud deploy | [`arc-platform/src/arc/platform/api/server.py`](../arc/packages/arc-platform/src/arc/platform/api/server.py) |
 
@@ -90,6 +89,7 @@ Captured ideas without implementation. Each has a one-pager in
 |---|---|---|
 | 🟡 LangGraph governance gap — `governed_chat_model` adapter wrapping `BaseChatModel` so LangGraph node LLM calls route through `run_effect()` | Idea, unblocked | [backlog.md → LangGraph](backlog.md) |
 | 🟡 Language-agnostic agent runtime — wire protocol (gRPC/REST), Tollgate as a sidecar, per-language SDKs (Java, Go, Node) | Idea, blocked on demand | [backlog.md → Multi-language](backlog.md) |
+| 🟡 Streaming LLM responses — `astream` on `LLMClient` + `GovernedChatModel`, audit-on-completion | Idea, no forcing function | [backlog.md → Streaming](backlog.md) |
 
 ---
 

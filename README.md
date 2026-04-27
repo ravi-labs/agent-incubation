@@ -89,17 +89,46 @@ Engineering documentation, organized high-level → low-level:
 
 ## Quick start
 
-```bash
-# Install the platform (editable, monorepo)
-pip install -e tollgate/
-pip install -e arc/packages/arc-core/
-pip install -e arc/packages/arc-harness/
-pip install -e arc/packages/arc-runtime/
-pip install -e arc/packages/arc-cli/
-pip install -e arc/packages/arc-eval/
-pip install -e arc/packages/arc-orchestrators/
-pip install -e arc/packages/arc-connectors/
+One script sets up the whole environment — venv, every workspace package
+(in dependency order), and optional extras for the profile you pick.
 
+**macOS / Linux / WSL:**
+
+```bash
+./setup.sh                            # dev profile (default)
+./setup.sh --mode aws                 # production-like (boto3 + langchain-aws)
+./setup.sh --mode dev --with-frontend # also npm install the React dashboards
+```
+
+**Windows:**
+
+```cmd
+setup.bat
+setup.bat --mode aws
+setup.bat --mode dev --with-frontend
+```
+
+After it finishes:
+
+```bash
+source .venv/bin/activate          # or .venv\Scripts\activate.bat on Windows
+arc --help
+```
+
+The two profiles:
+
+| Profile | Adds | Use for |
+|---|---|---|
+| `dev` (default) | `[dev]` extras: pytest, ruff, mypy. Light orchestrator deps. | Local development, harness runs, demos, tests. |
+| `aws` | `[aws]` on `arc-connectors` + `arc-runtime` (boto3, langchain-aws), all orchestrators (`langgraph`, `agentcore`, `strands`), all connectors (Outlook, Pega, ServiceNow, LiteLLM). | ECS task images, production-like local runs. |
+
+The script is idempotent — re-run it any time. See [setup.sh](setup.sh) /
+[setup.bat](setup.bat) for the full flag list (`--python`, `--venv`,
+`--with-frontend`, `--help`).
+
+### What you get after install
+
+```bash
 # Browse the effect taxonomy
 arc effects list
 
@@ -111,7 +140,14 @@ python arc/agents/retirement-trajectory/agent.py
 
 # Validate a manifest
 arc agent validate my-agent/manifest.yaml --strict
+
+# Run the auto-demotion watcher (cron-friendly)
+arc agent watch --registry arc/agents --outcomes outcomes.jsonl \
+    --audit promotion_audit.jsonl --breach-state breach_state.jsonl \
+    --approvals pending_approvals.jsonl
 ```
+
+For the full end-to-end walk-through, see the [demo plan](docs/guides/demo.md).
 
 ---
 

@@ -131,6 +131,72 @@ agent becomes a production-critical compliance concern.
 
 ---
 
+## 🟡 Streaming LLM responses through governance
+
+**The ask.** Today both `BedrockLLMClient.generate` and
+`LiteLLMClient.generate` return the full response string after the
+provider call completes. `GovernedChatModel._agenerate` does the same.
+Some agent shapes — chat-style UIs, long-form summarisers, anything
+where time-to-first-token is part of the UX — want streaming. Add
+`astream` (LangChain) / a streaming variant on `LLMClient` that yields
+tokens as they arrive while still routing the call through
+`run_effect`.
+
+**The lever.** Decide how the audit row fits a multi-chunk response.
+Two viable shapes:
+
+  - **Audit-on-completion** — emit one row at end-of-stream with the
+    full token count and latency. Policy still fires before any
+    token is yielded; DENY raises before streaming starts. Simplest;
+    matches the current "decide once, audit once" model. Cost is
+    that the audit row only lands after all tokens are consumed.
+  - **Pre + post audit** — emit a "stream-start" row at decision time
+    (with provider/model/prompt size) and a "stream-end" row with
+    token count + latency. Two rows per call; downstream queryers
+    correlate by request id. More accurate for long streams; more
+    plumbing.
+
+Audit-on-completion is the right v1 — keeps the data shape consistent
+with non-streaming calls.
+
+**Scope.**
+1. Add `astream` on `LLMClient` Protocol (optional method) plus the
+   two shipped clients. Bedrock has `invoke_model_with_response_stream`;
+   LiteLLM has `acompletion(stream=True)`.
+2. Add `_astream` on `GovernedChatModel`. Wrap the wrapped model's
+   `_astream`; emit the audit row when the stream closes (success
+   or failure).
+3. Capture token count + latency in the audit metadata at stream-end
+   alongside the existing `llm_provider` / `llm_model` / `prompt_chars`.
+4. Tests: a fake streaming chat model + fake agent verifying (a) DENY
+   never starts the stream, (b) ALLOW yields chunks correctly, (c) the
+   audit row lands once at completion with the right metadata.
+
+**Effort estimate:** small-medium — ~1 day. The streaming path inside
+each provider is well-trodden; the work is fitting the audit row to
+match.
+
+**What this would unlock:** chat-style UIs (Pega chatbot, internal
+copilot tools), long-form generation (legal summaries, advisor
+narrative drafts), anything where time-to-first-token matters.
+
+**What's NOT in scope:** mid-stream interruption (cancel after token
+N — the wrapped model's responsibility, surfaced through normal
+asyncio cancellation); structured-output streaming (`with_structured_output`
+fundamentally needs the complete response to parse the tool call —
+streaming doesn't apply).
+
+**Why not now:** none of the seven reference agents need it. The two
+that use real LLMs today (retirement-trajectory, email-triage) both
+want the *complete* response — retirement-trajectory drafts a single
+message, email-triage uses `with_structured_output` which can't
+stream by design. Building streaming without a forcing function risks
+shipping something that drifts before its first real user. Capture
+the design now, build when an agent is in flight that actually
+benefits.
+
+---
+
 ## How to add to this backlog
 
 Append a new section above with: title, **the ask** (1–2 sentences), the
