@@ -148,6 +148,10 @@ arc agent watch --registry arc/agents --outcomes outcomes.jsonl \
 ```
 
 For the full end-to-end walk-through, see the [demo plan](docs/guides/demo.md).
+For a complete worked example — building one specific agent
+(claims-triage for an insurance company) from scaffold to dashboard
+with both bash and PowerShell commands — see the
+[claims-triage demo](docs/guides/claims-triage-demo.md).
 
 ---
 
