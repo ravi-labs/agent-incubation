@@ -56,3 +56,8 @@ __pycache__/
 *_outcomes.jsonl
 audit-report-sample.html
 .claude/
+
+# ── Personal learning + scratch notes (per-developer, never committed) ──────
+# `learn/` is a freeform place for interactive HTML primers, sketch
+# diagrams, working notes — anything you want local to your checkout.
+learn/
