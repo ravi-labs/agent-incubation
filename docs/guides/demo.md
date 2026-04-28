@@ -356,6 +356,12 @@ is captured today, the rollup view isn't built.
 
 ## Where to read next
 
+- [Claims-triage demo](claims-triage-demo.md) — the same arc, but as
+  a complete worked example: build one specific agent end-to-end
+  (insurance claims triage) with copy-pasteable manifest, policy,
+  agent code, fixture data, and bash + PowerShell command pairs at
+  every step. Use this when an audience wants to see a *real* agent
+  rather than a generic walk-through.
 - [Architecture diagrams](../architecture-diagrams.md) — visual
   reference for everything in this demo. Pull diagram 1 up on the
   shared screen during stage 1, diagram 6 during stage 7.
