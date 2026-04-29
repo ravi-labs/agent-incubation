@@ -152,6 +152,10 @@ For a complete worked example — building one specific agent
 (claims-triage for an insurance company) from scaffold to dashboard
 with both bash and PowerShell commands — see the
 [claims-triage demo](docs/guides/claims-triage-demo.md).
+To take the shipped `email-triage` agent end-to-end against your
+org's *real* sandbox tenants (real Outlook, real Bedrock, real
+ServiceNow / Pega — no mocks), see the
+[email-triage integration guide](docs/guides/email-triage-integration.md).
 
 ---
 

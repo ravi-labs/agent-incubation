@@ -948,6 +948,11 @@ records what happened. arc records what was *decided* and *why*.
 
 ## Where to read next
 
+- [Email-triage integration](email-triage-integration.md) — same
+  story but for the shipped `email-triage` agent, pointed at *real*
+  sandbox tenants (Outlook + Bedrock + ServiceNow/Pega). Read this
+  when you're ready to integrate one of the existing reference
+  agents end-to-end with no mocks.
 - [Architecture diagrams](../architecture-diagrams.md) — pull diagram
   4 (one effect call) up on the shared screen during Step 7.
 - [Lifecycle](../concepts/lifecycle.md) — deep dive on the 6-stage
