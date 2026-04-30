@@ -1,0 +1,53 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Pega case-type schema: AutoClaim
+#
+# Maintained by:  claims-operations-team + Pega platform team
+# Last reviewed:  2026-04-30
+# Pega case type: ITSM-Work-AutoClaim
+#
+# Field-name reference (Pega vocabulary): Pega Dev Studio →
+# Case Designer → AutoClaim → Data Model.  Bump `schema_version`
+# whenever the Pega case-type shape or `required` list changes.
+# Schema versions land in arc's audit log on every case creation.
+# ──────────────────────────────────────────────────────────────────────────────
+
+case_type:      auto                   # matches the agent's classify_node output
+pega_class:     ITSM-Work-AutoClaim    # Pega case-type ID
+schema_version: "1.0"
+
+# arc-field-path → Pega-field-path. Both sides support dotted paths.
+# arc-field-path is what the email-triage agent's state shape produces
+# (claimant.email is `state["claimant"]["email"]`); Pega-field-path is
+# the JSON shape Pega's POST /cases endpoint accepts.
+mapping:
+  policy_number:      Content.PolicyNumber
+  claim_amount:       Content.D_FinancialDetails.TotalAmount
+  incident_date:      IncidentDate
+  vehicle_vin:        VehicleVIN
+  driver_id:          DriverID
+  claimant.email:     AssignedTo.Email
+  claimant.name:      AssignedTo.DisplayName
+  routing.team:       pyAssignedToOperator
+  triage.severity:    Content.Severity
+
+# Hard requirements — payload is rejected before Pega is called if any
+# of these resolve empty.  Keeps you out of Pega's confusing 400 land.
+required:
+  - VehicleVIN
+  - IncidentDate
+  - Content.PolicyNumber
+
+# Static fields injected on every payload of this case type.
+defaults:
+  pyStatusWork:   Open
+  pyOrigin:       arc-email-triage
+  pyOperatorID:   arc-bot
+  Channel:        email
+
+# Per-field transforms.  Keep this surface tiny — anything more complex
+# than rename + simple coercion belongs in pega_router.py's
+# _apply_transform() dispatch, not here.
+transforms:
+  claim_amount:
+    type:   round
+    digits: 2
