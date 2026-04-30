@@ -46,6 +46,7 @@ from arc.core.manifest import (
     load_manifest,
     save_manifest,
 )
+from arc.core.config_loader import load_env_file
 from arc.core.llm import LLMClient, LLMConfig, resolve_llm
 from arc.core.slo import (
     DemotionMode,
@@ -150,6 +151,8 @@ __all__ = [
     "ManifestStore", "LocalFileManifestStore", "DirectoryManifestStore",
     "BaseAgent",
     "LLMClient", "LLMConfig", "resolve_llm",
+    # Config loading (.env support)
+    "load_env_file",
     # SLOs (auto-demotion)
     "SLOConfig", "SLORule", "SLOEvaluation", "SLOReport",
     "DemotionMode", "evaluate_slo", "parse_window_seconds",
