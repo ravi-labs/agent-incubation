@@ -65,6 +65,14 @@ class RuntimeBuilder:
             manifest: Path to the agent's manifest.yaml.
             policy:   Path to the agent's policy.yaml.
         """
+        # Load .env if present so subsequent config + connector lookups see
+        # the values. Idempotent + no-op when no file exists (the production
+        # case — Lambda / ECS get env from the platform's task config layer,
+        # never from a filesystem .env). Safe to call here even though the
+        # caller may have already loaded it through arc-cli or HarnessBuilder.
+        from arc.core import load_env_file
+        load_env_file()
+
         self._config        = config
         self._manifest_path = Path(manifest)
         self._policy_path   = Path(policy)

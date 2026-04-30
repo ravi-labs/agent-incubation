@@ -189,7 +189,18 @@ if (( WITH_FRONTEND )); then
     fi
 fi
 
-# ── 6. Smoke check ─────────────────────────────────────────────────────────
+# ── 6. Bootstrap .env on first run ─────────────────────────────────────────
+# Copy .env.example → .env so subsequent CLI / agent runs find a starter
+# config. Never overwrite an existing .env. Production deploys never run
+# this script, so there's no risk of shipping defaults.
+if [[ -f ".env.example" && ! -f ".env" ]]; then
+    cp .env.example .env
+    ok "Created .env from .env.example — fill in real values before running real connectors."
+elif [[ -f ".env" ]]; then
+    say "Reusing existing .env (won't overwrite)."
+fi
+
+# ── 7. Smoke check ─────────────────────────────────────────────────────────
 say "Smoke-checking the install…"
 if ! "$VENV_PY" -c "import arc.core; import tollgate" 2>/dev/null; then
     fail "Sanity import failed — arc.core / tollgate not importable from the venv."
@@ -206,7 +217,7 @@ else
     warn "'arc' CLI not found at $ARC_BIN — arc-cli may have failed to install."
 fi
 
-# ── 7. Done ────────────────────────────────────────────────────────────────
+# ── 8. Done ────────────────────────────────────────────────────────────────
 echo
 ok "Setup complete (mode=$MODE)."
 cat <<NEXT

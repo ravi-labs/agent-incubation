@@ -37,7 +37,7 @@ Production swap:
 from pathlib import Path
 from typing import Any, Type, TypeVar
 
-from arc.core import BaseAgent, LLMClient, LLMConfig, load_manifest, resolve_llm
+from arc.core import BaseAgent, LLMClient, LLMConfig, load_env_file, load_manifest, resolve_llm
 from arc.core.observability import OutcomeTracker
 from tollgate import ControlTower, YamlPolicyEvaluator
 
@@ -77,6 +77,10 @@ class HarnessBuilder:
                         called explicitly. ``LLMConfig.from_env()`` reads
                         ``ARC_LLM_PROVIDER`` / ``ARC_LLM_MODEL`` / etc.
         """
+        # Load .env if present so subsequent LLMConfig.from_env() / connector
+        # configs see the values. Idempotent + no-op when no file exists.
+        load_env_file()
+
         self._manifest_path = Path(manifest)
         self._policy_path   = Path(policy)
         self._fixtures      = FixtureLoader.empty()

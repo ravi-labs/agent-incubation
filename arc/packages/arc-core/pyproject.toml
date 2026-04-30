@@ -11,6 +11,10 @@ dependencies = [
     "pyyaml>=6.0",
     "pydantic>=2.0",
     "tollgate>=1.4",
+    # .env loader for local + sandbox dev. ~50KB pure-Python, no transitive
+    # deps. Production deploys (Lambda / ECS) get env from the platform's
+    # task config layer; the loader is a no-op when no .env file is present.
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
