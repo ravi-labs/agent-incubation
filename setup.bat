@@ -165,7 +165,20 @@ if "%WITH_FRONTEND%"=="1" (
     )
 )
 
-REM -- 6. Smoke check -------------------------------------------------------
+REM -- 6. Bootstrap .env on first run ---------------------------------------
+REM Copy .env.example to .env so subsequent runs find a starter config.
+REM Never overwrites an existing .env. Production deploys never run this
+REM script, so there's no risk of shipping defaults.
+if exist ".env.example" (
+    if not exist ".env" (
+        copy ".env.example" ".env" >nul
+        echo OK Created .env from .env.example -- fill in real values before running real connectors.
+    ) else (
+        echo == Reusing existing .env ^(won't overwrite^).
+    )
+)
+
+REM -- 7. Smoke check -------------------------------------------------------
 echo.
 echo == Smoke-checking the install...
 "%VENV_PY%" -c "import arc.core; import tollgate" >nul 2>&1
@@ -185,7 +198,7 @@ if exist "%ARC_BIN%" (
     echo ! 'arc' CLI not found at %ARC_BIN% -- arc-cli may have failed to install.
 )
 
-REM -- 7. Done --------------------------------------------------------------
+REM -- 8. Done --------------------------------------------------------------
 echo.
 echo OK Setup complete (mode=%MODE%).
 echo.

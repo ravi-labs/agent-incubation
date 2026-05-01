@@ -213,6 +213,10 @@ def cli():
 
     Build, validate, govern, and register AI agents for financial services.
     """
+    # Load .env if present (idempotent; shell env always wins). No-op in
+    # production deploys where the .env file doesn't exist.
+    from arc.core import load_env_file
+    load_env_file()
 
 
 @cli.group()

@@ -115,6 +115,13 @@ source .venv/bin/activate          # or .venv\Scripts\activate.bat on Windows
 arc --help
 ```
 
+The script also creates a `.env` from [`.env.example`](.env.example) on
+first run if one doesn't exist. Edit it before running real connectors —
+it's gitignored, so values stay local. The CLI, harness, and runtime
+all auto-load `.env` at startup; shell-set vars always win. See
+[Configuration](docs/guides/configuration.md) for precedence and the
+AWS-deploy carve-out.
+
 The two profiles:
 
 | Profile | Adds | Use for |
