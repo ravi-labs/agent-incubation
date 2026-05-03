@@ -1,67 +1,56 @@
-# Pega case-type schemas
+# Pega case-type schemas — retirement plan email triage
 
 This directory holds **per-case-type schema YAML files** used by the
 email-triage agent's Pega router (see [`../pega_router.py`](../pega_router.py)).
 
+The shipped schemas cover the three highest-volume retirement-plan
+email categories:
+
+| Schema | Pega case type (placeholder) | What it represents |
+|---|---|---|
+| [`distribution_request.yaml`](distribution_request.yaml)         | `ITSM-Work-DistributionRequest`  | Participant taking money out — rollover, lump-sum at termination, RMD, in-service withdrawal |
+| [`loan_hardship_request.yaml`](loan_hardship_request.yaml)       | `ITSM-Work-LoanHardshipRequest`  | Participant requesting a 401(k) loan or a hardship withdrawal under IRS safe-harbor categories |
+| [`sponsor_inquiry.yaml`](sponsor_inquiry.yaml)                   | `ITSM-Work-SponsorInquiry`       | Employer-side question — plan amendments, compliance, contribution failures, audit support |
+
+> ## ⚠ Placeholder field names — swap with the real Pega team
+>
+> **The Pega field paths in these schemas are realistic-shaped placeholders, not live values.** They follow common Pega conventions (`Content.D_*.*`, `pyXxx`) so the agent code can be written + tested today, but they have NOT been validated against your live Pega tenant.
+>
+> When your Pega team is ready, swap in real values:
+>
+> 1. Get the real case-type ID for each → replace `pega_class:` (currently `ITSM-Work-*`)
+> 2. Get a working `POST /cases` payload from Pega Dev Studio's API tester per case type
+> 3. Replace each `mapping:` right-hand side with the actual Pega field path
+> 4. Confirm the `required:` list matches Pega's server-side validation
+> 5. Bump `schema_version` to `1.0` (or higher) in the same PR
+> 6. Re-capture snapshot tests in [`../tests/test_pega_router.py`](../tests/test_pega_router.py)
+>
+> **No agent code changes are needed for the swap.** That's the whole point of the schema-driven approach.
+
 ## How to add a new case type
 
-The whole point of this layout is that adding a Pega case type is a
-**configuration change, not a code change**:
+1. Get the Pega case-type ID from your Pega admin (e.g. `ITSM-Work-Beneficiary-Update`).
+2. Get a working `POST /cases` payload from Pega's Dev Studio → API tester. Hand-craft + verify it works against your sandbox tenant.
+3. Create `<case_type>.yaml` in this directory. Use one of the existing schemas as a template.
+4. Add a snapshot test in [`../tests/test_pega_router.py`](../tests/test_pega_router.py) asserting the captured payload matches your hand-crafted one.
+5. Wire the new case_type into `_classify_pega_case_type()` in [`../graph.py`](../graph.py) so the agent picks it up.
+6. Restart the agent — the registry loads at startup. No edits to `pega_router.py`, no redeploy of unrelated agents.
 
-1. Get the Pega case-type ID from your Pega admin (e.g.
-   `ITSM-Work-Liability`).
-2. Get a working `POST /cases` payload from Pega's Dev Studio →
-   API tester. Hand-craft + verify it works against your sandbox tenant
-   *before* writing the schema.
-3. Create `<case_type>.yaml` in this directory. Use
-   [`auto_claim.yaml`](auto_claim.yaml) as a template — it covers every
-   shape this loader supports.
-4. Add a snapshot test in
-   [`../tests/test_pega_router.py`](../tests/test_pega_router.py)
-   asserting the captured payload matches your hand-crafted one.
-5. Restart the agent — the registry loads at startup. No Python edits,
-   no agent edits, no redeploy of the agent code.
-
-## Files
-
-| File | Pega case type | Purpose |
-|---|---|---|
-| [`auto_claim.yaml`](auto_claim.yaml)         | `ITSM-Work-AutoClaim`     | AutoClaim case mapping |
-| [`property_claim.yaml`](property_claim.yaml) | `ITSM-Work-PropertyClaim` | PropertyClaim case mapping |
-
-Files starting with `_` (underscore) are ignored by the loader —
-useful for templates, shared fragments, or work-in-progress drafts.
+Files starting with `_` (underscore) are ignored by the loader.
 
 ## Schema fields
 
 | Key | Required | Notes |
 |---|---|---|
-| `case_type`      | ✅ | Unique key — must match the agent's classification output (e.g. `auto`, `property`). |
-| `pega_class`     | ✅ | Pega's case-type ID. From your Pega admin. |
+| `case_type`      | ✅ | Unique key — must match what the agent's `_classify_pega_case_type()` returns. |
+| `pega_class`     | ✅ | Pega's case-type ID. Get this from your Pega admin. |
 | `schema_version` | ✅ | Semver string. **Bump whenever the Pega case-type shape or required-fields list changes.** Lands in the audit row. |
 | `mapping`        | ✅ | `arc-field-path → pega-field-path`. Both sides accept dotted paths into nested dicts. |
 | `required`       | ⬜ | List of *Pega* field paths that must be non-empty after mapping. Payload is rejected before sending if any are missing. |
-| `defaults`       | ⬜ | Static fields injected on every payload of this case type (e.g. `pyStatusWork: Open`). |
-| `transforms`     | ⬜ | Per-field transformations (see below). |
+| `defaults`       | ⬜ | Static fields injected on every payload of this case type. |
+| `transforms`     | ⬜ | Per-field transformations: `round` (with `digits`), `upper`, `lower`, `date_iso8601`. |
 
-## Supported transforms
-
-Deliberately small surface — anything complex belongs in Python, not YAML.
-
-| Transform | Effect | Example |
-|---|---|---|
-| `round` (with `digits`) | Round numeric to N decimals | `claim_amount` → 2 decimals |
-| `upper`                 | `str.upper()` | `vehicle_vin` to uppercase |
-| `lower`                 | `str.lower()` | email normalisation |
-| `date_iso8601`          | Coerce to ISO 8601 string | incident dates |
-
-The short form `transforms: { field: upper }` is equivalent to
-`transforms: { field: { type: upper } }`. Use whichever reads cleaner.
-
-To add a new transform: extend `_apply_transform()` in
-[`../pega_router.py`](../pega_router.py) and document it here.
-
-## What lives here vs. in Python
+## What lives here vs in Python
 
 | Lives in YAML | Lives in Python (`pega_router.py`) |
 |---|---|
@@ -69,11 +58,6 @@ To add a new transform: extend `_apply_transform()` in
 | Required-field declarations | Path traversal helpers (`_get_path`, `_set_path`) |
 | Per-call defaults | Transform implementations |
 | Simple per-field transforms | Anything that needs a Pega lookup, multi-step coercion, or external state |
-
-The split exists so **Pega admins + compliance reviewers can read and
-edit the YAML without touching Python**. If your team finds you're
-adding Python overrides for every new case type, the YAML is missing a
-shape — promote it into the loader rather than scattering Python.
 
 ## Audit trail
 

@@ -1,200 +1,169 @@
-# Email Triage Agent — Synthetic Fixture Data
-# ─────────────────────────────────────────────
-# Covers a representative spread of email types, priorities, and edge cases.
-# Used by the harness for local development and the quality gate eval suite.
+# ──────────────────────────────────────────────────────────────────────────────
+# Retirement-Plan Email-Triage Agent — Synthetic Fixture Data
+# ──────────────────────────────────────────────────────────────────────────────
 #
-# Priority definitions:
-#   P1 — Critical: production down, major data loss, security incident
-#   P2 — High: significant degradation, VIP customer impacted
-#   P3 — Medium: non-critical issue, workaround available
-#   P4 — Low: question, minor request, general inquiry
+# Six fixture emails — two per Pega case type — exercising every gate:
+#
+#   distribution_request:
+#     RM-001  Routine rollover                   → ALLOW
+#     RM-002  Large lump-sum at termination       → ASK (>$25k threshold)
+#
+#   loan_hardship_request:
+#     RM-003  Standard 401(k) loan               → ALLOW
+#     RM-004  Hardship withdrawal (medical)      → ASK (all hardships gated)
+#
+#   sponsor_inquiry:
+#     RM-005  General contribution-upload issue   → ALLOW
+#     RM-006  ERISA compliance question          → ASK (compliance gate)
+#
+# Bonus: sender of RM-001 has fraud_flag=true in user.directory below — that
+# triggers the policy's hard-DENY rule, demonstrating the safety net.
+#
+# Used by the harness for local dev and eval suites.
 
 sources:
   email.inbox:
 
-    # ── P1 Incidents ────────────────────────────────────────────────────
-    - id: "email-001"
-      subject: "URGENT: Production portal completely down for all users"
+    # ── 1. Distribution: routine rollover (low value, ALLOW path) ───────────
+    - id: "RM-001"
+      subject: "Rollover request from my 401(k) at PLAN-9001"
       body: >
-        Our entire customer portal has been inaccessible since 6:45 AM EST.
-        All users are getting a 503 error. This is affecting approximately
-        12,000 active users and we are losing transactions in real time.
-        This is a P1 emergency. Please escalate immediately.
-      sender: "cto@enterprise-client.com"
-      sender_name: "David Chen"
-      received_at: "2026-04-24T11:45:00Z"
-      department: "Technology"
-      expected_intent: "incident"
-      expected_priority: "P1"
+        Hi, I'd like to roll over my 401(k) balance to my IRA at Fidelity.
+        My participant ID is P-12345 and the plan is PLAN-9001. The balance
+        is approximately $4,500. Please process the rollover and let me
+        know what paperwork I need to sign. My account number at Fidelity
+        is 999-888-777. Incident date: 2026-04-30.
+      sender: "alice.rollover@example.com"
+      sender_name: "Alice Rollover"
+      received_at: "2026-04-30T10:15:00Z"
+      department: "Participant Services"
+      expected_case_type: "distribution"
+      expected_subtype:   "rollover"
 
-    - id: "email-002"
-      subject: "Possible security breach - unauthorized access detected"
+    # ── 2. Distribution: high-value lump-sum at termination (ASK path) ──────
+    - id: "RM-002"
+      subject: "Lump sum distribution — leaving the company"
       body: >
-        Our security monitoring system has detected multiple failed login
-        attempts followed by a successful login from an unusual IP address
-        (185.220.101.x) for one of our admin accounts. We have locked the
-        account but need immediate investigation. Potential data exposure.
-      sender: "security@customer-corp.com"
-      sender_name: "Sarah Mitchell"
-      received_at: "2026-04-24T08:30:00Z"
-      department: "Security"
-      expected_intent: "incident"
-      expected_priority: "P1"
+        I'm leaving the company at the end of next week and want to take
+        my entire 401(k) balance as a lump sum distribution. My
+        participant ID is P-77821 and the plan is PLAN-9001. The current
+        balance is around $145,000. Please confirm tax withholding
+        details and the timeline. Incident date: 2026-04-29.
+      sender: "bob.terminating@example.com"
+      sender_name: "Bob Terminator"
+      received_at: "2026-04-29T14:22:00Z"
+      department: "Participant Services"
+      expected_case_type: "distribution"
+      expected_subtype:   "lump_sum"
 
-    # ── P2 Incidents ────────────────────────────────────────────────────
-    - id: "email-003"
-      subject: "API integration failing - affecting 30% of transactions"
+    # ── 3. Loan / Hardship: standard 401(k) loan (low value, ALLOW path) ─
+    - id: "RM-003"
+      subject: "Request for a 401(k) loan"
       body: >
-        Since the deployment this morning, our payment API integration has
-        been returning 504 timeout errors on approximately 30% of requests.
-        Transactions are failing intermittently. We have a workaround in
-        place but it is manual and not sustainable. Need resolution today.
-      sender: "platform-team@partner-bank.com"
-      sender_name: "James Rodriguez"
-      received_at: "2026-04-24T10:15:00Z"
-      department: "Platform Engineering"
-      expected_intent: "incident"
-      expected_priority: "P2"
+        I'd like to take a loan against my 401(k) for some unexpected
+        expenses. Participant P-44210, plan PLAN-9001. Loan amount:
+        $12,500. Repayment over 60 months via payroll. Please confirm
+        the application steps. Incident date: 2026-04-30.
+      sender: "carol.loan@example.com"
+      sender_name: "Carol Borrower"
+      received_at: "2026-04-30T09:05:00Z"
+      department: "Participant Services"
+      expected_case_type: "loan_hardship"
+      expected_subtype:   "loan"
 
-    - id: "email-004"
-      subject: "Reports not generating for VIP client - month end close"
+    # ── 4. Loan / Hardship: medical hardship withdrawal (always ASK) ─────
+    - id: "RM-004"
+      subject: "Hardship withdrawal — medical bills"
       body: >
-        Our largest enterprise client (Acme Corp, $2M ARR) cannot generate
-        their month-end reports. The export function is timing out after
-        2 minutes. Their finance team needs these reports for board review
-        tomorrow morning. Please treat as urgent.
-      sender: "account-manager@ourcompany.com"
-      sender_name: "Lisa Park"
-      received_at: "2026-04-24T14:00:00Z"
-      department: "Customer Success"
-      expected_intent: "incident"
-      expected_priority: "P2"
+        My spouse was hospitalized last month and we have $18,000 in
+        out-of-pocket medical bills not covered by insurance. I need to
+        take a hardship withdrawal from my 401(k) to cover them. I have
+        attached the hospital documentation. Participant P-30015, plan
+        PLAN-9001. Incident date: 2026-04-28.
+      sender: "dan.medical@example.com"
+      sender_name: "Dan Medical"
+      received_at: "2026-04-28T16:40:00Z"
+      department: "Participant Services"
+      expected_case_type: "loan_hardship"
+      expected_subtype:   "hardship"
 
-    # ── P3 Incidents ────────────────────────────────────────────────────
-    - id: "email-005"
-      subject: "Dashboard widget showing wrong date range"
+    # ── 5. Sponsor inquiry: contribution upload failure (ALLOW path) ─────
+    - id: "RM-005"
+      subject: "Contribution upload failed for the April payroll"
       body: >
-        The portfolio performance widget on the main dashboard appears to
-        be showing data for the wrong date range. When I select "Last 30 days"
-        it seems to be showing 45 days of data. Not critical but it is
-        confusing our team. Please investigate when you have a chance.
-      sender: "ops-user@client-company.com"
-      sender_name: "Tom Wilson"
-      received_at: "2026-04-24T13:20:00Z"
-      department: "Operations"
-      expected_intent: "incident"
-      expected_priority: "P3"
+        Hi, our weekly contribution upload for April payroll failed with
+        a validation error. We're the plan sponsor for PLAN-9001 and the
+        sponsor ID is SPONSOR-ACME. Could the operations team look at
+        the failed file and tell us what to fix? Deferral correction may
+        also be needed. Incident date: 2026-04-29.
+      sender: "ops@acme-employer.com"
+      sender_name: "Acme HR Operations"
+      received_at: "2026-04-29T12:00:00Z"
+      department: "Plan Sponsor Services"
+      expected_case_type: "sponsor_inquiry"
+      expected_subtype:   "contribution"
 
-    - id: "email-006"
-      subject: "Slow response times on the analytics module"
+    # ── 6. Sponsor inquiry: ERISA compliance question (ASK path) ─────────
+    - id: "RM-006"
+      subject: "ADP test failure — need ERISA compliance guidance"
       body: >
-        Over the past week the analytics reports have been taking 45-60 seconds
-        to load. It used to be under 10 seconds. There is a workaround —
-        we can export to CSV and use that — but the in-app performance
-        has degraded noticeably. Not blocking but worth fixing.
-      sender: "data-team@analytics-client.com"
-      sender_name: "Emma Thompson"
-      received_at: "2026-04-24T09:45:00Z"
-      department: "Data Analytics"
-      expected_intent: "incident"
-      expected_priority: "P3"
+        Our ADP test for the 2025 plan year failed by a wider margin
+        than expected. We need ERISA compliance guidance on the
+        corrective options (refunds vs QNECs vs safe-harbor amendment).
+        Sponsor SPONSOR-ACME, plan PLAN-9001. The 5500 filing deadline
+        is approaching. Please escalate to ERISA counsel.
+      sender: "compliance@acme-employer.com"
+      sender_name: "Acme Compliance Team"
+      received_at: "2026-04-30T08:30:00Z"
+      department: "Plan Sponsor Services"
+      expected_case_type: "sponsor_inquiry"
+      expected_subtype:   "compliance"
 
-    # ── P4 Requests / Questions ──────────────────────────────────────────
-    - id: "email-007"
-      subject: "How do I add a new user to our account?"
-      body: >
-        Hi, I am the new admin for our company account. I need to add three
-        new team members but I cannot find the option in the settings panel.
-        Could you point me to the right place? Thanks.
-      sender: "new-admin@small-business.com"
-      sender_name: "Rachel Green"
-      received_at: "2026-04-24T11:00:00Z"
-      department: "General"
-      expected_intent: "question"
-      expected_priority: "P4"
-
-    - id: "email-008"
-      subject: "Request to update our billing address"
-      body: >
-        We have moved offices and need to update the billing address on our
-        account to: 123 New Street, Austin TX 78701. Please also update
-        the contact email for invoices to finance@newaddress.com.
-        Thank you.
-      sender: "admin@client-business.com"
-      sender_name: "Mark Johnson"
-      received_at: "2026-04-24T10:30:00Z"
-      department: "Finance"
-      expected_intent: "request"
-      expected_priority: "P4"
-
-    - id: "email-009"
-      subject: "Complaint - waited 3 days for response on previous ticket"
-      body: >
-        I submitted a support ticket (TKT-4521) three days ago about our
-        integration issue and have not received any response. This is
-        unacceptable for a paid enterprise plan. We expect a response within
-        4 hours per our SLA agreement. Please escalate this immediately.
-      sender: "frustrated-customer@enterprise.com"
-      sender_name: "Barbara Williams"
-      received_at: "2026-04-24T15:30:00Z"
-      department: "Enterprise"
-      expected_intent: "complaint"
-      expected_priority: "P2"
-
-    - id: "email-010"
-      subject: "Feature request - bulk export for audit reports"
-      body: >
-        For our upcoming compliance audit we need to export 18 months of
-        transaction history. The current UI only allows 3-month exports
-        and we would need to do this 6 times. Could you either extend
-        the export range or provide a bulk export tool? Happy to discuss.
-      sender: "compliance@regulated-firm.com"
-      sender_name: "Andrew Davies"
-      received_at: "2026-04-24T12:00:00Z"
-      department: "Compliance"
-      expected_intent: "request"
-      expected_priority: "P4"
-
+  # ── Participant + sponsor directory ──────────────────────────────────────
   user.directory:
-    "cto@enterprise-client.com":
-      name: "David Chen"
-      tier: "enterprise"
-      account_value: 500000
-      department: "Technology"
-    "security@customer-corp.com":
-      name: "Sarah Mitchell"
-      tier: "enterprise"
-      account_value: 200000
-      department: "Security"
-    "platform-team@partner-bank.com":
-      name: "James Rodriguez"
-      tier: "partner"
-      account_value: 150000
-      department: "Engineering"
-    "account-manager@ourcompany.com":
-      name: "Lisa Park"
-      tier: "internal"
-      account_value: 0
-      department: "Customer Success"
-    "frustrated-customer@enterprise.com":
-      name: "Barbara Williams"
-      tier: "enterprise"
-      account_value: 250000
-      department: "Enterprise"
+    alice.rollover@example.com:
+      name:        "Alice Rollover"
+      tier:        "standard"
+      vip:         false
+      fraud_flag:  false
+      participant_id: "P-12345"
+      plan_id:     "PLAN-9001"
+    bob.terminating@example.com:
+      name:        "Bob Terminator"
+      tier:        "standard"
+      vip:         false
+      fraud_flag:  false
+      participant_id: "P-77821"
+      plan_id:     "PLAN-9001"
+    carol.loan@example.com:
+      name:        "Carol Borrower"
+      tier:        "standard"
+      vip:         false
+      fraud_flag:  false
+      participant_id: "P-44210"
+      plan_id:     "PLAN-9001"
+    dan.medical@example.com:
+      name:        "Dan Medical"
+      tier:        "standard"
+      vip:         false
+      fraud_flag:  false
+      participant_id: "P-30015"
+      plan_id:     "PLAN-9001"
+    ops@acme-employer.com:
+      name:           "Acme HR Operations"
+      role:           "sponsor_admin"
+      sponsor_id:     "SPONSOR-ACME"
+      sponsor_company: "Acme Industries Inc."
+    compliance@acme-employer.com:
+      name:           "Acme Compliance Team"
+      role:           "sponsor_compliance"
+      sponsor_id:     "SPONSOR-ACME"
+      sponsor_company: "Acme Industries Inc."
 
-  knowledge.articles:
-    "portal-down":
-      id: "KB-001"
-      title: "Troubleshooting portal 503 errors"
-      content: "Check load balancer health, verify database connections, review recent deployments"
-      relevance_tags: ["503", "portal", "down", "production"]
-    "api-timeout":
-      id: "KB-002"
-      title: "API timeout troubleshooting guide"
-      content: "Common causes: connection pool exhaustion, slow queries, network latency. Check APM dashboard."
-      relevance_tags: ["timeout", "504", "api", "integration"]
-    "user-management":
-      id: "KB-003"
-      title: "How to add users to your account"
-      content: "Navigate to Settings > Team > Add Member. Enter email address and select role."
-      relevance_tags: ["user", "add", "admin", "settings"]
+  # ── Recent-cases index (used by the duplicate-detect node) ──────────────
+  ticket.system:
+    by_participant:
+      P-12345: []
+      P-77821: []
+      P-44210: []
+      P-30015: []
