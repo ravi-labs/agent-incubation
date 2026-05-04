@@ -99,10 +99,12 @@ def platform_data(tmp_path: Path) -> PlatformData:
         justification="ROI signed off",
     ))
 
+    corrections_path = tmp_path / "corrections.jsonl"
     config = PlatformDataConfig(
         manifest_root=manifest_root,
         audit_log_path=audit_path,
         promotion_log_path=promotion_path,
         pending_approvals_path=pending_path,
+        corrections_log_path=corrections_path,
     )
     return PlatformData(config)

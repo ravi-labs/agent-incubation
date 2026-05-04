@@ -21,15 +21,20 @@ from typing import Any
 
 from arc.core import (
     AgentManifest,
+    AgentStatus,
+    Correction,
     DirectoryManifestStore,
     GateChecker,
+    JsonlCorrectionsStore,
     JsonlPendingApprovalStore,
     JsonlPromotionAuditLog,
     LifecycleStage,
     PromotionDecision,
     PromotionOutcome,
     PromotionService,
+    SEVERITY_LEVELS,
     apply_decision,
+    save_manifest,
 )
 
 
@@ -152,6 +157,7 @@ class PlatformDataConfig:
     audit_log_path: Path | None = None            # JsonlAuditSink path
     promotion_log_path: Path | None = None        # JsonlPromotionAuditLog path
     pending_approvals_path: Path | None = None    # JsonlPendingApprovalStore path
+    corrections_log_path: Path | None = None      # JsonlCorrectionsStore path
 
     @classmethod
     def default(cls, repo_root: Path | None = None) -> "PlatformDataConfig":
@@ -162,6 +168,7 @@ class PlatformDataConfig:
             audit_log_path=root / "audit.jsonl",
             promotion_log_path=root / "promotions.jsonl",
             pending_approvals_path=root / "pending-approvals.jsonl",
+            corrections_log_path=root / "corrections.jsonl",
         )
 
 
@@ -378,3 +385,258 @@ class PlatformData:
             "REJECTED": sum(1 for d in decisions if d.outcome == PromotionOutcome.REJECTED),
             "DEFERRED": sum(1 for d in decisions if d.outcome == PromotionOutcome.DEFERRED),
         }
+
+    # ── Suspend / resume (kill switch via dashboard) ────────────────────
+
+    def suspend_agent(
+        self,
+        agent_id: str,
+        *,
+        reviewer: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """Set the agent's manifest status to ``suspended`` + write an audit row.
+
+        Mirrors what ``arc agent suspend`` does on the CLI, but reachable
+        from the dashboard so an ops on-call can stop an agent without
+        SSHing into a host.
+
+        Returns:
+            { "agent_id": ..., "status": "suspended",
+              "suspended_by": ..., "suspended_at": ISO 8601, "reason": ... }
+
+        Raises:
+            ValueError: agent already suspended
+            KeyError:   agent not found
+            RuntimeError: manifest store not configured
+        """
+        store = self.manifest_store()
+        if store is None:
+            raise RuntimeError(
+                "Cannot suspend — no manifest_root configured on PlatformDataConfig."
+            )
+        if not store.exists(agent_id):
+            raise KeyError(f"agent not found: {agent_id}")
+        if not reviewer:
+            raise ValueError("reviewer is required (no anonymous suspends)")
+        if not reason or not reason.strip():
+            raise ValueError(
+                "reason is required for suspend — every kill-switch action "
+                "needs an audit trail of *why*"
+            )
+
+        manifest = store.load(agent_id)
+        if manifest.status == AgentStatus.SUSPENDED:
+            raise ValueError(f"agent {agent_id} is already suspended")
+
+        manifest.status = AgentStatus.SUSPENDED
+        store.save(manifest)
+
+        return self._record_status_change(
+            agent_id=agent_id,
+            new_status="suspended",
+            reviewer=reviewer,
+            reason=reason,
+        )
+
+    def resume_agent(
+        self,
+        agent_id: str,
+        *,
+        reviewer: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """Flip a suspended agent back to ``active``. Audit-trailed."""
+        store = self.manifest_store()
+        if store is None:
+            raise RuntimeError("no manifest_root configured")
+        if not store.exists(agent_id):
+            raise KeyError(f"agent not found: {agent_id}")
+        if not reviewer:
+            raise ValueError("reviewer is required")
+
+        manifest = store.load(agent_id)
+        if manifest.status == AgentStatus.ACTIVE:
+            raise ValueError(f"agent {agent_id} is already active")
+
+        manifest.status = AgentStatus.ACTIVE
+        store.save(manifest)
+
+        return self._record_status_change(
+            agent_id=agent_id,
+            new_status="active",
+            reviewer=reviewer,
+            reason=reason or "resumed",
+        )
+
+    def _record_status_change(
+        self,
+        *,
+        agent_id: str,
+        new_status: str,
+        reviewer: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """Common audit trail for suspend + resume.
+
+        We piggyback on the audit JSONL — same file, same shape. The
+        dashboard can then surface "suspended by alice@ at 14:31" by
+        reading the audit log without a separate store.
+        """
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        record = {
+            "timestamp":  ts,
+            "agent_id":   agent_id,
+            "tool":       "platform-control",
+            "effect":     f"agent.{new_status}",
+            "decision":   "ALLOW",
+            "reason":     reason,
+            "intent_action": new_status,
+            "reviewer":   reviewer,
+            "metadata":   {
+                "kind":       "status-change",
+                "new_status": new_status,
+            },
+        }
+        if self.config.audit_log_path is not None:
+            self.config.audit_log_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.config.audit_log_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(record) + "\n")
+        return {
+            "agent_id":   agent_id,
+            "status":     new_status,
+            "actor":      reviewer,
+            "at":         ts,
+            "reason":     reason,
+        }
+
+    # ── Live stats (top header on the live page) ────────────────────────
+
+    def agent_stats(
+        self,
+        agent_id: str,
+        *,
+        window_minutes: int = 60 * 24,
+    ) -> dict[str, Any]:
+        """Rolling-window counts for one agent over the last N minutes.
+
+        Returns five numbers + the decision distribution + the top
+        case_type (when emitted as audit metadata). Drives the top
+        header card on the live page.
+        """
+        from datetime import datetime, timedelta, timezone
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
+        cutoff_iso = cutoff.isoformat()
+
+        events = self.list_audit_events(limit=None, agent_id=agent_id)
+        events = [e for e in events if e.timestamp >= cutoff_iso]
+
+        decisions: dict[str, int] = {"ALLOW": 0, "ASK": 0, "DENY": 0}
+        case_type_counts: dict[str, int] = {}
+        for ev in events:
+            decisions[ev.decision] = decisions.get(ev.decision, 0) + 1
+
+        # Pull case_type from metadata if the audit row carries it.
+        # The retirement email-triage agent puts it on every ticket.create.
+        path = self.config.audit_log_path
+        if path is not None and path.exists():
+            with path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        raw = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if str(raw.get("agent_id")) != agent_id:
+                        continue
+                    if str(raw.get("timestamp", "")) < cutoff_iso:
+                        continue
+                    md = raw.get("metadata") or {}
+                    ct = md.get("case_type") or (raw.get("params") or {}).get("case_type")
+                    if ct:
+                        case_type_counts[ct] = case_type_counts.get(ct, 0) + 1
+
+        top_case_type = (
+            max(case_type_counts.items(), key=lambda kv: kv[1])[0]
+            if case_type_counts else ""
+        )
+
+        total = sum(decisions.values())
+        return {
+            "agent_id":          agent_id,
+            "window_minutes":    window_minutes,
+            "total":             total,
+            "decisions":         decisions,
+            "decision_pct": {
+                k: (round(v / total * 100, 1) if total else 0.0)
+                for k, v in decisions.items()
+            },
+            "case_types":        case_type_counts,
+            "top_case_type":     top_case_type,
+            "pending_approvals": sum(
+                1 for a in self.pending_approvals() if a.agent_id == agent_id
+            ),
+        }
+
+    # ── Corrections (feedback loop layer 1 + 2) ─────────────────────────
+
+    def corrections_store(self) -> JsonlCorrectionsStore | None:
+        path = self.config.corrections_log_path
+        if path is None:
+            return None
+        return JsonlCorrectionsStore(path)
+
+    def record_correction(
+        self,
+        *,
+        agent_id: str,
+        audit_row_id: str,
+        reviewer: str,
+        severity: str,
+        reason: str,
+        original_decision: dict[str, Any],
+        corrected_decision: dict[str, Any],
+        schema_version: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> Correction:
+        """Append a correction. Validates inputs; raises on bad input."""
+        store = self.corrections_store()
+        if store is None:
+            raise RuntimeError("no corrections_log_path configured")
+
+        c = Correction.new(
+            agent_id           = agent_id,
+            audit_row_id       = audit_row_id,
+            reviewer           = reviewer,
+            severity           = severity,
+            reason             = reason,
+            original_decision  = original_decision,
+            corrected_decision = corrected_decision,
+            schema_version     = schema_version,
+            metadata           = metadata,
+        )
+        store.record(c)
+        return c
+
+    def list_corrections(
+        self,
+        *,
+        agent_id: str | None = None,
+        limit: int | None = 100,
+        since: str | None = None,
+    ) -> list[Correction]:
+        store = self.corrections_store()
+        if store is None:
+            return []
+        return store.list(agent_id=agent_id, limit=limit, since=since)
+
+    def corrections_summary(
+        self,
+        *,
+        agent_id: str | None = None,
+        since: str | None = None,
+    ) -> dict[str, Any]:
+        store = self.corrections_store()
+        if store is None:
+            return {"total": 0, "by_severity": {}, "by_reviewer": {}, "top_patterns": []}
+        return store.summary(agent_id=agent_id, since=since)

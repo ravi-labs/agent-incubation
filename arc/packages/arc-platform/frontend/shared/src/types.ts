@@ -88,3 +88,21 @@ export interface PromotionSummary {
 export interface AgentsByStage {
   [stage: string]: AgentSummary[];
 }
+
+// ── Feedback (corrections) ────────────────────────────────────────────────
+
+export type CorrectionSeverity = "minor" | "moderate" | "critical";
+
+export interface Correction {
+  correction_id:       string;
+  timestamp:           string;
+  agent_id:            string;
+  audit_row_id:        string;
+  reviewer:            string;
+  severity:            CorrectionSeverity;
+  reason:              string;
+  original_decision:   Record<string, unknown>;
+  corrected_decision:  Record<string, unknown>;
+  schema_version:      string;
+  metadata:            Record<string, unknown>;
+}

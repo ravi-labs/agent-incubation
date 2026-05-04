@@ -47,6 +47,12 @@ from arc.core.manifest import (
     save_manifest,
 )
 from arc.core.config_loader import load_env_file
+from arc.core.feedback import (
+    Correction,
+    CorrectionsStore,
+    JsonlCorrectionsStore,
+    SEVERITY_LEVELS,
+)
 from arc.core.llm import LLMClient, LLMConfig, resolve_llm
 from arc.core.slo import (
     DemotionMode,
@@ -153,6 +159,8 @@ __all__ = [
     "LLMClient", "LLMConfig", "resolve_llm",
     # Config loading (.env support)
     "load_env_file",
+    # Feedback loop (corrections)
+    "Correction", "CorrectionsStore", "JsonlCorrectionsStore", "SEVERITY_LEVELS",
     # SLOs (auto-demotion)
     "SLOConfig", "SLORule", "SLOEvaluation", "SLOReport",
     "DemotionMode", "evaluate_slo", "parse_window_seconds",
