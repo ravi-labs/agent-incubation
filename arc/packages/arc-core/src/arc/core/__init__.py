@@ -53,6 +53,13 @@ from arc.core.feedback import (
     JsonlCorrectionsStore,
     SEVERITY_LEVELS,
 )
+from arc.core.redactor import (
+    BARE_SSN_PATTERN,
+    DEFAULT_PATTERNS,
+    Pattern,
+    RedactingAuditSink,
+    Redactor,
+)
 from arc.core.llm import LLMClient, LLMConfig, resolve_llm
 from arc.core.slo import (
     DemotionMode,
@@ -161,6 +168,9 @@ __all__ = [
     "load_env_file",
     # Feedback loop (corrections)
     "Correction", "CorrectionsStore", "JsonlCorrectionsStore", "SEVERITY_LEVELS",
+    # Data redaction (PII patterns, audit sink wrapper)
+    "Redactor", "Pattern", "RedactingAuditSink",
+    "DEFAULT_PATTERNS", "BARE_SSN_PATTERN",
     # SLOs (auto-demotion)
     "SLOConfig", "SLORule", "SLOEvaluation", "SLOReport",
     "DemotionMode", "evaluate_slo", "parse_window_seconds",

@@ -199,6 +199,9 @@ Each is a separate test in `arc-core/tests/test_base_agent.py` and
 - [Architecture diagrams](../architecture-diagrams.md#3-layered-governance--every-action-funnels-through-the-same-stack)
   — diagrams 3 and 4 show the layered governance stack and the canonical
   `run_effect` sequence.
+- [Data redaction](data-redaction.md) — pattern-based PII redaction at the
+  audit sink + LLM boundary. The bright line between agent code (sees
+  real values) and external systems (see redacted values).
 - [Effects](effects.md) — the typed vocabulary that ControlTower
   evaluates.
 - [Lifecycle](lifecycle.md) — governance over time (the promotion
