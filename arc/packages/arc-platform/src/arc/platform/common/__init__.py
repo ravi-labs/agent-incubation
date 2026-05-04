@@ -13,10 +13,14 @@ from .data import (
     PlatformDataConfig,
 )
 
+# Re-export Correction so frontends + tests can import from one place.
+from arc.core import Correction
+
 __all__ = [
     "PlatformData",
     "PlatformDataConfig",
     "AgentSummary",
     "AuditEvent",
     "PendingApproval",
+    "Correction",
 ]

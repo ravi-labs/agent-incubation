@@ -208,3 +208,155 @@ class TestDecideEndpoint:
             json={"approve": True},  # reviewer missing
         )
         assert r.status_code == 422
+
+
+# ── Suspend / Resume — kill switches via dashboard ─────────────────────────
+
+
+class TestSuspendResume:
+    def test_suspend_unknown_agent_404(self, platform_data: PlatformData):
+        r = _client(platform_data).post(
+            "/api/agents/ghost/suspend",
+            json={"reviewer": "ops@", "reason": "test"},
+        )
+        assert r.status_code == 404
+
+    def test_suspend_requires_reason(self, platform_data: PlatformData):
+        # Pydantic min_length=1 → 422 before the data layer runs.
+        r = _client(platform_data).post(
+            "/api/agents/alpha/suspend",
+            json={"reviewer": "ops@", "reason": ""},
+        )
+        assert r.status_code == 422
+
+    def test_suspend_then_resume_audit_trail(self, platform_data: PlatformData):
+        client = _client(platform_data)
+
+        r1 = client.post(
+            "/api/agents/alpha/suspend",
+            json={"reviewer": "ops@", "reason": "incident-1234"},
+        )
+        assert r1.status_code == 200, r1.text
+        body = r1.json()
+        assert body["status"]   == "suspended"
+        assert body["actor"]    == "ops@"
+        assert body["reason"]   == "incident-1234"
+
+        # Verify the manifest's status now says suspended
+        r2 = client.get("/api/agents/alpha")
+        assert r2.json()["status"] == "suspended"
+
+        # Re-suspend → 409 (already suspended)
+        r3 = client.post(
+            "/api/agents/alpha/suspend",
+            json={"reviewer": "ops@", "reason": "again"},
+        )
+        assert r3.status_code == 409
+
+        # Resume → 200 + status flips back
+        r4 = client.post(
+            "/api/agents/alpha/resume",
+            json={"reviewer": "ops@", "reason": "incident closed"},
+        )
+        assert r4.status_code == 200
+        assert r4.json()["status"] == "active"
+
+        # Re-resume → 409
+        r5 = client.post(
+            "/api/agents/alpha/resume",
+            json={"reviewer": "ops@"},
+        )
+        assert r5.status_code == 409
+
+
+# ── Stats endpoint ─────────────────────────────────────────────────────────
+
+
+class TestStatsEndpoint:
+    def test_stats_unknown_agent_404(self, platform_data: PlatformData):
+        r = _client(platform_data).get("/api/agents/ghost/stats")
+        assert r.status_code == 404
+
+    def test_stats_returns_decisions_breakdown(self, platform_data: PlatformData):
+        # Use a wide window so the 2026-04 fixture audit rows are included.
+        # 1 month back = ~43,200 minutes.
+        r = _client(platform_data).get("/api/agents/alpha/stats?window_minutes=43200")
+        assert r.status_code == 200
+        body = r.json()
+        # alpha has 2 audit rows in conftest (1 ALLOW, 1 ASK)
+        assert body["agent_id"] == "alpha"
+        assert "decisions" in body
+        assert set(body["decisions"]) == {"ALLOW", "ASK", "DENY"}
+        assert body["total"] >= 1
+
+
+# ── Corrections endpoints (feedback layer 1+2) ─────────────────────────────
+
+
+class TestCorrectionsEndpoints:
+    def _record_one(self, client: TestClient, agent: str = "alpha", **overrides) -> dict:
+        body = {
+            "audit_row_id":      "row-abc",
+            "reviewer":          "alice@compliance",
+            "severity":          "moderate",
+            "reason":            "wrong case_type",
+            "original_decision":  {"case_type": "loan_hardship"},
+            "corrected_decision": {"case_type": "distribution"},
+            **overrides,
+        }
+        r = client.post(f"/api/agents/{agent}/corrections", json=body)
+        return r.json() | {"_status": r.status_code}
+
+    def test_record_round_trip(self, platform_data: PlatformData):
+        client = _client(platform_data)
+        recorded = self._record_one(client)
+        assert recorded["_status"] == 200
+        assert recorded["correction_id"].startswith("corr-")
+
+        # Fetch back
+        rows = client.get("/api/agents/alpha/corrections").json()
+        assert len(rows) == 1
+        assert rows[0]["correction_id"] == recorded["correction_id"]
+        assert rows[0]["original_decision"] == {"case_type": "loan_hardship"}
+
+    def test_record_unknown_agent_404(self, platform_data: PlatformData):
+        client = _client(platform_data)
+        r = client.post(
+            "/api/agents/ghost/corrections",
+            json={
+                "audit_row_id": "x", "reviewer": "r", "severity": "minor",
+                "reason": "", "original_decision": {}, "corrected_decision": {},
+            },
+        )
+        assert r.status_code == 404
+
+    def test_record_bad_severity_422(self, platform_data: PlatformData):
+        client = _client(platform_data)
+        result = self._record_one(client, severity="extreme")
+        assert result["_status"] == 422
+
+    def test_record_anonymous_reviewer_422(self, platform_data: PlatformData):
+        client = _client(platform_data)
+        result = self._record_one(client, reviewer="")
+        assert result["_status"] == 422
+
+    def test_summary_returns_buckets(self, platform_data: PlatformData):
+        client = _client(platform_data)
+        for sev in ("minor", "moderate", "moderate", "critical"):
+            self._record_one(client, severity=sev)
+        s = client.get("/api/agents/alpha/corrections/summary").json()
+        assert s["total"] == 4
+        assert s["by_severity"]["moderate"] == 2
+        assert s["by_severity"]["critical"] == 1
+        assert s["by_severity"]["minor"]    == 1
+
+    def test_filter_by_agent(self, platform_data: PlatformData):
+        client = _client(platform_data)
+        self._record_one(client, agent="alpha")
+        self._record_one(client, agent="beta")
+        self._record_one(client, agent="alpha")
+
+        alpha_rows = client.get("/api/agents/alpha/corrections").json()
+        beta_rows  = client.get("/api/agents/beta/corrections").json()
+        assert len(alpha_rows) == 2
+        assert len(beta_rows)  == 1

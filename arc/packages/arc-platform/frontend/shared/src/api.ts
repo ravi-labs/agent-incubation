@@ -11,6 +11,7 @@ import type {
   AgentsByStage,
   AuditEvent,
   AuditSummary,
+  Correction,
   PendingApproval,
   PromotionSummary,
   ResolveApprovalRequest,
@@ -85,6 +86,88 @@ export class ApiClient {
 
   getAgent(agentId: string): Promise<AgentSummary> {
     return this.get(`/api/agents/${encodeURIComponent(agentId)}`);
+  }
+
+  // ── Suspend / Resume (kill switch) ────────────────────────────────────
+
+  suspendAgent(
+    agentId: string,
+    body: { reviewer: string; reason: string },
+  ): Promise<{ agent_id: string; status: string; actor: string; at: string; reason: string }> {
+    return this.post(`/api/agents/${encodeURIComponent(agentId)}/suspend`, body);
+  }
+
+  resumeAgent(
+    agentId: string,
+    body: { reviewer: string; reason?: string },
+  ): Promise<{ agent_id: string; status: string; actor: string; at: string; reason: string }> {
+    return this.post(`/api/agents/${encodeURIComponent(agentId)}/resume`, body);
+  }
+
+  // ── Live stats ────────────────────────────────────────────────────────
+
+  agentStats(
+    agentId: string,
+    windowMinutes: number = 60 * 24,
+  ): Promise<{
+    agent_id: string;
+    window_minutes: number;
+    total: number;
+    decisions: { ALLOW: number; ASK: number; DENY: number };
+    decision_pct: { ALLOW: number; ASK: number; DENY: number };
+    case_types: Record<string, number>;
+    top_case_type: string;
+    pending_approvals: number;
+  }> {
+    return this.get(
+      `/api/agents/${encodeURIComponent(agentId)}/stats?window_minutes=${windowMinutes}`,
+    );
+  }
+
+  // ── Corrections (feedback loop) ───────────────────────────────────────
+
+  recordCorrection(
+    agentId: string,
+    body: {
+      audit_row_id: string;
+      reviewer: string;
+      severity: "minor" | "moderate" | "critical";
+      reason: string;
+      original_decision: Record<string, unknown>;
+      corrected_decision: Record<string, unknown>;
+      schema_version?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<Correction> {
+    return this.post(`/api/agents/${encodeURIComponent(agentId)}/corrections`, body);
+  }
+
+  listCorrections(
+    agentId: string,
+    opts: { limit?: number; since?: string } = {},
+  ): Promise<Correction[]> {
+    const params = new URLSearchParams();
+    if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+    if (opts.since) params.set("since", opts.since);
+    const qs = params.toString();
+    return this.get(
+      `/api/agents/${encodeURIComponent(agentId)}/corrections${qs ? "?" + qs : ""}`,
+    );
+  }
+
+  correctionsSummary(
+    agentId: string,
+    since?: string,
+  ): Promise<{
+    total: number;
+    by_severity: Record<string, number>;
+    by_reviewer: Record<string, number>;
+    top_patterns: Array<{ pattern: string; count: number }>;
+  }> {
+    const qs = since ? `?since=${encodeURIComponent(since)}` : "";
+    return this.get(
+      `/api/agents/${encodeURIComponent(agentId)}/corrections/summary${qs}`,
+    );
   }
 
   // ── Audit ─────────────────────────────────────────────────────────────
