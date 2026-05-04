@@ -1,6 +1,7 @@
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import Overview from "./pages/Overview";
 import Agents from "./pages/Agents";
+import AgentLive from "./pages/AgentLive";
 import Approvals from "./pages/Approvals";
 
 export default function App() {
@@ -17,10 +18,11 @@ export default function App() {
       </aside>
       <main className="main">
         <Routes>
-          <Route path="/"          element={<Overview />} />
-          <Route path="/agents"    element={<Agents />} />
-          <Route path="/approvals" element={<Approvals />} />
-          <Route path="*"          element={<Navigate to="/" replace />} />
+          <Route path="/"                       element={<Overview />} />
+          <Route path="/agents"                 element={<Agents />} />
+          <Route path="/agents/:agentId/live"   element={<AgentLive />} />
+          <Route path="/approvals"              element={<Approvals />} />
+          <Route path="*"                       element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>

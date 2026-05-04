@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api, useFetch, ApiError } from "@arc/shared";
 import type { AgentSummary } from "@arc/shared";
 
@@ -56,7 +57,23 @@ export default function Agents() {
               </td>
               <td>{a.environment}</td>
               <td>{a.allowed_effects.length}</td>
-              <td>
+              <td style={{ whiteSpace: "nowrap" }}>
+                <Link
+                  to={`/agents/${encodeURIComponent(a.agent_id)}/live`}
+                  style={{
+                    display: "inline-block",
+                    padding: "4px 10px",
+                    marginRight: "0.5rem",
+                    borderRadius: "4px",
+                    border: "1px solid var(--border, #ccc)",
+                    color: "var(--text, #333)",
+                    background: "transparent",
+                    textDecoration: "none",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  View live
+                </Link>
                 <button
                   className="btn"
                   onClick={() => setTarget(a)}
