@@ -1,0 +1,57 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Pega case-type schema: Plan Sponsor Inquiry
+#
+# Employers (the plan sponsors) asking questions about plan
+# administration: amendments, compliance issues, contribution upload
+# failures, audit support, 5500 filing, ADP/ACP testing, eligibility
+# rule changes. Lower volume than participant cases but higher per-case
+# complexity — usually involves the plan attorney or actuary.
+#
+# Sponsor inquiries route to the plan-admin team by default; compliance
+# subcategory routes to ERISA compliance reviewers.
+#
+# Maintained by:  retirement-operations + Pega platform team
+# Last reviewed:  2026-05-03
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# ⚠  PLACEHOLDER PEGA FIELD NAMES  ⚠  See distribution_request.yaml header
+# for the swap-in protocol when the live Pega tenant is ready.
+
+case_type:      sponsor_inquiry
+pega_class:     ITSM-Work-SponsorInquiry    # placeholder
+schema_version: "0.1.0-placeholder"
+
+# arc-field-path → Pega-field-path
+mapping:
+  sponsor_id:               Content.D_Sponsor.SponsorID
+  sponsor_company:          Content.D_Sponsor.CompanyName
+  plan_id:                  Content.D_Plan.PlanID
+  inquiry_category:         Content.D_Inquiry.Category
+  inquiry_summary:          Content.D_Inquiry.Summary
+  related_filing:           Content.D_Inquiry.RelatedFiling
+  filing_deadline:          Content.D_Inquiry.FilingDeadline
+  related_documents:        Content.D_Inquiry.AttachedDocuments
+  request_date:             Content.D_Inquiry.RequestDate
+  requestor.email:          Content.D_Requestor.Email
+  requestor.name:           Content.D_Requestor.DisplayName
+  requestor.role:           Content.D_Requestor.RoleAtSponsor
+  routing.team:             pyAssignedToOperator
+  triage.severity:          Content.Severity
+
+required:
+  - Content.D_Sponsor.SponsorID
+  - Content.D_Plan.PlanID
+  - Content.D_Inquiry.Category
+  - Content.D_Inquiry.Summary
+
+defaults:
+  pyStatusWork:    Open
+  pyOrigin:        arc-email-triage
+  pyOperatorID:    arc-bot
+  Channel:         email
+
+transforms:
+  inquiry_category:
+    type:   lower
+  related_filing:
+    type:   upper

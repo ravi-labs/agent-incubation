@@ -1,0 +1,69 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Pega case-type schema: Distribution Request
+#
+# Participants asking to take money out of their plan: rollover to an
+# IRA, lump-sum at termination, required minimum distribution (RMD),
+# in-service withdrawal at retirement age. The most common high-stakes
+# case type — these involve real dollars leaving the plan.
+#
+# Maintained by:  retirement-operations + Pega platform team
+# Last reviewed:  2026-05-03
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# ⚠  PLACEHOLDER PEGA FIELD NAMES  ⚠
+#
+# Field names below (Content.D_DistributionDetails.*, etc.) follow common
+# Pega conventions but are NOT yet validated against the live tenant.
+# When the real Pega team confirms the case-type schema:
+#
+#   1. Replace the right-hand side of each `mapping:` entry with the
+#      actual Pega field path from Dev Studio → Case Designer.
+#   2. Replace `pega_class` with the actual case-type ID.
+#   3. Bump `schema_version` to "1.1" (or higher) on the same PR.
+#   4. Re-capture the snapshot test fixture in tests/test_pega_router.py.
+#
+# The agent code DOES NOT need to change — only this YAML.
+
+case_type:      distribution
+pega_class:     ITSM-Work-DistributionRequest    # placeholder
+schema_version: "0.1.0-placeholder"
+
+# arc-field-path → Pega-field-path
+mapping:
+  participant_id:           Content.D_Participant.ParticipantID
+  plan_id:                  Content.D_Plan.PlanID
+  distribution_subtype:     Content.D_DistributionDetails.DistributionType
+  amount_requested:         Content.D_DistributionDetails.AmountRequested
+  full_balance:             Content.D_DistributionDetails.FullBalanceFlag
+  destination_institution:  Content.D_Rollover.DestinationInstitution
+  destination_account:      Content.D_Rollover.DestinationAccount
+  tax_withholding_pct:      Content.D_TaxElection.FederalWithholdingPct
+  request_date:             Content.D_DistributionDetails.RequestDate
+  requestor.email:          Content.D_Requestor.Email
+  requestor.name:           Content.D_Requestor.DisplayName
+  routing.team:             pyAssignedToOperator
+  triage.severity:          Content.Severity
+
+# Hard requirements — payload is rejected before Pega is called if any
+# of these resolve empty.
+required:
+  - Content.D_Participant.ParticipantID
+  - Content.D_Plan.PlanID
+  - Content.D_DistributionDetails.DistributionType
+  - Content.D_DistributionDetails.RequestDate
+
+# Static fields injected on every Distribution-Request payload.
+defaults:
+  pyStatusWork:    Open
+  pyOrigin:        arc-email-triage
+  pyOperatorID:    arc-bot
+  Channel:         email
+  Content.D_DistributionDetails.SourceOfFunds: 401k_pretax
+
+transforms:
+  amount_requested:
+    type:   round
+    digits: 2
+  tax_withholding_pct:
+    type:   round
+    digits: 2

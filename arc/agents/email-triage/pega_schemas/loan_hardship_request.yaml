@@ -1,0 +1,65 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Pega case-type schema: Loan / Hardship Request
+#
+# Participants asking to either:
+#   - Borrow against their 401(k) balance (general-purpose or
+#     primary-residence loan), or
+#   - Take a hardship withdrawal under IRS safe-harbor categories
+#     (medical, education, primary-residence, funeral, eviction).
+#
+# Hardship withdrawals are higher-stakes than loans (substantiation
+# requirements, no repayment, tax + early-withdrawal penalties) and
+# must always be reviewed by a senior plan administrator.
+#
+# Maintained by:  retirement-operations + Pega platform team
+# Last reviewed:  2026-05-03
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# ⚠  PLACEHOLDER PEGA FIELD NAMES  ⚠  See distribution_request.yaml header
+# for the swap-in protocol when the live Pega tenant is ready.
+
+case_type:      loan_hardship
+pega_class:     ITSM-Work-LoanHardshipRequest    # placeholder
+schema_version: "0.1.0-placeholder"
+
+# arc-field-path → Pega-field-path
+mapping:
+  participant_id:                Content.D_Participant.ParticipantID
+  plan_id:                       Content.D_Plan.PlanID
+  request_subtype:               Content.D_LoanHardship.RequestType
+  hardship_category:             Content.D_LoanHardship.HardshipCategory
+  amount_requested:              Content.D_LoanHardship.AmountRequested
+  reason_text:                   Content.D_LoanHardship.ReasonNarrative
+  documentation_provided:        Content.D_LoanHardship.HasSupportingDocuments
+  loan_term_months:              Content.D_LoanHardship.LoanTermMonths
+  loan_purpose:                  Content.D_LoanHardship.LoanPurpose
+  request_date:                  Content.D_LoanHardship.RequestDate
+  requestor.email:               Content.D_Requestor.Email
+  requestor.name:                Content.D_Requestor.DisplayName
+  routing.team:                  pyAssignedToOperator
+  triage.severity:               Content.Severity
+
+required:
+  - Content.D_Participant.ParticipantID
+  - Content.D_Plan.PlanID
+  - Content.D_LoanHardship.RequestType
+  - Content.D_LoanHardship.AmountRequested
+  - Content.D_LoanHardship.RequestDate
+
+defaults:
+  pyStatusWork:    Open
+  pyOrigin:        arc-email-triage
+  pyOperatorID:    arc-bot
+  Channel:         email
+  # Hardship requests always require senior reviewer assignment;
+  # loans only above the threshold (enforced in policy.yaml).
+  Content.D_LoanHardship.RequiresSubstantiationReview: true
+
+transforms:
+  amount_requested:
+    type:   round
+    digits: 2
+  hardship_category:
+    type:   lower
+  request_subtype:
+    type:   lower

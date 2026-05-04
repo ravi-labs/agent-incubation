@@ -1,124 +1,141 @@
-# Policy — Email Triage Agent
-# ─────────────────────────────
-# Tier 1 & 2: always ALLOW — reads and computations are safe
-# Tier 3: always ALLOW — drafts are internal
-# Tier 4: ticket.create is ASK for P1/P2, ALLOW for P3/P4 (confidence gate in agent)
-# Human review queue: always ALLOW — it IS the escalation path
+# Policy — Retirement Plan Email Triage Agent
+# ────────────────────────────────────────────
+# Authored:  retirement-operations + ERISA compliance
+# Reviewed:  2026-05-03
+#
+# Three Pega case types: Distribution, Loan/Hardship, Sponsor Inquiry.
+# Each has its own ASK gates aligned with regulatory + internal-control
+# boundaries.
 
-version: "1.0"
+version:  "1.0"
 agent_id: email-triage
 
 rules:
-  # ── Tier 1: reads ────────────────────────────────────────────────────
-  - resource_type: "email.read"
-    effect: "read"
-    decision: ALLOW
+  # ── Tier 1: reads (always ALLOW) ──────────────────────────────────────
+  - { resource_type: "email.read",              effect: "read", decision: ALLOW }
+  - { resource_type: "email.thread.read",       effect: "read", decision: ALLOW }
+  - { resource_type: "user.directory.read",     effect: "read", decision: ALLOW }
+  - { resource_type: "participant.data.read",   effect: "read", decision: ALLOW }
+  - { resource_type: "plan.data.read",          effect: "read", decision: ALLOW }
+  - { resource_type: "knowledge.article.read",  effect: "read", decision: ALLOW }
+  - { resource_type: "knowledge.buddy.query",   effect: "read", decision: ALLOW }
 
-  - resource_type: "email.thread.read"
-    effect: "read"
-    decision: ALLOW
+  # ── Tier 2: computation (always ALLOW) ─────────────────────────────────
+  - { resource_type: "email.classify",          effect: "read", decision: ALLOW }
+  - { resource_type: "priority.infer",          effect: "read", decision: ALLOW }
+  - { resource_type: "sentiment.score",         effect: "read", decision: ALLOW }
+  - { resource_type: "duplicate.detect",        effect: "read", decision: ALLOW }
+  - { resource_type: "routing.decide",          effect: "read", decision: ALLOW }
+  - { resource_type: "entity.extract",          effect: "read", decision: ALLOW }
 
-  - resource_type: "ticket.read"
-    effect: "read"
-    decision: ALLOW
+  # ── Tier 3: drafts (always ALLOW — internal, not yet sent) ─────────────
+  - { resource_type: "ticket.draft",            effect: "write", decision: ALLOW }
+  - { resource_type: "email.reply.draft",       effect: "write", decision: ALLOW }
 
-  - resource_type: "knowledge.article.read"
-    effect: "read"
-    decision: ALLOW
+  # ── Tier 4: case creation gates ───────────────────────────────────────
+  #
+  # The retirement-domain rules. Each ASK rule has a citation in the
+  # `reason:` so compliance can trace it back to the regulation /
+  # internal control that demanded the gate.
 
-  - resource_type: "knowledge.buddy.query"
-    effect: "read"
-    decision: ALLOW
-
-  - resource_type: "user.directory.read"
-    effect: "read"
-    decision: ALLOW
-
-  - resource_type: "sla.config.read"
-    effect: "read"
-    decision: ALLOW
-
-  # ── Tier 2: computation ───────────────────────────────────────────────
-  - resource_type: "email.classify"
-    effect: "read"
-    decision: ALLOW
-
-  - resource_type: "priority.infer"
-    effect: "read"
-    decision: ALLOW
-
-  - resource_type: "sentiment.score"
-    effect: "read"
-    decision: ALLOW
-
-  - resource_type: "duplicate.detect"
-    effect: "read"
-    decision: ALLOW
-
-  - resource_type: "sla.calculate"
-    effect: "read"
-    decision: ALLOW
-
-  - resource_type: "routing.decide"
-    effect: "read"
-    decision: ALLOW
-
-  - resource_type: "entity.extract"
-    effect: "read"
-    decision: ALLOW
-
-  # ── Tier 3: drafts ────────────────────────────────────────────────────
-  - resource_type: "ticket.draft"
-    effect: "write"
-    decision: ALLOW
-
-  - resource_type: "email.reply.draft"
-    effect: "write"
-    decision: ALLOW
-
-  - resource_type: "ticket.summary.draft"
-    effect: "write"
-    decision: ALLOW
-
-  - resource_type: "knowledge.match.draft"
-    effect: "write"
-    decision: ALLOW
-
-  # ── Tier 4: ticket creation — P1/P2 always ASK ───────────────────────
+  # 4a. Distribution requests over $25k always require senior plan-admin review.
   - resource_type: "ticket.create"
     effect: "write"
     when:
-      priority: "P1"
+      params.case_type:        distribution
+      params.amount_requested: { gt: 25000 }
     decision: ASK
+    reason: >
+      Distribution requests of $25,000 or more must be reviewed by a
+      senior plan administrator before case creation
+      (Internal Control §RD-4.2 — high-value distribution oversight).
 
+  # 4b. ALL hardship withdrawals require senior review for IRS substantiation
+  #     regardless of amount (safe-harbor categories require documentation).
   - resource_type: "ticket.create"
     effect: "write"
     when:
-      priority: "P2"
+      params.case_type:        loan_hardship
+      params.request_subtype:  hardship
     decision: ASK
+    reason: >
+      Hardship withdrawals require senior plan administrator review of
+      IRS safe-harbor substantiation prior to case creation
+      (IRS Reg. §1.401(k)-1(d)(3)(iii)).
 
+  # 4c. Loans over $50k require senior review (loan limit governance).
+  - resource_type: "ticket.create"
+    effect: "write"
+    when:
+      params.case_type:        loan_hardship
+      params.request_subtype:  loan
+      params.amount_requested: { gt: 50000 }
+    decision: ASK
+    reason: >
+      Loan requests over $50,000 require senior review for IRC §72(p)
+      loan-limit compliance and plan-document conformity.
+
+  # 4d. ERISA compliance inquiries from sponsors always require ERISA
+  #     specialist review.
+  - resource_type: "ticket.create"
+    effect: "write"
+    when:
+      params.case_type:        sponsor_inquiry
+      params.inquiry_category: compliance
+    decision: ASK
+    reason: >
+      Plan-sponsor compliance inquiries require ERISA-credentialed
+      reviewer assignment before case routing
+      (Internal Control §SI-3.1).
+
+  # 4e. Hard-deny: cannot auto-create a case when the participant is
+  #     already flagged for fraud review.
+  - resource_type: "ticket.create"
+    effect: "write"
+    when:
+      params.fraud_flag: true
+    decision: DENY
+    reason: >
+      Cannot auto-create cases for participants under active fraud
+      review (Compliance Policy §F-7.1). Route manually to fraud team.
+
+  # 4f. Default for all other ticket.create — ALLOW with audit.
   - resource_type: "ticket.create"
     effect: "write"
     decision: ALLOW
 
-  - resource_type: "ticket.update"
+  # ── Tier 4: outbound communication ────────────────────────────────────
+  # Acknowledgment emails are gated when the underlying case was gated
+  # — same threshold rules duplicated here so policy stays consistent
+  # whether the agent is sending the ack first or creating the case first.
+  - resource_type: "participant.communication.send"
+    effect: "write"
+    when:
+      params.case_type:        distribution
+      params.amount_requested: { gt: 25000 }
+    decision: ASK
+    reason: >
+      Acknowledgment for high-value distributions reviewed by senior
+      plan administrator prior to send.
+
+  - resource_type: "participant.communication.send"
+    effect: "write"
+    when:
+      params.case_type:       loan_hardship
+      params.request_subtype: hardship
+    decision: ASK
+    reason: >
+      Hardship-withdrawal acknowledgment reviewed prior to send.
+
+  - resource_type: "participant.communication.send"
     effect: "write"
     decision: ALLOW
 
-  # Human review queue — always ALLOW
+  # Human-review queue — always ALLOW, this IS the escalation path.
   - resource_type: "itsm.human.review.queue.add"
     effect: "notify"
     decision: ALLOW
 
-  # ── Tier 5: persistence ───────────────────────────────────────────────
-  - resource_type: "itsm.audit.log.write"
-    effect: "write"
-    decision: ALLOW
-
-  - resource_type: "triage.log.write"
-    effect: "write"
-    decision: ALLOW
-
-  - resource_type: "itsm.classification.save"
-    effect: "write"
-    decision: ALLOW
+  # ── Tier 5: persistence (always ALLOW) ────────────────────────────────
+  - { resource_type: "itsm.audit.log.write",    effect: "write", decision: ALLOW }
+  - { resource_type: "triage.log.write",        effect: "write", decision: ALLOW }

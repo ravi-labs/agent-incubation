@@ -40,28 +40,33 @@ logger = logging.getLogger(__name__)
 # ── State schema ──────────────────────────────────────────────────────────────
 
 class EmailTriageState(TypedDict, total=False):
-    """Full state for the email triage graph."""
+    """Full state for the retirement-plan email-triage graph."""
 
     # Input
     email_id:       str
     email:          dict          # raw email from Outlook / fixture
     run_id:         str
 
-    # Classification
+    # Classification (generic — keep for compatibility with existing nodes)
     intent:         str           # incident/request/question/complaint
     priority:       str           # P1/P2/P3/P4
     confidence:     float
     sentiment:      str           # positive/neutral/negative/urgent
 
+    # Retirement-domain classification (drives Pega case-type selection)
+    case_type:      str           # distribution / loan_hardship / sponsor_inquiry
+    case_subtype:   str | None    # rollover/lump_sum/rmd | loan/hardship | amendment/compliance/audit/general
+
     # Entities
-    entities:       dict          # extracted system, error_code, sender info
+    entities:       dict          # extracted retirement-shaped fields
 
     # Knowledge
     kb_match:       dict | None   # Knowledge Buddy result
 
     # Ticket
-    ticket_draft:   dict | None
-    ticket_id:      str | None    # created ticket ID
+    triage_data:    dict | None   # arc-shaped data the Pega router maps from
+    ticket_draft:   dict | None   # Pega-shaped payload (output of registry.map)
+    ticket_id:      str | None    # created Pega case ID
 
     # Routing
     assigned_team:  str
@@ -72,6 +77,7 @@ class EmailTriageState(TypedDict, total=False):
     error:           str | None
     completed:       bool
     is_duplicate:    bool         # set by check_duplicate node
+    fraud_flag:      bool         # if True, ticket.create is hard-DENIED by policy
 
 
 # ── MockBedrockLLM ────────────────────────────────────────────────────────────
@@ -224,22 +230,176 @@ def _load_llm(use_mock: bool, bedrock_config: Any = None) -> Any:
         return MockBedrockLLM()
 
 
+# ── Retirement case-type classification ──────────────────────────────────────
+#
+# Maps an inbound retirement-plan email to one of the three Pega case types
+# the agent supports. The mapping is deterministic + keyword-based so policy
+# reviewers can reason about it; for production, the LLM call inside the
+# classify_node already runs through governed_chat_model and can override
+# this rule-based fallback.
+
+_DISTRIBUTION_KEYWORDS = [
+    "rollover", "distribution", "withdraw", "withdrawal",
+    "lump sum", "lump-sum", "rmd", "required minimum",
+    "termination", "leaving the company", "retiring", "retirement payout",
+]
+
+_LOAN_HARDSHIP_KEYWORDS = [
+    "loan", "borrow", "borrowing", "401k loan", "401(k) loan",
+    "hardship", "medical bills", "medical expenses",
+    "tuition", "education expense", "primary residence",
+    "buying a home", "funeral", "eviction", "foreclosure",
+]
+
+_SPONSOR_INQUIRY_KEYWORDS = [
+    "5500", "form 5500", "amendment", "plan amendment",
+    "compliance", "adp test", "acp test", "non-discrimination",
+    "audit", "auditor", "filing deadline", "plan document",
+    "vesting schedule", "contribution upload failed", "deferral correction",
+    "eligibility rule", "safe harbor",
+]
+
+_HARDSHIP_CATEGORY_KEYWORDS = {
+    "medical":             ["medical", "hospital", "surgery", "medication"],
+    "education":           ["tuition", "education", "college", "university"],
+    "primary_residence":   ["primary residence", "buying a home", "down payment", "house"],
+    "funeral":             ["funeral", "burial"],
+    "eviction":            ["eviction", "foreclosure"],
+}
+
+_SPONSOR_CATEGORY_KEYWORDS = {
+    "compliance":          ["compliance", "adp test", "acp test", "non-discrimination", "safe harbor"],
+    "amendment":           ["amendment", "plan amendment", "plan document"],
+    "audit":               ["5500", "form 5500", "audit", "auditor", "filing"],
+    "contribution":        ["contribution upload", "deferral correction", "payroll"],
+}
+
+
+def _classify_pega_case_type(email: dict) -> tuple[str, str | None]:
+    """Map email content to (case_type, case_subtype) for Pega routing.
+
+    Deliberately rule-based + auditable. The classify_node's LLM step can
+    refine these later if the keyword fallback misses; for now this keeps
+    the Pega case-type decision deterministic and traceable.
+
+    Precedence (matters because keywords overlap — "hardship withdrawal"
+    contains both 'withdrawal' and 'hardship'):
+      1. Hardship signals win first  — IRS-substantiated path
+      2. Loan signals next            — explicit "loan" / "borrow"
+      3. Distribution signals         — rollover, RMD, lump-sum, withdrawal
+      4. Sponsor-inquiry signals      — 5500, compliance, audit
+      5. Fallback                     — sponsor_inquiry/general
+    """
+    text = (email.get("subject", "") + " " + email.get("body", "")).lower()
+
+    # 1. Hardship signals — match before distribution because "hardship
+    # withdrawal" would otherwise be misclassified as a routine distribution.
+    if "hardship" in text or any(
+        kw in text
+        for kws in _HARDSHIP_CATEGORY_KEYWORDS.values()
+        for kw in kws
+    ):
+        return ("loan_hardship", "hardship")
+
+    # 2. Loan signals — explicit "loan" or "borrow" without hardship context.
+    if any(kw in text for kw in ["loan", "borrow", "borrowing"]):
+        return ("loan_hardship", "loan")
+
+    # 3. Distribution signals.
+    if any(kw in text for kw in _DISTRIBUTION_KEYWORDS):
+        if "rollover" in text:
+            return ("distribution", "rollover")
+        if "rmd" in text or "required minimum" in text:
+            return ("distribution", "rmd")
+        if any(kw in text for kw in ["lump sum", "lump-sum", "termination", "leaving the company", "retiring"]):
+            return ("distribution", "lump_sum")
+        return ("distribution", "in_service")
+
+    # 4. Sponsor-side inquiries.
+    if any(kw in text for kw in _SPONSOR_INQUIRY_KEYWORDS):
+        for category, kws in _SPONSOR_CATEGORY_KEYWORDS.items():
+            if any(kw in text for kw in kws):
+                return ("sponsor_inquiry", category)
+        return ("sponsor_inquiry", "general")
+
+    # 5. Default — sponsor_inquiry/general catches everything we don't
+    # otherwise recognise. Adjuster reclassification then feeds
+    # OutcomeTracker as a signal that the keyword tables need updating.
+    return ("sponsor_inquiry", "general")
+
+
+def _hardship_category(email: dict) -> str | None:
+    """Sub-classify hardship withdrawals against the IRS safe-harbor categories."""
+    text = (email.get("subject", "") + " " + email.get("body", "")).lower()
+    for category, kws in _HARDSHIP_CATEGORY_KEYWORDS.items():
+        if any(kw in text for kw in kws):
+            return category
+    return "other"
+
+
 # ── Routing helpers ───────────────────────────────────────────────────────────
 
-def _determine_team(intent: str, priority: str, entities: dict) -> str:
-    """Route to the right team based on classification."""
-    if priority == "P1":
-        return "critical-incidents"
-    systems = entities.get("systems", [])
-    if "auth" in systems or any("breach" in s for s in entities.get("systems", [])):
-        return "security-team"
-    if intent == "complaint":
-        return "customer-success"
-    if intent == "request":
-        return "account-management"
-    if priority == "P2":
-        return "senior-support"
+def _determine_team(
+    case_type: str,
+    case_subtype: str | None,
+    severity: str,
+    amount: float,
+) -> str:
+    """Route to the right adjuster / admin team based on retirement case type.
+
+    The team names are placeholder strings — your Pega tenant's real
+    operator IDs go in pega_schemas/<case_type>.yaml's defaults or
+    via the routing.team mapping. Whichever team string this returns
+    needs to map to a real Pega operator/work-group ID.
+    """
+    if case_type == "distribution":
+        if severity in ("S1", "S2") or amount > 25_000:
+            return "distributions-senior"
+        return "distributions-standard"
+
+    if case_type == "loan_hardship":
+        if case_subtype == "hardship":
+            return "hardship-review"            # all hardships go to senior reviewer
+        if case_subtype == "loan" and amount > 50_000:
+            return "loans-senior"
+        return "loans-standard"
+
+    if case_type == "sponsor_inquiry":
+        if case_subtype == "compliance":
+            return "erisa-compliance"
+        if case_subtype in ("amendment", "audit"):
+            return "plan-admin-senior"
+        return "plan-admin-standard"
+
     return "general-support"
+
+
+# ── Pega schema registry singleton ───────────────────────────────────────────
+#
+# Loaded once per process; the email-triage directory has a hyphen so
+# we can't import its sibling files as a Python package — load the
+# router module by file path. Cheap; happens once.
+
+_PEGA_REGISTRY = None
+
+
+def _get_pega_registry():
+    """Return a process-wide PegaSchemaRegistry, loaded lazily on first use."""
+    global _PEGA_REGISTRY
+    if _PEGA_REGISTRY is None:
+        import importlib.util
+        from pathlib import Path
+        agent_dir = Path(__file__).parent
+        spec = importlib.util.spec_from_file_location(
+            "_pega_router_local",
+            agent_dir / "pega_router.py",
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Could not locate pega_router.py next to graph.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _PEGA_REGISTRY = mod.PegaSchemaRegistry(agent_dir / "pega_schemas")
+    return _PEGA_REGISTRY
 
 
 # ── Node implementations ──────────────────────────────────────────────────────
@@ -526,71 +686,122 @@ def _make_check_duplicate_node(agent: Any):
 
 
 def _make_draft_ticket_node(agent: Any):
-    """draft_ticket_node — ITSMEffect.TICKET_DRAFT + TICKET_SUMMARY_DRAFT."""
+    """draft_ticket_node — classify the Pega case type, build the arc-shaped
+    triage_data dict that the Pega schema registry maps from, and run it
+    through ITSMEffect.TICKET_DRAFT for the audit row."""
     from arc.core.effects import ITSMEffect
     import os
+    import re
 
     async def draft_ticket_node(state: EmailTriageState) -> dict:
         email      = state.get("email", {})
         eid        = state.get("email_id", email.get("id", "unknown"))
-        intent     = state.get("intent", "incident")
         priority   = state.get("priority", "P4")
         confidence = state.get("confidence", 0.7)
         entities   = state.get("entities", {})
-        kb_match   = state.get("kb_match")
 
         sender      = entities.get("sender", "")
         sender_name = entities.get("sender_name", "")
-        team        = _determine_team(intent, priority, entities)
-
         ticket_target = os.getenv("TICKET_TARGET", "pega").lower()
 
-        title = email.get("subject", "Support Request")
-        if len(title) > 200:
-            title = title[:197] + "..."
+        # ── 1. Classify into one of the 3 retirement Pega case types ─────────
+        case_type, case_subtype = _classify_pega_case_type(email)
 
-        description = (
-            f"[Auto-triaged | {intent.upper()} | Priority: {priority} | "
-            f"Confidence: {confidence:.0%}]\n\n"
-            f"From: {sender_name} <{sender}>\n\n"
-            f"{email.get('body', '')[:2000]}"
-        )
+        # ── 2. Pull retirement-shaped fields from the email ──────────────────
+        # Most of these would be filled by a real entity extractor (LLM) in
+        # production. The keyword fallback below covers the demo path.
+        body = email.get("body", "")
+        amount = _extract_amount(body)
+        participant_id = _extract_participant_id(body)
+        plan_id = entities.get("plan_id") or _extract_plan_id(body)
+        request_date = entities.get("incident_date", "")
 
-        if kb_match:
-            kb_title = kb_match.get("title", kb_match.get("pyArticleTitle", ""))
-            kb_id    = kb_match.get("id", kb_match.get("article_id", "KB-000"))
-            description += f"\n\n[KB Match: {kb_title} — {kb_id}]"
+        # Sub-classify hardship category if applicable
+        hardship_category = _hardship_category(email) if case_subtype == "hardship" else None
 
-        draft = {
-            "title":         title,
-            "description":   description,
-            "priority":      priority,
-            "intent":        intent,
-            "assigned_team": team,
-            "confidence":    confidence,
-            "email_id":      eid,
-            "sender":        sender,
-            "ticket_target": ticket_target,
+        # Sponsor-side fields (only relevant when sender is a sponsor contact)
+        sponsor_id = entities.get("sponsor_id", "")
+        sponsor_company = entities.get("sponsor_company", "")
+        related_filing = entities.get("related_filing", "")
+
+        # Severity heuristic — amount + priority + subtype.
+        severity = _severity_from_signals(case_type, case_subtype, amount, priority)
+
+        team = _determine_team(case_type, case_subtype, severity, amount)
+
+        # ── 3. The arc-shaped triage_data dict — input to the Pega router ────
+        triage_data = {
+            "participant_id":         participant_id,
+            "plan_id":                plan_id,
+            "amount_requested":       amount,
+            "request_date":           request_date,
+            "request_subtype":        case_subtype if case_type == "loan_hardship" else None,
+            "distribution_subtype":   case_subtype if case_type == "distribution" else None,
+            "hardship_category":      hardship_category,
+            "loan_purpose":           None,         # extracted by LLM in production
+            "loan_term_months":       None,
+            "tax_withholding_pct":    None,
+            "destination_institution": None,
+            "destination_account":    None,
+            "full_balance":           "full" in body.lower() or "entire balance" in body.lower(),
+            "documentation_provided": "attached" in body.lower() or "document" in body.lower(),
+            "reason_text":            email.get("subject", "")[:500],
+            "sponsor_id":             sponsor_id,
+            "sponsor_company":        sponsor_company,
+            "inquiry_category":       case_subtype if case_type == "sponsor_inquiry" else None,
+            "inquiry_summary":        email.get("subject", "")[:500],
+            "related_filing":         related_filing,
+            "filing_deadline":        None,
+            "related_documents":      None,
+            "requestor": {
+                "email": sender,
+                "name":  sender_name,
+                "role":  entities.get("sender_role", ""),
+            },
+            "routing": {"team": team},
+            "triage": {"severity": severity},
         }
 
+        # ── 4. Map through the Pega schema registry → Pega-shaped payload ────
+        registry = _get_pega_registry()
+        try:
+            pega_payload = registry.map(case_type, triage_data)
+        except Exception as exc:
+            # Schema validation failed (missing required, etc.). Surface so the
+            # error path captures it; don't crash the graph.
+            logger.warning(
+                "draft_ticket_node: pega registry could not map case_type=%s for email %s: %s",
+                case_type, eid, exc,
+            )
+            pega_payload = None
+
+        # ── 5. Audit-log the draft via TICKET_DRAFT ─────────────────────────
+        ticket_draft_record = {
+            "case_type":     case_type,
+            "case_subtype":  case_subtype,
+            "team":          team,
+            "amount":        amount,
+            "severity":      severity,
+            "pega_payload":  pega_payload,
+        }
         result = await agent.run_effect(
             effect=ITSMEffect.TICKET_DRAFT,
             tool="ticket-drafter", action="draft",
-            params={"email_id": eid},
+            params={
+                "email_id":         eid,
+                "case_type":        case_type,
+                "case_subtype":     case_subtype,
+                "amount_requested": amount,
+            },
             intent_action="draft_ticket",
-            intent_reason=f"Draft ticket fields from email {eid}",
-            exec_fn=lambda: draft,
-        )
-
-        await agent.run_effect(
-            effect=ITSMEffect.TICKET_SUMMARY_DRAFT,
-            tool="ticket-drafter", action="draft_summary",
-            params={"email_id": eid},
-            intent_action="draft_ticket_summary",
-            intent_reason=f"Draft ticket summary for email {eid}",
+            intent_reason=f"Draft Pega case payload for {case_type} from email {eid}",
+            exec_fn=lambda: ticket_draft_record,
         )
 
         return {
+            "case_type":     case_type,
+            "case_subtype":  case_subtype,
+            "triage_data":   triage_data,
             "ticket_draft":  result,
             "assigned_team": team,
             "ticket_target": ticket_target,
@@ -599,55 +810,133 @@ def _make_draft_ticket_node(agent: Any):
     return draft_ticket_node
 
 
+# ── Entity extraction helpers (rule-based fallbacks) ────────────────────────
+
+
+def _extract_amount(text: str) -> float:
+    """Pull a dollar amount out of free text. 0.0 if none found."""
+    import re
+    m = re.search(r"\$\s*([\d,]+(?:\.\d{1,2})?)", text)
+    if m:
+        try:
+            return float(m.group(1).replace(",", ""))
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def _extract_participant_id(text: str) -> str:
+    """Extract a participant ID like P-12345 or PART12345."""
+    import re
+    m = re.search(r"\b(?:P|PART|PARTICIPANT)[-_]?(\d+)\b", text, re.IGNORECASE)
+    return f"P-{m.group(1)}" if m else ""
+
+
+def _extract_plan_id(text: str) -> str:
+    """Extract a plan ID like PLAN-001 or 401K-9876."""
+    import re
+    m = re.search(r"\b(?:PLAN|401K)[-_]?\d+\b", text, re.IGNORECASE)
+    return m.group(0).upper().replace("_", "-") if m else ""
+
+
+def _severity_from_signals(
+    case_type: str,
+    case_subtype: str | None,
+    amount: float,
+    priority: str,
+) -> str:
+    """Derive S1-S4 severity from amount + priority + subtype."""
+    if priority in ("P1",):
+        return "S1"
+    if case_type == "loan_hardship" and case_subtype == "hardship":
+        return "S2"
+    if case_type == "distribution" and amount > 100_000:
+        return "S1"
+    if case_type == "distribution" and amount > 25_000:
+        return "S2"
+    if priority == "P2":
+        return "S2"
+    if priority == "P3":
+        return "S3"
+    return "S4"
+
+
 def _make_create_ticket_node(agent: Any):
     """
     create_ticket_node — ITSMEffect.TICKET_CREATE.
 
-    P1/P2 → ASK (interrupt in production, auto-approved in harness).
-    P3/P4 → ALLOW if confidence >= 0.85, else ASK.
+    Sends the Pega-shaped payload (built by the schema registry in
+    draft_ticket_node) to the ticket connector. Top-level `params`
+    carry the gate-relevant fields (case_type, amount_requested,
+    request_subtype, fraud_flag) so policy.yaml's `when:` rules can
+    branch on them — e.g. to ASK for high-value distributions or DENY
+    for fraud-flagged participants.
     """
     from arc.core.effects import ITSMEffect
 
     async def create_ticket_node(state: EmailTriageState) -> dict:
-        ticket     = state.get("ticket_draft", {})
-        priority   = state.get("priority", "P4")
-        confidence = state.get("confidence", 0.7)
-        eid        = state.get("email_id", "unknown")
+        ticket_draft = state.get("ticket_draft") or {}
+        triage       = state.get("triage_data") or {}
+        case_type    = state.get("case_type", "sponsor_inquiry")
+        case_subtype = state.get("case_subtype")
+        priority     = state.get("priority", "P4")
+        confidence   = state.get("confidence", 0.7)
+        eid          = state.get("email_id", "unknown")
+        fraud_flag   = state.get("fraud_flag", False)
 
-        if not ticket:
-            return {"error": "No ticket draft available", "ticket_id": None}
+        pega_payload = ticket_draft.get("pega_payload")
+        if pega_payload is None:
+            return {
+                "error":     "Pega payload could not be assembled — see draft_ticket_node logs",
+                "ticket_id": None,
+            }
 
-        # Build metadata for policy evaluation
+        # Top-level params drive policy gates. The full Pega-shaped payload
+        # rides as a nested key so the connector can lift it out unchanged.
+        params: dict = {
+            "case_type":         case_type,
+            "case_subtype":      case_subtype,
+            "request_subtype":   case_subtype if case_type == "loan_hardship" else None,
+            "amount_requested":  triage.get("amount_requested", 0.0),
+            "inquiry_category":  case_subtype if case_type == "sponsor_inquiry" else None,
+            "fraud_flag":        fraud_flag,
+            "pega_payload":      pega_payload,            # the Pega-shaped JSON
+        }
+
         metadata: dict = {
-            "priority":   priority,
-            "confidence": confidence,
-            "email_id":   eid,
+            "priority":         priority,
+            "confidence":       confidence,
+            "email_id":         eid,
+            "schema_version":   pega_payload.get("schema_version"),
+            "pega_case_type":   pega_payload.get("caseTypeID"),
+            "team":              ticket_draft.get("team"),
         }
 
         ticket_id = await agent.run_effect(
             effect=ITSMEffect.TICKET_CREATE,
-            tool="itsm-connector", action="create",
-            params=ticket,
-            intent_action="create_ticket",
+            tool="pega-case", action="create",
+            params=params,
+            intent_action=f"create_{case_type}_case",
             intent_reason=(
-                f"Create {priority} {ticket.get('intent', 'incident')} ticket "
-                f"from {ticket.get('sender', 'unknown')}"
+                f"Open Pega case ({pega_payload.get('caseTypeID', 'unknown')}) "
+                f"from email {eid} routed to {ticket_draft.get('team')}"
             ),
             metadata=metadata,
         )
 
-        # Generate a mock ticket ID if connector doesn't return one
+        # Generate a mock ticket ID if the connector didn't return one
+        # (harness path uses MockGatewayConnector for ticket.system).
         if not ticket_id:
             import uuid
             ticket_id = f"MOCK-{uuid.uuid4().hex[:8].upper()}"
 
         logger.info(
-            "create_ticket_node: %s → ticket_id=%s (priority=%s)",
-            eid, ticket_id, priority,
+            "create_ticket_node: %s → ticket_id=%s (case_type=%s, team=%s)",
+            eid, ticket_id, case_type, ticket_draft.get("team"),
         )
 
         return {
-            "ticket_id":      str(ticket_id) if ticket_id else None,
+            "ticket_id":       str(ticket_id) if ticket_id else None,
             "approval_status": "approved",
         }
 

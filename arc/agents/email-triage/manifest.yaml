@@ -1,69 +1,91 @@
 agent_id: email-triage
-version: "0.1.0"
-owner: itsm-platform-team
+version:  "0.2.0"
+owner:    retirement-operations-team
 description: >
-  Reads incoming emails, classifies intent and priority, queries the
-  knowledge base for relevant articles, drafts a ticket, and routes
-  to Pega Case Management or ServiceNow. P1/P2 always require human
-  approval before ticket creation. P3/P4 auto-create when confidence >= 0.85.
+  Triages incoming retirement plan emails from participants and plan
+  sponsors. Classifies each into one of three Pega case types
+  (Distribution Request, Loan/Hardship Request, Plan Sponsor Inquiry),
+  extracts structured entities, routes to the appropriate adjuster team,
+  and creates the case in Pega. Distribution requests over $25k,
+  hardship withdrawals (any amount), and ERISA-compliance inquiries
+  always require senior plan-administrator review before the case is
+  created.
 
 lifecycle_stage: BUILD
-environment: sandbox
+environment:     sandbox
+status:          active
 
+team_repo:       https://github.com/your-org/arc-retirement-email-triage
+arc_version:     ">=0.1.0"
+
+# Effects this agent is permitted to invoke. Anything not on this list
+# raises PermissionError at call time — no exceptions, no overrides.
 allowed_effects:
   # Tier 1 — reads
   - email.read
   - email.thread.read
-  - ticket.read
+  - user.directory.read
+  - participant.data.read           # look up participant from email sender
+  - plan.data.read                  # look up plan rules / vesting
   - knowledge.article.read
   - knowledge.buddy.query
-  - user.directory.read
-  - sla.config.read
 
-  # Tier 2 — computation
-  - email.classify
-  - priority.infer
+  # Tier 2 — computation (no side effects)
+  - email.classify                  # classify retirement case type
+  - priority.infer                  # infer urgency
   - sentiment.score
   - duplicate.detect
-  - sla.calculate
-  - routing.decide
-  - entity.extract
+  - routing.decide                  # pick adjuster / admin team
+  - entity.extract                  # pull participant_id, plan_id, amount, etc.
 
-  # Tier 3 — drafts (internal)
-  - ticket.draft
-  - email.reply.draft
-  - ticket.summary.draft
-  - knowledge.match.draft
+  # Tier 3 — drafts (writeable, not yet sent)
+  - ticket.draft                    # draft the Pega case payload
+  - email.reply.draft               # draft acknowledgment to requestor
 
-  # Tier 4 — output (governed)
-  - ticket.create
-  - ticket.update
+  # Tier 4 — outputs (subject to policy gates — this is where ASK fires)
+  - ticket.create                   # create the Pega case
+  - participant.communication.send  # send acknowledgment email
   - itsm.human.review.queue.add
 
-  # Tier 5 — persistence
-  - itsm.audit.log.write
+  # Tier 5 — bookkeeping
   - triage.log.write
-  - itsm.classification.save
+  - itsm.audit.log.write
 
 data_access:
   - email.inbox
   - email.thread
   - user.directory
+  - participant.data
+  - plan.data
   - knowledge.articles
-  - sla.config
   - ticket.system
 
 policy_path: arc/agents/email-triage/policy.yaml
 
+# What "good" looks like after 30 days. Reviewed at VALIDATE / GOVERN.
 success_metrics:
-  - "Email classification accuracy >= 90%"
-  - "P1/P2 escalation rate >= 95%"
-  - "Duplicate detection rate >= 85%"
-  - "Audit completeness = 100%"
-  - "Zero unauthorised external sends"
+  - "Triage time per email < 60 seconds end-to-end"
+  - "Case-type classification accuracy ≥ 95% (audited weekly)"
+  - "Zero unauthorised case creations (every >$25k distribution + every hardship reviewed)"
+  - "Duplicate-request catch rate ≥ 90%"
+  - "Adjuster reclassification rate ≤ 10%"
+
+# Service Level Objective — the auto-demotion watcher reads this.
+# A sustained breach (3 consecutive evaluations) proposes a demotion.
+slo:
+  window:        24h
+  min_volume:    50                     # don't evaluate below 50 emails/day
+  rules:
+    - metric:    error_rate
+      op:        "<"
+      threshold: 0.05                   # < 5% errors
+    - metric:    p95_latency_ms
+      op:        "<"
+      threshold: 60000                  # < 60s p95
+  demotion_mode: proposed               # require human approval
 
 tags:
-  - itsm
+  - retirement
+  - 401k
   - email-triage
   - pega
-  - servicenow

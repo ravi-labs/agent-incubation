@@ -52,7 +52,7 @@ SCHEMAS_DIR = _AGENT_DIR / "pega_schemas"
 
 @pytest.fixture
 def shipped_registry() -> PegaSchemaRegistry:
-    """Loads the actual shipped schemas (auto + property)."""
+    """Loads the actual shipped schemas (distribution / loan_hardship / sponsor_inquiry)."""
     return PegaSchemaRegistry(SCHEMAS_DIR)
 
 
@@ -77,117 +77,179 @@ def _minimal_schema(case_type: str, **overrides) -> dict:
 # ── 1. Snapshot tests against shipped schemas ──────────────────────────────
 
 
-class TestShippedAutoClaim:
+class TestShippedDistributionRequest:
     def test_full_payload_shape(self, shipped_registry: PegaSchemaRegistry):
         triage_data = {
-            "policy_number": "POL-12345",
-            "claim_amount":  4200.555,         # transforms.round(2) → 4200.56
-            "incident_date": "2026-04-22",
-            "vehicle_vin":   "1HGCM82633A004352",
-            "driver_id":     "DRV-9001",
-            "claimant":      {"email": "j@example.com", "name": "Jane Doe"},
-            "routing":       {"team": "auto-senior-adjusters"},
-            "triage":        {"severity": "S2"},
+            "participant_id":         "P-12345",
+            "plan_id":                "PLAN-9001",
+            "distribution_subtype":   "rollover",
+            "amount_requested":       4200.555,    # round(2) → 4200.56
+            "request_date":           "2026-04-30",
+            "destination_institution": "Fidelity",
+            "destination_account":    "999-888-777",
+            "tax_withholding_pct":    20.0,
+            "requestor":              {"email": "alice@example.com", "name": "Alice Rollover"},
+            "routing":                {"team": "distributions-standard"},
+            "triage":                 {"severity": "S4"},
         }
 
-        out = shipped_registry.map("auto", triage_data)
+        out = shipped_registry.map("distribution", triage_data)
 
-        assert out["caseTypeID"]     == "ITSM-Work-AutoClaim"
-        assert out["schema_version"] == "1.0"
+        assert out["caseTypeID"]     == "ITSM-Work-DistributionRequest"
+        assert out["schema_version"] == "0.1.0-placeholder"
 
         c = out["content"]
         # Mappings
-        assert c["VehicleVIN"]                              == "1HGCM82633A004352"
-        assert c["DriverID"]                                == "DRV-9001"
-        assert c["IncidentDate"]                            == "2026-04-22"
-        assert c["Content"]["PolicyNumber"]                 == "POL-12345"
-        assert c["Content"]["D_FinancialDetails"]["TotalAmount"] == 4200.56
-        assert c["Content"]["Severity"]                     == "S2"
-        assert c["AssignedTo"]["Email"]                     == "j@example.com"
-        assert c["AssignedTo"]["DisplayName"]               == "Jane Doe"
-        assert c["pyAssignedToOperator"]                    == "auto-senior-adjusters"
+        assert c["Content"]["D_Participant"]["ParticipantID"]               == "P-12345"
+        assert c["Content"]["D_Plan"]["PlanID"]                              == "PLAN-9001"
+        assert c["Content"]["D_DistributionDetails"]["DistributionType"]     == "rollover"
+        assert c["Content"]["D_DistributionDetails"]["AmountRequested"]      == 4200.56
+        assert c["Content"]["D_DistributionDetails"]["RequestDate"]          == "2026-04-30"
+        assert c["Content"]["D_Rollover"]["DestinationInstitution"]          == "Fidelity"
+        assert c["Content"]["D_TaxElection"]["FederalWithholdingPct"]        == 20.0
+        assert c["Content"]["D_Requestor"]["Email"]                          == "alice@example.com"
+        assert c["pyAssignedToOperator"]                                     == "distributions-standard"
         # Defaults
-        assert c["pyStatusWork"]    == "Open"
-        assert c["pyOrigin"]        == "arc-email-triage"
-        assert c["pyOperatorID"]    == "arc-bot"
-        assert c["Channel"]         == "email"
+        assert c["pyStatusWork"] == "Open"
+        assert c["pyOrigin"]     == "arc-email-triage"
+        assert c["Content"]["D_DistributionDetails"]["SourceOfFunds"] == "401k_pretax"
 
-    def test_missing_vin_fails_required_check(
+    def test_missing_required_field_fails(
         self, shipped_registry: PegaSchemaRegistry
     ):
         triage_data = {
-            "policy_number": "POL-1",
-            "incident_date": "2026-04-22",
-            # vehicle_vin missing!
+            "participant_id":  "P-1",
+            "plan_id":         "PLAN-9001",
+            # distribution_subtype + request_date missing
         }
-        with pytest.raises(PegaSchemaError, match="VehicleVIN"):
-            shipped_registry.map("auto", triage_data)
+        with pytest.raises(PegaSchemaError, match="DistributionType|RequestDate"):
+            shipped_registry.map("distribution", triage_data)
 
-    def test_missing_policy_number_fails(
-        self, shipped_registry: PegaSchemaRegistry
-    ):
+
+class TestShippedLoanHardshipRequest:
+    def test_loan_payload_shape(self, shipped_registry: PegaSchemaRegistry):
         triage_data = {
-            "incident_date": "2026-04-22",
-            "vehicle_vin":   "VIN1",
+            "participant_id":         "P-44210",
+            "plan_id":                "PLAN-9001",
+            "request_subtype":        "Loan",                   # → lower → "loan"
+            "amount_requested":       12500.0,
+            "loan_term_months":       60,
+            "loan_purpose":           "personal",
+            "request_date":           "2026-04-30",
+            "documentation_provided": True,
+            "requestor":              {"email": "carol@example.com", "name": "Carol Borrower"},
+            "routing":                {"team": "loans-standard"},
+            "triage":                 {"severity": "S4"},
         }
-        with pytest.raises(PegaSchemaError, match="PolicyNumber"):
-            shipped_registry.map("auto", triage_data)
 
+        out = shipped_registry.map("loan_hardship", triage_data)
 
-class TestShippedPropertyClaim:
-    def test_full_payload_shape(self, shipped_registry: PegaSchemaRegistry):
-        triage_data = {
-            "policy_number": "POL-99887",
-            "claim_amount":  85_000.0,
-            "incident_date": "2026-04-26",
-            "property_address": {
-                "line1": "123 Main St",
-                "line2": "Apt 4B",
-                "city":  "Brooklyn",
-                "zip":   "11201",
-            },
-            "damage_type": "fire",
-            "claimant":    {"email": "b@example.com", "name": "Bob Smith"},
-            "routing":     {"team": "property-major-loss"},
-            "triage":      {"severity": "S1"},
-        }
-        out = shipped_registry.map("property", triage_data)
-
-        assert out["caseTypeID"] == "ITSM-Work-PropertyClaim"
         c = out["content"]
-        prop = c["Content"]["PropertyDetails"]
-        assert prop["AddressLine1"] == "123 Main St"
-        assert prop["AddressLine2"] == "Apt 4B"
-        assert prop["City"]         == "Brooklyn"
-        assert prop["PostalCode"]   == "11201"
-        assert c["Content"]["DamageType"] == "fire"
+        assert c["Content"]["D_Participant"]["ParticipantID"]      == "P-44210"
+        assert c["Content"]["D_LoanHardship"]["RequestType"]       == "loan"      # lower transform
+        assert c["Content"]["D_LoanHardship"]["AmountRequested"]   == 12500.00
+        assert c["Content"]["D_LoanHardship"]["LoanTermMonths"]    == 60
+        assert c["Content"]["D_LoanHardship"]["HasSupportingDocuments"] is True
+        assert c["Content"]["D_LoanHardship"]["RequiresSubstantiationReview"] is True
 
-    def test_missing_postal_code_fails(
+    def test_hardship_payload_shape(self, shipped_registry: PegaSchemaRegistry):
+        triage_data = {
+            "participant_id":         "P-30015",
+            "plan_id":                "PLAN-9001",
+            "request_subtype":        "hardship",
+            "hardship_category":      "MEDICAL",                 # → lower → "medical"
+            "amount_requested":       18000.0,
+            "reason_text":            "Spouse hospitalised; out-of-pocket medical bills",
+            "documentation_provided": True,
+            "request_date":           "2026-04-28",
+            "requestor":              {"email": "dan@example.com", "name": "Dan Medical"},
+            "routing":                {"team": "hardship-review"},
+            "triage":                 {"severity": "S2"},
+        }
+
+        out = shipped_registry.map("loan_hardship", triage_data)
+        c = out["content"]
+
+        assert c["Content"]["D_LoanHardship"]["RequestType"]       == "hardship"
+        assert c["Content"]["D_LoanHardship"]["HardshipCategory"]  == "medical"   # lower transform
+        assert c["Content"]["D_LoanHardship"]["RequiresSubstantiationReview"] is True
+        assert c["pyAssignedToOperator"] == "hardship-review"
+
+    def test_missing_amount_fails(
         self, shipped_registry: PegaSchemaRegistry
     ):
         triage_data = {
-            "policy_number": "POL-1",
-            "incident_date": "2026-04-26",
-            "property_address": {"line1": "x"},  # zip missing
-            "damage_type": "fire",
+            "participant_id":  "P-1",
+            "plan_id":         "PLAN-1",
+            "request_subtype": "loan",
+            "request_date":    "2026-04-30",
+            # amount_requested missing
         }
-        with pytest.raises(PegaSchemaError, match="PostalCode"):
-            shipped_registry.map("property", triage_data)
+        with pytest.raises(PegaSchemaError, match="AmountRequested"):
+            shipped_registry.map("loan_hardship", triage_data)
+
+
+class TestShippedSponsorInquiry:
+    def test_compliance_inquiry_shape(self, shipped_registry: PegaSchemaRegistry):
+        triage_data = {
+            "sponsor_id":         "SPONSOR-ACME",
+            "sponsor_company":    "Acme Industries Inc.",
+            "plan_id":            "PLAN-9001",
+            "inquiry_category":   "COMPLIANCE",                # → lower → "compliance"
+            "inquiry_summary":    "ADP test failure — need ERISA guidance",
+            "related_filing":     "5500",
+            "request_date":       "2026-04-30",
+            "requestor":          {
+                "email": "compliance@acme-employer.com",
+                "name":  "Acme Compliance Team",
+                "role":  "sponsor_compliance",
+            },
+            "routing":            {"team": "erisa-compliance"},
+            "triage":             {"severity": "S2"},
+        }
+
+        out = shipped_registry.map("sponsor_inquiry", triage_data)
+        c = out["content"]
+
+        assert c["Content"]["D_Sponsor"]["SponsorID"]         == "SPONSOR-ACME"
+        assert c["Content"]["D_Sponsor"]["CompanyName"]       == "Acme Industries Inc."
+        assert c["Content"]["D_Plan"]["PlanID"]               == "PLAN-9001"
+        assert c["Content"]["D_Inquiry"]["Category"]          == "compliance"  # lower transform
+        assert c["Content"]["D_Inquiry"]["RelatedFiling"]     == "5500"        # upper transform on already-uppercase
+        assert c["pyAssignedToOperator"]                      == "erisa-compliance"
+
+    def test_missing_summary_fails(
+        self, shipped_registry: PegaSchemaRegistry
+    ):
+        triage_data = {
+            "sponsor_id":       "SPONSOR-1",
+            "plan_id":          "PLAN-9001",
+            "inquiry_category": "general",
+            # inquiry_summary missing
+        }
+        with pytest.raises(PegaSchemaError, match="Summary"):
+            shipped_registry.map("sponsor_inquiry", triage_data)
 
 
 class TestShippedRegistryBasics:
-    def test_both_case_types_registered(self, shipped_registry: PegaSchemaRegistry):
-        assert sorted(shipped_registry.case_types()) == ["auto", "property"]
+    def test_three_case_types_registered(self, shipped_registry: PegaSchemaRegistry):
+        assert sorted(shipped_registry.case_types()) == [
+            "distribution",
+            "loan_hardship",
+            "sponsor_inquiry",
+        ]
 
     def test_has(self, shipped_registry: PegaSchemaRegistry):
-        assert shipped_registry.has("auto")
-        assert shipped_registry.has("property")
-        assert not shipped_registry.has("liability")
+        assert shipped_registry.has("distribution")
+        assert shipped_registry.has("loan_hardship")
+        assert shipped_registry.has("sponsor_inquiry")
+        assert not shipped_registry.has("auto")  # legacy schema removed
 
     def test_schema_introspection(self, shipped_registry: PegaSchemaRegistry):
-        s = shipped_registry.schema("auto")
-        assert s["case_type"]  == "auto"
-        assert s["pega_class"] == "ITSM-Work-AutoClaim"
+        s = shipped_registry.schema("distribution")
+        assert s["case_type"]      == "distribution"
+        assert s["pega_class"]     == "ITSM-Work-DistributionRequest"
+        assert s["schema_version"] == "0.1.0-placeholder"
         assert "mapping" in s
 
 
@@ -248,12 +310,13 @@ class TestMapping:
         self, shipped_registry: PegaSchemaRegistry,
     ):
         with pytest.raises(PegaSchemaError) as exc:
-            shipped_registry.map("liability", {})
+            shipped_registry.map("beneficiary_update", {})
         # The error message lists what *is* registered to help the caller.
         msg = str(exc.value)
-        assert "auto" in msg
-        assert "property" in msg
-        assert "liability" in msg
+        assert "distribution"     in msg
+        assert "loan_hardship"    in msg
+        assert "sponsor_inquiry"  in msg
+        assert "beneficiary_update" in msg
 
     def test_defaults_applied(self, tmp_path: Path):
         _write_schema(tmp_path, "t", _minimal_schema(
