@@ -55,3 +55,71 @@ export function useFetch<T>(
     refetch: () => setTick((t) => t + 1),
   };
 }
+
+
+/**
+ * Polls a fetcher on a fixed interval. Same shape as `useFetch` plus
+ * a `paused` toggle the caller can flip to stop polling without
+ * unmounting (e.g. when the user opens a modal and we don't want
+ * the table to reflow under them).
+ *
+ * Why polling, not SSE: see docs/guides/live-console.md. Most arc
+ * use cases (a few reviewers watching an agent for an hour) have
+ * better UX with polling — works through any proxy / Lambda / etc.
+ * and has trivial test ergonomics.
+ */
+export interface PollState<T> extends FetchState<T> {
+  /** True while the polling loop is active. */
+  isPolling: boolean;
+}
+
+export function usePolling<T>(
+  fetcher: () => Promise<T>,
+  intervalMs: number,
+  options: { paused?: boolean; deps?: unknown[] } = {},
+): PollState<T> {
+  const { paused = false, deps = [] } = options;
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (paused) return;
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const result = await fetcher();
+        if (!cancelled) {
+          setData(result);
+          setError(null);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err as Error);
+          setLoading(false);
+        }
+      }
+    };
+
+    // Fire once immediately, then poll.
+    run();
+    const id = setInterval(run, intervalMs);
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intervalMs, paused, tick, ...deps]);
+
+  return {
+    data,
+    error,
+    loading,
+    isPolling: !paused,
+    refetch: () => setTick((t) => t + 1),
+  };
+}
