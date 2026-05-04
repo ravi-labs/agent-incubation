@@ -90,6 +90,7 @@ Captured ideas without implementation. Each has a one-pager in
 | 🟡 LangGraph governance gap — `governed_chat_model` adapter wrapping `BaseChatModel` so LangGraph node LLM calls route through `run_effect()` | Idea, unblocked | [backlog.md → LangGraph](backlog.md) |
 | 🟡 Language-agnostic agent runtime — wire protocol (gRPC/REST), Tollgate as a sidecar, per-language SDKs (Java, Go, Node) | Idea, blocked on demand | [backlog.md → Multi-language](backlog.md) |
 | 🟡 Streaming LLM responses — `astream` on `LLMClient` + `GovernedChatModel`, audit-on-completion | Idea, no forcing function | [backlog.md → Streaming](backlog.md) |
+| 🟡 In-flight run cancellation — force-stop a currently-executing run via cooperative `RunRegistry` flag + Cancel button on the live page | Idea, unblocked | [backlog.md → In-flight cancellation](backlog.md) |
 
 ---
 

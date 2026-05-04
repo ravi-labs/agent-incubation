@@ -197,6 +197,74 @@ benefits.
 
 ---
 
+## 🟡 In-flight run cancellation (force-stop a currently-executing run)
+
+**The ask.** arc has two interrupt mechanisms today: ASK gates (the
+agent pauses on consequential effects, human approves/rejects) and
+agent-level Suspend (halts new runs, leaves in-flight runs alone). What
+*isn't* there is a third rung — **force-stop a single run that's
+currently executing**, mid-step, before its next gate fires. Today the
+only way to cancel an in-flight run is wait for the next ASK gate and
+reject it.
+
+**The lever.** A per-run cancellation flag that the agent
+*cooperatively* checks at each `run_effect` call. Combined with a
+``RunRegistry`` mapping `run_id → state` and a `POST /api/runs/{id}/cancel`
+endpoint that flips the flag, this gives ops on-call a "Cancel run"
+button on the live page that surfaces in real time. The agent raises
+``RunCancelled`` at the next checkpoint; its calling code logs and
+moves on.
+
+**Scope.**
+1. Add ``arc.core.RunRegistry`` — in-memory + JSONL-backed implementations
+   tracking ``{run_id, agent_id, started_at, status}``. Status is
+   ``running`` / ``cancelled`` / ``completed``.
+2. Each run gets a ``run_id`` (UUID) on entry; ``BaseAgent.execute``
+   registers it. The registry instance is injected like the audit sink.
+3. ``BaseAgent.run_effect`` peeks at the registry before each call;
+   if the flag is ``cancelled``, raises ``RunCancelled``. **Cooperative,
+   not preemptive** — no asyncio task cancellation, no thread kill.
+4. Add ``POST /api/runs/{run_id}/cancel`` endpoint with body
+   ``{ reviewer, reason }``. Writes to registry; audit row records
+   the cancellation.
+5. Add ``GET /api/agents/{id}/runs/in-flight`` to list active runs
+   for the live page.
+6. Add an "In-flight runs" pane to ``AgentLive.tsx`` listing each
+   run with its current step + a Cancel button.
+7. Tests: cancellation fires before next ``run_effect``, audit row
+   lands, calling agent code can catch ``RunCancelled``.
+
+**Effort estimate:** ~3 days. None of the pieces are research-grade;
+it's just plumbing across arc-core (registry), arc-platform (endpoint
++ pane), and BaseAgent (the check).
+
+**What this would unlock:**
+- A "kill this specific email's processing" button — narrower than
+  Suspend, faster than waiting for the next ASK to reject.
+- Mid-incident triage — "agent is misclassifying everything; cancel
+  all in-flight runs immediately" as a kill switch finer than the
+  agent-level Suspend.
+- Cleaner deploy semantics — graceful cancel of in-flight runs before
+  worker shutdown.
+
+**What's NOT in scope:**
+- Preemptive cancellation (asyncio task kill, thread interrupt). The
+  agent must stop *cooperatively* at a gate; if the agent is mid-LLM-
+  call to a 30-second model, the cancel takes effect when that call
+  returns. The right tradeoff for arc — preemption breaks audit
+  invariants.
+- Mid-graph state mutation ("pause at classify_node, change the
+  case_type to X, resume"). LangGraph already supports this via
+  ``interrupt_before`` + ``update_state``; surfacing it is a separate
+  feature, scoped on its own.
+
+**Why not now:** ASK rejection covers ~80% of the "stop this run"
+need today, and the email-triage pilot hasn't yet hit a scenario where
+ASK-reject is too slow. Build it when ops on-call asks for the button
+during a real incident — that's the forcing function.
+
+---
+
 ## How to add to this backlog
 
 Append a new section above with: title, **the ask** (1–2 sentences), the
