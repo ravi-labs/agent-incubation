@@ -65,6 +65,7 @@ row).
 | `arc.outcome.event` | counter | `agent_id`, `event_type` | `OutcomeTracker.record` |
 | `arc.outcome.latency_ms` | timing | `agent_id`, `event_type` | `OutcomeTracker.record` (when `data.latency_ms` present) |
 | `arc.redaction.match` | counter | `pattern` (SSN, EMAIL, ...) | `Redactor._redact_string` |
+| `arc.slo.breach` | counter | `agent_id`, `slo`, `severity` (warn/critical) | `DemotionWatcher` (one per breached rule) |
 
 Notes:
 

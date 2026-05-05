@@ -392,3 +392,136 @@ class TestRobustness:
         actions = {r.agent_id: r.action for r in results}
         assert actions["agent-0"] == "ok"
         assert actions["ghost"] == "error"
+
+
+# ── Telemetry — arc.slo.breach emit ─────────────────────────────────────────
+
+
+class _SpyTel:
+    """Captures every Telemetry call."""
+    def __init__(self):
+        self.calls: list[tuple] = []
+
+    def count(self, name, value=1.0, tags=None):
+        self.calls.append(("count", name, value, dict(tags or {})))
+
+    def gauge(self, name, value, tags=None):
+        self.calls.append(("gauge", name, value, dict(tags or {})))
+
+    def timing(self, name, value_ms, tags=None):
+        self.calls.append(("timing", name, value_ms, dict(tags or {})))
+
+    def breaches(self) -> list[tuple]:
+        return [c for c in self.calls if c[1] == "arc.slo.breach"]
+
+
+def _make_watcher_with_telemetry(tmp_path: Path, telemetry, *,
+                                  consecutive: int = 3,
+                                  rules: list[SLORule] | None = None):
+    """Mirror _make_watcher but with telemetry wired."""
+    registry_root = tmp_path / "registry"
+    outcomes_path = tmp_path / "outcomes.jsonl"
+    store = DirectoryManifestStore(registry_root)
+    tracker = OutcomeTracker(path=outcomes_path)
+    audit = InMemoryPromotionAuditLog()
+    approvals = InMemoryPendingApprovalStore()
+    breaches = InMemoryBreachStateStore()
+    service = PromotionService(
+        checker=GateChecker(),
+        audit_log=audit,
+        approval_store=approvals,
+    )
+    m = _manifest(agent_id="agent-0", rules=rules)
+    store.save(m)
+    watcher = DemotionWatcher(
+        manifest_store    = store,
+        outcome_tracker   = tracker,
+        breach_state      = breaches,
+        promotion_service = service,
+        approval_store    = approvals,
+        consecutive_breaches_required = consecutive,
+        telemetry         = telemetry,
+    )
+    return watcher, tracker
+
+
+class TestTelemetry:
+    def test_no_telemetry_is_default(self, tmp_path: Path):
+        """Default watcher has telemetry=None and works as before."""
+        watcher, *_ = _make_watcher(tmp_path=tmp_path)
+        assert watcher.telemetry is None
+
+    def test_no_breach_emits_nothing(self, tmp_path: Path):
+        spy = _SpyTel()
+        watcher, tracker = _make_watcher_with_telemetry(tmp_path, spy)
+        _seed_outcomes(tracker.path, "agent-0",
+                       [{"data": {"status": "ok"}}] * 100)
+        watcher.run(["agent-0"])
+        assert spy.breaches() == []
+
+    def test_single_breach_emits_warn(self, tmp_path: Path):
+        spy = _SpyTel()
+        watcher, tracker = _make_watcher_with_telemetry(
+            tmp_path, spy, consecutive=3,
+        )
+        _seed_outcomes(tracker.path, "agent-0",
+                       [{"data": {"status": "error"}}] * 50)
+        result = watcher.run(["agent-0"])[0]
+        assert result.action == "breach-pending"
+
+        breaches = spy.breaches()
+        assert len(breaches) == 1
+        _, name, value, tags = breaches[0]
+        assert name == "arc.slo.breach"
+        assert value == 1.0
+        assert tags == {
+            "agent_id": "agent-0",
+            "slo":      "error_rate",
+            "severity": "warn",
+        }
+
+    def test_threshold_reached_emits_critical(self, tmp_path: Path):
+        spy = _SpyTel()
+        watcher, tracker = _make_watcher_with_telemetry(
+            tmp_path, spy, consecutive=2,
+        )
+        _seed_outcomes(tracker.path, "agent-0",
+                       [{"data": {"status": "error"}}] * 50)
+
+        watcher.run(["agent-0"])  # 1st breach — warn
+        watcher.run(["agent-0"])  # 2nd breach — critical (threshold reached)
+
+        severities = [c[3]["severity"] for c in spy.breaches()]
+        assert severities == ["warn", "critical"]
+
+    def test_one_emit_per_breached_rule(self, tmp_path: Path):
+        spy = _SpyTel()
+        # Two SLO rules, both breached by the seeded data.
+        watcher, tracker = _make_watcher_with_telemetry(
+            tmp_path, spy, consecutive=3,
+            rules=[
+                SLORule(metric="error_rate",     op="<", threshold=0.05),
+                SLORule(metric="event_count",    op=">", threshold=1000),  # 50 < 1000 → breach
+            ],
+        )
+        _seed_outcomes(tracker.path, "agent-0",
+                       [{"data": {"status": "error"}}] * 50)
+        watcher.run(["agent-0"])
+
+        slos = sorted(c[3]["slo"] for c in spy.breaches())
+        assert slos == ["error_rate", "event_count"]
+
+    def test_telemetry_failure_does_not_break_watcher(self, tmp_path: Path):
+        class Broken:
+            def count(self, *a, **k):  raise RuntimeError("metric backend down")
+            def gauge(self, *a, **k):  raise RuntimeError("metric backend down")
+            def timing(self, *a, **k): raise RuntimeError("metric backend down")
+
+        watcher, tracker = _make_watcher_with_telemetry(
+            tmp_path, Broken(), consecutive=2,
+        )
+        _seed_outcomes(tracker.path, "agent-0",
+                       [{"data": {"status": "error"}}] * 50)
+        # Must not raise.
+        result = watcher.run(["agent-0"])[0]
+        assert result.action == "breach-pending"
