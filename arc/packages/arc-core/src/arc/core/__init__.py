@@ -60,6 +60,14 @@ from arc.core.redactor import (
     RedactingAuditSink,
     Redactor,
 )
+from arc.core.telemetry import (
+    CloudWatchEMFTelemetry,
+    DatadogTelemetry,
+    MultiTelemetry,
+    NoOpTelemetry,
+    Telemetry,
+    telemetry_from_env,
+)
 from arc.core.llm import LLMClient, LLMConfig, resolve_llm
 from arc.core.slo import (
     DemotionMode,
@@ -171,6 +179,10 @@ __all__ = [
     # Data redaction (PII patterns, audit sink wrapper)
     "Redactor", "Pattern", "RedactingAuditSink",
     "DEFAULT_PATTERNS", "BARE_SSN_PATTERN",
+    # Telemetry (CloudWatch EMF + Datadog DogStatsD)
+    "Telemetry", "NoOpTelemetry",
+    "CloudWatchEMFTelemetry", "DatadogTelemetry", "MultiTelemetry",
+    "telemetry_from_env",
     # SLOs (auto-demotion)
     "SLOConfig", "SLORule", "SLOEvaluation", "SLOReport",
     "DemotionMode", "evaluate_slo", "parse_window_seconds",

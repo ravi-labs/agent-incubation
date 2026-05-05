@@ -140,6 +140,7 @@ class Redactor:
             "account_number", "routing_number", "card_number",
         }
     )
+    telemetry: Any = None  # optional arc.core.Telemetry for match counts
 
     def __post_init__(self) -> None:
         self._all_patterns = tuple(self.patterns) + tuple(self.extra)
@@ -186,7 +187,20 @@ class Redactor:
     def _redact_string(self, text: str) -> str:
         out = text
         for p in self._all_patterns:
-            out = p.apply(out)
+            repl = p.replacement or f"[REDACTED-{p.label}]"
+            out, n = p.regex.subn(repl, out)
+            if n and self.telemetry is not None:
+                # Best-effort match counter — never raise. The pattern
+                # label is bounded cardinality (the configured set) so
+                # safe to use as a tag.
+                try:
+                    self.telemetry.count(
+                        "arc.redaction.match",
+                        float(n),
+                        tags={"pattern": p.label},
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("redactor_telemetry_emit_failed err=%s", exc)
         return out
 
 

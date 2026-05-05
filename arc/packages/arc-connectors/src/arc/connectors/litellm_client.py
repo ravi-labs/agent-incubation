@@ -191,6 +191,20 @@ class LiteLLMClient:
             exec_fn=_exec_fn,
         )
 
+        # Telemetry: token estimates for cost dashboards. Best-effort.
+        try:
+            tel = getattr(agent, "telemetry", None)
+            if tel is not None:
+                tags = {
+                    "agent_id": agent.manifest.agent_id,
+                    "model":    self.model,
+                    "provider": "litellm",
+                }
+                tel.count("arc.llm.tokens_in", float(prompt_tokens), tags=tags)
+                tel.count("arc.llm.chars_out", float(len(result)),    tags=tags)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("litellm_telemetry_emit_failed err=%s", exc)
+
         logger.debug(
             "litellm_generate model=%s effect=%s chars=%d",
             self.model, getattr(effect, "value", effect), len(result),
