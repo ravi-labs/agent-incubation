@@ -21,9 +21,11 @@ Usage:
     approval_store = RedisApprovalStore(redis_url="redis://localhost:6379/0")
 """
 
+from .s3_audit_sink import S3AuditSink
 from .sqlite_store import SQLiteApprovalStore, SQLiteGrantStore
 
 __all__ = [
+    "S3AuditSink",
     "SQLiteGrantStore",
     "SQLiteApprovalStore",
 ]
