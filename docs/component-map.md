@@ -105,7 +105,7 @@ flowchart TB
     %% ─── Wiring (composition) ───────────────────────────────────────
     AGENTS    -->|builds| ORCH
     ORCH      -->|runs|   CORE
-    CORE      ===>|every effect routes through| TOLLGATE
+    CORE      ==>|every effect routes through| TOLLGATE
     BA        --> EFFECTS
     BA        --> BUILDER
     BA        -.->|reads/writes| MEM
