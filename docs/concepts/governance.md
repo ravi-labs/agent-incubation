@@ -202,6 +202,11 @@ Each is a separate test in `arc-core/tests/test_base_agent.py` and
 - [Data redaction](data-redaction.md) — pattern-based PII redaction at the
   audit sink + LLM boundary. The bright line between agent code (sees
   real values) and external systems (see redacted values).
+- [Telemetry](telemetry.md) — operational metrics (CloudWatch EMF +
+  Datadog DogStatsD) emitted from `BaseAgent.run_effect`,
+  `OutcomeTracker`, and `Redactor`. The bright line between
+  *compliance audit* (S3, years) and *operational signals*
+  (Datadog/CloudWatch, days).
 - [Effects](effects.md) — the typed vocabulary that ControlTower
   evaluates.
 - [Lifecycle](lifecycle.md) — governance over time (the promotion

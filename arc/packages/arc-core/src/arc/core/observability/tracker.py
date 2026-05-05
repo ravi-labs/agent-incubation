@@ -83,15 +83,22 @@ class OutcomeTracker:
         self,
         path: str | Path | None = None,
         session_id: str | None = None,
+        telemetry: Any = None,
     ):
         """
         Args:
             path:       Path to the JSONL output file.
                         If None, events are only logged (not persisted).
             session_id: Optional session/run identifier for correlation.
+            telemetry:  Optional ``arc.core.Telemetry`` emitter. Each
+                        ``record()`` call emits ``arc.outcome.event`` with
+                        tags ``agent_id`` + ``event_type`` so dashboards
+                        can graph outcomes per agent. Defaults to None
+                        (no telemetry emitted).
         """
         self.path = Path(path) if path else None
         self.session_id = session_id
+        self.telemetry = telemetry
         self._events: list[OutcomeEvent] = []
 
     async def record(
@@ -124,6 +131,26 @@ class OutcomeTracker:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open("a") as f:
                 f.write(event.to_json() + "\n")
+
+        # Telemetry: emit one counter per outcome. Best-effort; never raises.
+        if self.telemetry is not None:
+            try:
+                self.telemetry.count(
+                    "arc.outcome.event",
+                    1.0,
+                    tags={"agent_id": agent_id, "event_type": event_type},
+                )
+                # If the event payload carries a numeric latency, surface it
+                # as a timing metric — most agents put this in data.
+                latency = data.get("latency_ms") if isinstance(data, dict) else None
+                if isinstance(latency, (int, float)) and not isinstance(latency, bool):
+                    self.telemetry.timing(
+                        "arc.outcome.latency_ms",
+                        float(latency),
+                        tags={"agent_id": agent_id, "event_type": event_type},
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("outcome_telemetry_emit_failed err=%s", exc)
 
         return event
 

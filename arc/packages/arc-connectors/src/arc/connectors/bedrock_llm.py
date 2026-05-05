@@ -195,6 +195,23 @@ class BedrockLLMClient:
             exec_fn=_exec_fn,
         )
 
+        # Telemetry: token + char counts for LLM cost dashboards. Best-effort.
+        # We don't have exact token counts here without parsing the Bedrock
+        # response usage block; chars + word-estimate are good enough for
+        # trend graphs and cost-per-run estimation.
+        try:
+            tel = getattr(agent, "telemetry", None)
+            if tel is not None:
+                tags = {
+                    "agent_id": agent.manifest.agent_id,
+                    "model":    self.model_id,
+                    "provider": "bedrock",
+                }
+                tel.count("arc.llm.tokens_in",  float(prompt_tokens), tags=tags)
+                tel.count("arc.llm.chars_out",  float(len(result)),    tags=tags)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("bedrock_telemetry_emit_failed err=%s", exc)
+
         logger.debug(
             "bedrock_generate model=%s effect=%s chars=%d",
             self.model_id, getattr(effect, "value", effect), len(result),

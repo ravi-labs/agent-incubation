@@ -30,6 +30,7 @@ from arc.core.gateway import GatewayConnector
 from arc.core.manifest import AgentManifest
 from arc.core.observability import OutcomeTracker
 from arc.core.policy import EffectRequestBuilder
+from arc.core.telemetry import NoOpTelemetry, Telemetry
 
 from tollgate.tower import ControlTower
 from tollgate.types import AgentContext
@@ -57,15 +58,19 @@ class BaseAgent(ABC):
         tracker: OutcomeTracker | None = None,
         memory: "ConversationBuffer | AgentMemoryStore | None" = None,
         tools: "AgentToolRegistry | None" = None,
+        telemetry: Telemetry | None = None,
     ):
         """
         Args:
-            manifest: The agent's declared manifest (scope, effects, stage).
-            tower:    Configured Tollgate ControlTower (policy + audit).
-            gateway:  Data access connector (reads via declared permissions).
-            tracker:  Optional outcome tracker for ROI measurement.
-            memory:   Optional ConversationBuffer / AgentMemoryStore.
-            tools:    Optional AgentToolRegistry.
+            manifest:  The agent's declared manifest (scope, effects, stage).
+            tower:     Configured Tollgate ControlTower (policy + audit).
+            gateway:   Data access connector (reads via declared permissions).
+            tracker:   Optional outcome tracker for ROI measurement.
+            memory:    Optional ConversationBuffer / AgentMemoryStore.
+            tools:     Optional AgentToolRegistry.
+            telemetry: Optional metric emitter (CloudWatch EMF, Datadog,
+                       Multi). Defaults to NoOp — zero overhead unless
+                       explicitly wired by the runtime.
         """
         self.manifest = manifest
         self.tower    = tower
@@ -73,6 +78,7 @@ class BaseAgent(ABC):
         self.tracker  = tracker
         self.memory   = memory
         self.tools    = tools
+        self.telemetry = telemetry or NoOpTelemetry()
         self._builder = EffectRequestBuilder(manifest_version=manifest.manifest_version)
         self._agent_ctx = AgentContext(
             agent_id=manifest.agent_id,
@@ -175,12 +181,34 @@ class BaseAgent(ABC):
             async def exec_fn():
                 return _sync_fn()
 
-        result = await self.tower.execute_async(
-            agent_ctx=self._agent_ctx,
-            intent=intent,
-            tool_request=tool_request,
-            exec_async=exec_fn,
-        )
+        # Telemetry: time the call and emit decision counter on completion.
+        # All emits are no-ops by default; never raise.
+        import time as _time
+
+        _started_at = _time.perf_counter()
+        _effect_tags = {
+            "agent_id": self.manifest.agent_id,
+            "effect":   effect.value,
+        }
+        _decision = "ALLOW"
+        try:
+            result = await self.tower.execute_async(
+                agent_ctx=self._agent_ctx,
+                intent=intent,
+                tool_request=tool_request,
+                exec_async=exec_fn,
+            )
+        except Exception as exc:  # noqa: BLE001 — classify and re-raise
+            # Tollgate raises TollgateDenied on policy DENY or rejected ASK.
+            # We classify by exception class name to avoid a hard import
+            # of tollgate.exceptions on the agent path.
+            _decision = "DENY" if "Denied" in type(exc).__name__ else "ERROR"
+            self._emit_effect_outcome(_effect_tags, _decision, _started_at)
+            raise
+
+        # Successful path: tower may have surfaced ASK→approved or ALLOW.
+        # Default to ALLOW; downstream sinks can refine via the audit row.
+        self._emit_effect_outcome(_effect_tags, _decision, _started_at)
 
         logger.debug(
             "effect=%s tool=%s action=%s agent=%s env=%s",
@@ -189,6 +217,32 @@ class BaseAgent(ABC):
         )
 
         return result
+
+    def _emit_effect_outcome(
+        self,
+        tags: dict[str, Any],
+        decision: str,
+        started_at: float,
+    ) -> None:
+        """Emit ``arc.effect.outcome`` + ``arc.effect.latency_ms``.
+
+        Telemetry is best-effort; never raises. Latency is wall-clock
+        time spent inside the tower (policy eval + executor + audit).
+        """
+        import time as _time
+        try:
+            self.telemetry.count(
+                "arc.effect.outcome",
+                1.0,
+                tags={**tags, "decision": decision},
+            )
+            self.telemetry.timing(
+                "arc.effect.latency_ms",
+                (_time.perf_counter() - started_at) * 1000.0,
+                tags=tags,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("effect_telemetry_emit_failed err=%s", exc)
 
     async def log_outcome(self, event_type: str, data: dict[str, Any]) -> None:
         """Record an outcome event for ROI tracking."""
