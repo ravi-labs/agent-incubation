@@ -25,7 +25,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Iterable
+from typing import Any, Iterable
 
 from ..slo import DemotionMode, SLOReport, evaluate_slo
 
@@ -105,7 +105,17 @@ class DemotionWatcher:
             LifecycleStage.GOVERN,
             LifecycleStage.VALIDATE,
         ),
+        telemetry: Any = None,
     ) -> None:
+        """Args:
+            ... (existing args)
+            telemetry: Optional ``arc.core.Telemetry`` emitter. When set,
+                the watcher emits ``arc.slo.breach`` (one counter per
+                breached rule) with severity ``warn`` while accumulating
+                consecutive breaches and ``critical`` when the threshold
+                is reached and an action is taken (demote or proposal
+                queued). Defaults to None — no telemetry emitted.
+        """
         self.manifest_store               = manifest_store
         self.outcome_tracker              = outcome_tracker
         self.breach_state                 = breach_state
@@ -114,6 +124,7 @@ class DemotionWatcher:
         self.consecutive_breaches_required = consecutive_breaches_required
         self.cooldown_hours               = cooldown_hours
         self.eligible_stages              = eligible_stages
+        self.telemetry                    = telemetry
 
     # ── Entry point ─────────────────────────────────────────────────────
 
@@ -201,7 +212,11 @@ class DemotionWatcher:
         state = self.breach_state.record(agent_id, breached=True)
         breach_reasons = [e.reason for e in report.breaches]
 
+        # Emit one telemetry counter per breached rule. While the
+        # hysteresis counter is below threshold, severity is "warn"
+        # — interesting but not yet actionable.
         if state.consecutive_breaches < self.consecutive_breaches_required:
+            self._emit_breach(agent_id, report, severity="warn")
             return WatchResult(
                 agent_id=agent_id,
                 action="breach-pending",
@@ -212,6 +227,9 @@ class DemotionWatcher:
                 consecutive_breaches=state.consecutive_breaches,
                 breaches=breach_reasons,
             )
+
+        # Threshold reached — this is the actionable signal.
+        self._emit_breach(agent_id, report, severity="critical")
 
         # Threshold reached — check cooldown.
         if self._in_cooldown(agent_id, now):
@@ -299,6 +317,33 @@ class DemotionWatcher:
             approval_id=approval_id,
             breaches=breach_reasons,
         )
+
+    # ── Telemetry ───────────────────────────────────────────────────────
+
+    def _emit_breach(self, agent_id: str, report: SLOReport, severity: str) -> None:
+        """Emit ``arc.slo.breach`` per breached rule. Best-effort; never raises.
+
+        One counter call per breached rule, tagged with the rule's
+        metric name and the severity. ``warn`` while accumulating
+        consecutive breaches under the hysteresis threshold;
+        ``critical`` when the threshold is reached and an action is
+        about to be taken (demote or proposal queued).
+        """
+        if self.telemetry is None:
+            return
+        try:
+            for evaluation in report.breaches:
+                self.telemetry.count(
+                    "arc.slo.breach",
+                    1.0,
+                    tags={
+                        "agent_id": agent_id,
+                        "slo":      evaluation.rule.metric,
+                        "severity": severity,
+                    },
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("slo_breach_telemetry_emit_failed err=%s", exc)
 
     # ── Cooldown ────────────────────────────────────────────────────────
 
