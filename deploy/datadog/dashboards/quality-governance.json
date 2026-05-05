@@ -1,0 +1,140 @@
+{
+  "title": "Arc — Quality & Governance",
+  "description": "Daily / weekly view for ops + compliance leads. Trends over 7 / 30 days, SLO breaches, approval bottlenecks. Use this for promotion decisions and stage-gate reviews.\n\nMetrics emitted by `arc.core.telemetry` from BaseAgent.run_effect, OutcomeTracker, and DemotionWatcher. See docs/concepts/telemetry.md.",
+  "layout_type": "ordered",
+  "template_variables": [
+    {
+      "name": "agent_id",
+      "prefix": "agent_id",
+      "available_values": [],
+      "default": "*"
+    },
+    {
+      "name": "env",
+      "prefix": "env",
+      "available_values": ["sandbox", "production"],
+      "default": "production"
+    }
+  ],
+  "tags": ["arc", "agentic-ai", "governance", "quality"],
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## Quality & governance\n7-day / 30-day view. Use for promotion decisions, SLO retrospectives, and identifying agents that need policy tuning.",
+        "background_color": "purple",
+        "font_size": "14",
+        "text_align": "left"
+      },
+      "layout": {"x": 0, "y": 0, "width": 12, "height": 1}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Decision distribution trend (rolling 7d)",
+        "title_size": "16",
+        "title_align": "left",
+        "show_legend": true,
+        "requests": [
+          {
+            "q": "sum:arc.effect.outcome{$agent_id,$env,decision:ALLOW}.as_count().rollup(sum, 86400)",
+            "display_type": "area",
+            "style": {"palette": "green"}
+          },
+          {
+            "q": "sum:arc.effect.outcome{$agent_id,$env,decision:ASK}.as_count().rollup(sum, 86400)",
+            "display_type": "area",
+            "style": {"palette": "warm"}
+          },
+          {
+            "q": "sum:arc.effect.outcome{$agent_id,$env,decision:DENY}.as_count().rollup(sum, 86400)",
+            "display_type": "area",
+            "style": {"palette": "warm", "line_width": "thick"}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 1, "width": 12, "height": 4}
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Top 10 most-asked effects (where humans are bottlenecked)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "top(sum:arc.effect.outcome{$agent_id,$env,decision:ASK} by {effect}.as_count(), 10, 'sum', 'desc')"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 5, "width": 6, "height": 4}
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Top 10 most-denied effects (where policy is biting)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "top(sum:arc.effect.outcome{$agent_id,$env,decision:DENY} by {effect}.as_count(), 10, 'sum', 'desc')"
+          }
+        ]
+      },
+      "layout": {"x": 6, "y": 5, "width": 6, "height": 4}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "SLO breaches by severity (warn vs critical)",
+        "title_size": "16",
+        "title_align": "left",
+        "show_legend": true,
+        "requests": [
+          {
+            "q": "sum:arc.slo.breach{$agent_id,$env,severity:warn}.as_count()",
+            "display_type": "bars",
+            "style": {"palette": "warm"}
+          },
+          {
+            "q": "sum:arc.slo.breach{$agent_id,$env,severity:critical}.as_count()",
+            "display_type": "bars",
+            "style": {"palette": "warm", "line_width": "thick"}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 9, "width": 12, "height": 4}
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Top SLOs by breach count",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "top(sum:arc.slo.breach{$agent_id,$env} by {slo}.as_count(), 10, 'sum', 'desc')"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 13, "width": 6, "height": 4}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "LLM token burn by agent (input + output)",
+        "title_size": "16",
+        "title_align": "left",
+        "show_legend": true,
+        "requests": [
+          {
+            "q": "sum:arc.llm.tokens_in{$agent_id,$env} by {agent_id}.as_count()",
+            "display_type": "line",
+            "style": {"palette": "cool"}
+          }
+        ]
+      },
+      "layout": {"x": 6, "y": 13, "width": 6, "height": 4}
+    }
+  ]
+}

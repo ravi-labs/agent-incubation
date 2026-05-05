@@ -1,0 +1,127 @@
+{
+  "title": "Arc — PII Heatmap",
+  "description": "Compliance-facing dashboard showing where PII is being redacted across agents. Sudden spikes in any pattern indicate upstream data-shape changes (a new email source, a Pega field starting to leak, etc.). Drops indicate either cleaner data OR a broken pattern — both worth investigating.\n\nMetric emitted by `arc.core.Redactor` whenever a default or custom pattern matches inbound text. Each match increments `arc.redaction.match{pattern=<NAME>}`.",
+  "layout_type": "ordered",
+  "template_variables": [
+    {
+      "name": "env",
+      "prefix": "env",
+      "available_values": ["sandbox", "production"],
+      "default": "production"
+    }
+  ],
+  "tags": ["arc", "compliance", "pii", "redaction"],
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## PII heatmap — compliance view\nEvery match here is a value that was successfully redacted **before** reaching the LLM provider or the audit log. The PII never left arc's trust boundary.\n\nUse this dashboard to:\n- spot upstream data-shape changes (new pattern emerging)\n- verify the redactor is working (drops to zero = something's broken)\n- justify the redaction layer to compliance leads",
+        "background_color": "gray",
+        "font_size": "14"
+      },
+      "layout": {"x": 0, "y": 0, "width": 12, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Total redactions (last 24h)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "sum:arc.redaction.match{$env}.as_count()",
+            "aggregator": "sum"
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {"x": 0, "y": 2, "width": 4, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "SSN redactions (last 24h)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "sum:arc.redaction.match{$env,pattern:SSN}.as_count()",
+            "aggregator": "sum",
+            "conditional_formats": [
+              {"comparator": ">", "value": 100, "palette": "white_on_red"},
+              {"comparator": ">", "value": 10, "palette": "white_on_yellow"},
+              {"comparator": "<=", "value": 10, "palette": "white_on_green"}
+            ]
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {"x": 4, "y": 2, "width": 4, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Credit card redactions (last 24h)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "sum:arc.redaction.match{$env,pattern:CREDIT_CARD}.as_count()",
+            "aggregator": "sum",
+            "conditional_formats": [
+              {"comparator": ">", "value": 50, "palette": "white_on_red"},
+              {"comparator": ">", "value": 5, "palette": "white_on_yellow"},
+              {"comparator": "<=", "value": 5, "palette": "white_on_green"}
+            ]
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {"x": 8, "y": 2, "width": 4, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Redactions by pattern over time",
+        "title_size": "16",
+        "title_align": "left",
+        "show_legend": true,
+        "legend_layout": "auto",
+        "requests": [
+          {
+            "q": "sum:arc.redaction.match{$env} by {pattern}.as_count()",
+            "display_type": "area",
+            "style": {"palette": "dog_classic"}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 4, "width": 12, "height": 4}
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Most-matched patterns (last 7d)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "top(sum:arc.redaction.match{$env} by {pattern}.as_count(), 10, 'sum', 'desc')"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 8, "width": 6, "height": 4}
+    },
+    {
+      "definition": {
+        "type": "note",
+        "content": "### When to investigate\n- **Spike in any pattern** → upstream change introduced new PII shape. Find the source and decide whether to widen the redactor or fix the source.\n- **Drop to zero unexpectedly** → redactor regression. Check recent deploys + run the redactor unit tests.\n- **New pattern needed** → custom domain shape (plan IDs, account numbers). Add to `Redactor(extra=...)` per agent.\n\n### Cross-references\n- `docs/concepts/data-redaction.md` — pattern set + trust boundary\n- `docs/concepts/telemetry.md` — full metric vocabulary",
+        "background_color": "white",
+        "font_size": "14"
+      },
+      "layout": {"x": 6, "y": 8, "width": 6, "height": 4}
+    }
+  ]
+}

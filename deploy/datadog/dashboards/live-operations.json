@@ -1,0 +1,186 @@
+{
+  "title": "Arc — Live Operations",
+  "description": "Real-time on-call view of every arc-incubated agent. Use this dashboard during incidents and when the live console highlights anomalies.\n\nMetrics emitted by `arc.core.telemetry` from BaseAgent.run_effect, OutcomeTracker, and the LLM clients. See docs/concepts/telemetry.md.",
+  "layout_type": "ordered",
+  "template_variables": [
+    {
+      "name": "agent_id",
+      "prefix": "agent_id",
+      "available_values": [],
+      "default": "*"
+    },
+    {
+      "name": "env",
+      "prefix": "env",
+      "available_values": ["sandbox", "production"],
+      "default": "production"
+    }
+  ],
+  "tags": ["arc", "agentic-ai", "operations"],
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## Live operations\nReal-time view. Polls every 30s. Use during incident triage — _not_ for compliance review (that's the audit log in S3).",
+        "background_color": "blue",
+        "font_size": "14",
+        "text_align": "left",
+        "vertical_align": "top",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left"
+      },
+      "layout": {"x": 0, "y": 0, "width": 12, "height": 1}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Effects executed (last 1h)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "sum:arc.effect.outcome{$agent_id,$env}.as_count()",
+            "aggregator": "sum"
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {"x": 0, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Effect p95 latency (ms)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "p95:arc.effect.latency_ms{$agent_id,$env}",
+            "aggregator": "avg",
+            "conditional_formats": [
+              {"comparator": ">", "value": 5000, "palette": "white_on_red"},
+              {"comparator": ">", "value": 1000, "palette": "white_on_yellow"},
+              {"comparator": "<=", "value": 1000, "palette": "white_on_green"}
+            ]
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {"x": 3, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "ASK rate (last 1h)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "(sum:arc.effect.outcome{$agent_id,$env,decision:ASK}.as_count() / sum:arc.effect.outcome{$agent_id,$env}.as_count()) * 100",
+            "aggregator": "avg",
+            "conditional_formats": [
+              {"comparator": ">", "value": 30, "palette": "white_on_red"},
+              {"comparator": ">", "value": 10, "palette": "white_on_yellow"},
+              {"comparator": "<=", "value": 10, "palette": "white_on_green"}
+            ]
+          }
+        ],
+        "autoscale": true,
+        "precision": 1,
+        "custom_unit": "%"
+      },
+      "layout": {"x": 6, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Token burn (in/out)",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "sum:arc.llm.tokens_in{$agent_id,$env}.as_count()",
+            "aggregator": "sum"
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": {"x": 9, "y": 1, "width": 3, "height": 2}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Decision distribution (ALLOW / ASK / DENY)",
+        "title_size": "16",
+        "title_align": "left",
+        "show_legend": true,
+        "legend_layout": "auto",
+        "legend_columns": ["avg", "min", "max", "value", "sum"],
+        "requests": [
+          {
+            "q": "sum:arc.effect.outcome{$agent_id,$env,decision:ALLOW}.as_count()",
+            "display_type": "bars",
+            "style": {"palette": "green", "line_type": "solid", "line_width": "normal"}
+          },
+          {
+            "q": "sum:arc.effect.outcome{$agent_id,$env,decision:ASK}.as_count()",
+            "display_type": "bars",
+            "style": {"palette": "warm", "line_type": "solid", "line_width": "normal"}
+          },
+          {
+            "q": "sum:arc.effect.outcome{$agent_id,$env,decision:DENY}.as_count()",
+            "display_type": "bars",
+            "style": {"palette": "warm", "line_type": "solid", "line_width": "thick"}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 3, "width": 8, "height": 4}
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Top effects by call volume",
+        "title_size": "16",
+        "title_align": "left",
+        "requests": [
+          {
+            "q": "top(sum:arc.effect.outcome{$agent_id,$env} by {effect}.as_count(), 10, 'sum', 'desc')",
+            "conditional_formats": []
+          }
+        ]
+      },
+      "layout": {"x": 8, "y": 3, "width": 4, "height": 4}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Effect latency p50 / p95 / p99 (ms)",
+        "title_size": "16",
+        "title_align": "left",
+        "show_legend": true,
+        "requests": [
+          {
+            "q": "p50:arc.effect.latency_ms{$agent_id,$env}",
+            "display_type": "line",
+            "style": {"palette": "cool", "line_type": "solid", "line_width": "thin"}
+          },
+          {
+            "q": "p95:arc.effect.latency_ms{$agent_id,$env}",
+            "display_type": "line",
+            "style": {"palette": "cool", "line_type": "solid", "line_width": "normal"}
+          },
+          {
+            "q": "p99:arc.effect.latency_ms{$agent_id,$env}",
+            "display_type": "line",
+            "style": {"palette": "cool", "line_type": "solid", "line_width": "thick"}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 7, "width": 12, "height": 4}
+    }
+  ]
+}
