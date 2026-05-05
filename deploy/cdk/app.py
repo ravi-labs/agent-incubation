@@ -22,6 +22,7 @@ Context variables:
 
 import aws_cdk as cdk
 from arc_stack import ArcAgentStack
+from datadog_forwarder_stack import DatadogForwarderConstruct
 
 app = cdk.App()
 
@@ -32,7 +33,11 @@ approval_timeout = int(app.node.try_get_context("approval_timeout") or "3600")
 vpc_id           = app.node.try_get_context("vpc_id")
 enable_bedrock   = (app.node.try_get_context("enable_bedrock") or "true").lower() == "true"
 
-ArcAgentStack(
+# Datadog forwarder is opt-in — set datadog_api_key_secret to enable.
+dd_api_key_secret = app.node.try_get_context("datadog_api_key_secret")
+dd_site           = app.node.try_get_context("datadog_site") or "datadoghq.com"
+
+infra = ArcAgentStack(
     app,
     f"Arc-{agent_id.title().replace('-', '')}",
     agent_id=agent_id,
@@ -46,5 +51,14 @@ ArcAgentStack(
         region=app.node.try_get_context("region"),
     ),
 )
+
+if dd_api_key_secret:
+    DatadogForwarderConstruct(
+        infra, "DatadogForwarder",
+        log_groups        = [infra.log_group],
+        dd_api_key_secret = dd_api_key_secret,
+        dd_site           = dd_site,
+        environment       = environment,
+    )
 
 app.synth()
