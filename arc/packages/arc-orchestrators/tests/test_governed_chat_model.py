@@ -338,3 +338,82 @@ class TestPublicExports:
         # Lazy via __getattr__.
         assert orchestrators.governed_chat_model is governed_chat_model
         assert orchestrators.GovernedChatModel   is GovernedChatModel
+
+
+# ── 7. PII redaction at the LLM trust boundary ────────────────────────────
+
+
+class TestRedactionAtLLMBoundary:
+    """When a Redactor is wired in, the wrapped model receives redacted
+    messages — even though the audit metadata is computed against the
+    original (so prompt_chars reflects real input size)."""
+
+    @pytest.mark.asyncio
+    async def test_ssn_redacted_before_reaching_wrapped_model(self):
+        from arc.core import Redactor
+
+        agent = _FakeAgent()
+        recording_model = ChatRecording()
+        recording_model._calls = []
+
+        wrapper = governed_chat_model(
+            chat_model    = recording_model,
+            agent         = agent,
+            effect        = "test",
+            intent_action = "test",
+            intent_reason = "test",
+            redactor      = Redactor(),
+        )
+
+        await wrapper.ainvoke([
+            HumanMessage(content="Subject: rollover request — SSN 123-45-6789"),
+        ])
+
+        # The wrapped model received the *redacted* form
+        assert len(recording_model._calls) == 1
+        forwarded = recording_model._calls[0]["messages"]
+        forwarded_text = forwarded[0].content
+        assert "[REDACTED-SSN]" in forwarded_text
+        assert "123-45-6789"    not in forwarded_text
+
+    @pytest.mark.asyncio
+    async def test_audit_metadata_uses_original_prompt_chars(self):
+        """`prompt_chars` should reflect the *original* input size — the
+        thing the agent actually saw — not the redacted size."""
+        from arc.core import Redactor
+
+        agent = _FakeAgent()
+        wrapper = governed_chat_model(
+            chat_model    = ChatRecording(),
+            agent         = agent,
+            effect        = "test",
+            intent_action = "test",
+            intent_reason = "test",
+            redactor      = Redactor(),
+        )
+
+        original = "SSN: 123-45-6789, please process"
+        await wrapper.ainvoke([HumanMessage(content=original)])
+
+        md = agent.calls[0]["metadata"]
+        assert md["prompt_chars"] == len(original)
+
+    @pytest.mark.asyncio
+    async def test_no_redaction_when_redactor_not_set(self):
+        """Default behaviour — no redaction unless explicitly opted in."""
+        agent = _FakeAgent()
+        recording_model = ChatRecording()
+        recording_model._calls = []
+
+        wrapper = governed_chat_model(
+            chat_model    = recording_model,
+            agent         = agent,
+            effect        = "test",
+            intent_action = "test",
+            intent_reason = "test",
+            # no redactor
+        )
+        await wrapper.ainvoke([HumanMessage(content="SSN 123-45-6789")])
+
+        forwarded_text = recording_model._calls[0]["messages"][0].content
+        assert "123-45-6789" in forwarded_text   # NOT redacted (opt-in)

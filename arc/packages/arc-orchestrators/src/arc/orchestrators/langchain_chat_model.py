@@ -131,6 +131,34 @@ def _content_chars(message: BaseMessage) -> int:
     return len(str(content)) if content is not None else 0
 
 
+def _redact_message(message: BaseMessage, redactor: Any) -> BaseMessage:
+    """Return a copy of ``message`` with text content redacted.
+
+    LangChain's ``BaseMessage`` is a Pydantic model; ``copy(update=...)``
+    yields a new instance with the modified content. List-shaped content
+    (multimodal) gets its text parts redacted in place; non-text parts
+    are passed through unchanged — Redactor doesn't know how to redact
+    images or audio bytes, and shouldn't pretend to.
+    """
+    content = getattr(message, "content", None)
+
+    if isinstance(content, str):
+        return message.model_copy(update={"content": redactor.redact_text(content)})
+
+    if isinstance(content, list):
+        new_parts: list[Any] = []
+        for part in content:
+            if isinstance(part, str):
+                new_parts.append(redactor.redact_text(part))
+            elif isinstance(part, dict) and isinstance(part.get("text"), str):
+                new_parts.append({**part, "text": redactor.redact_text(part["text"])})
+            else:
+                new_parts.append(part)
+        return message.model_copy(update={"content": new_parts})
+
+    return message
+
+
 # ── The wrapper ─────────────────────────────────────────────────────────────
 
 
@@ -171,6 +199,7 @@ class GovernedChatModel(BaseChatModel):
     _extra_meta:     dict[str, Any] | None = PrivateAttr(default=None)
     _provider_label: str           = PrivateAttr()
     _model_label:    str           = PrivateAttr()
+    _redactor:       Any           = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -185,6 +214,7 @@ class GovernedChatModel(BaseChatModel):
         metadata:       dict[str, Any] | None = None,
         provider_label: str | None = None,
         model_label:    str | None = None,
+        redactor:       Any = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -198,6 +228,10 @@ class GovernedChatModel(BaseChatModel):
         self._extra_meta     = dict(metadata) if metadata else None
         self._provider_label = provider_label or _derive_provider(chat_model)
         self._model_label    = model_label    or _derive_model(chat_model)
+        # Optional ``arc.core.Redactor``. When set, every message's content
+        # is redacted before reaching the wrapped model — same trust-boundary
+        # rule as BedrockLLMClient + LiteLLMClient.
+        self._redactor       = redactor
 
     # ── Identity ────────────────────────────────────────────────────────
 
@@ -246,9 +280,19 @@ class GovernedChatModel(BaseChatModel):
         prompt_chars  = sum(_content_chars(m) for m in messages)
         message_count = len(messages)
 
+        # Redact each message's text content *before* reaching the wrapped
+        # model. ``prompt_chars`` is computed against the original (so audit
+        # row reflects the real input size); the wrapped provider only sees
+        # the redacted form. Trust boundary: PII never crosses into a third-
+        # party model's logs.
+        outbound_messages = (
+            [_redact_message(m, self._redactor) for m in messages]
+            if self._redactor is not None else messages
+        )
+
         async def _exec_fn() -> ChatResult:
             return await self._wrapped._agenerate(
-                messages,
+                outbound_messages,
                 stop=stop,
                 run_manager=run_manager,
                 **kwargs,
@@ -346,6 +390,7 @@ def governed_chat_model(
     metadata:       dict[str, Any] | None = None,
     provider_label: str | None = None,
     model_label:    str | None = None,
+    redactor:       Any = None,
 ) -> GovernedChatModel:
     """Wrap a LangChain ``BaseChatModel`` for governed invocation.
 
@@ -384,6 +429,7 @@ def governed_chat_model(
         metadata       = metadata,
         provider_label = provider_label,
         model_label    = model_label,
+        redactor       = redactor,
     )
 
 

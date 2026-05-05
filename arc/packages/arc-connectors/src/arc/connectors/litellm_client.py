@@ -91,6 +91,7 @@ class LiteLLMClient:
         api_base: str | None = None,
         api_key: str | None = None,
         extra_completion_kwargs: dict[str, Any] | None = None,
+        redactor: Any = None,
     ):
         """
         Args:
@@ -112,6 +113,12 @@ class LiteLLMClient:
                                    Passed straight to ``litellm.acompletion``.
                                    Use for provider-specific options (e.g.,
                                    ``{"safety_settings": [...]}`` for Vertex).
+            redactor:              Optional ``arc.core.Redactor`` instance.
+                                   When set, every prompt + system message
+                                   is redacted *before* leaving the trust
+                                   boundary into the LLM provider. Defaults
+                                   to ``None`` — no redaction; opt-in.
+                                   For regulated domains, pass ``Redactor()``.
         """
         self.model = model
         self.fallback_models = list(fallback_models or [])
@@ -119,6 +126,7 @@ class LiteLLMClient:
         self.api_base = api_base
         self.api_key = api_key
         self.extra_completion_kwargs = dict(extra_completion_kwargs or {})
+        self.redactor = redactor
 
     # ── LLMClient protocol surface ─────────────────────────────────────────────
 
@@ -142,12 +150,19 @@ class LiteLLMClient:
         Same audit shape as ``BedrockLLMClient``: only the effect, intent,
         model id, and token estimate are logged — the prompt content is not.
         """
+        # Redact PII before the prompt leaves our trust boundary.
+        outbound_prompt = prompt
+        outbound_system = system
+        if self.redactor is not None:
+            outbound_prompt = self.redactor.redact_text(prompt)
+            outbound_system = self.redactor.redact_text(system) if system else system
+
         prompt_tokens = len(prompt.split())   # rough estimate for logging
 
         messages: list[dict[str, str]] = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
+        if outbound_system:
+            messages.append({"role": "system", "content": outbound_system})
+        messages.append({"role": "user", "content": outbound_prompt})
 
         async def _exec_fn():
             return await self._litellm_acompletion(

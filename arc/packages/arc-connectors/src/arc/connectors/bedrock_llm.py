@@ -80,6 +80,7 @@ class BedrockLLMClient:
         model_id: str = DEFAULT_MODEL_ID,
         region: str | None = None,
         max_retries: int = 3,
+        redactor: Any = None,
     ):
         """
         Args:
@@ -87,10 +88,19 @@ class BedrockLLMClient:
             region:      AWS region (defaults to boto3 session default /
                          AWS_DEFAULT_REGION).
             max_retries: Number of retries on throttling / transient errors.
+            redactor:    Optional ``arc.core.Redactor`` instance. When set,
+                         every prompt + system message is redacted *before*
+                         leaving the trust boundary into Bedrock. Defaults
+                         to ``None`` — no redaction; opt-in.
+                         For regulated domains (PII / SSN / account numbers),
+                         pass ``Redactor()`` here. The original (un-redacted)
+                         prompt is never stored or logged either way; only
+                         ``prompt_chars`` lands in the audit row.
         """
-        self.model_id = model_id
-        self.region = region
+        self.model_id    = model_id
+        self.region      = region
         self.max_retries = max_retries
+        self.redactor    = redactor
         self._client: Any = None   # lazy boto3 client
 
     def _get_client(self) -> Any:
@@ -145,13 +155,22 @@ class BedrockLLMClient:
         Returns:
             Claude's response text.
         """
+        # Redact PII before the prompt leaves our trust boundary. The
+        # audit log captures only `prompt_chars` (length), not the prompt
+        # itself, so we redact for the *Bedrock* request specifically.
+        outbound_prompt = prompt
+        outbound_system = system
+        if self.redactor is not None:
+            outbound_prompt = self.redactor.redact_text(prompt)
+            outbound_system = self.redactor.redact_text(system) if system else system
+
         prompt_tokens = len(prompt.split())  # rough estimate for logging
 
         async def _exec_fn():
             return await asyncio.to_thread(
                 self._invoke_bedrock,
-                prompt=prompt,
-                system=system,
+                prompt=outbound_prompt,
+                system=outbound_system,
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
