@@ -103,27 +103,27 @@ flowchart TB
     end
 
     %% ─── Wiring (composition) ───────────────────────────────────────
-    AGENTS    -->|builds| ORCH
-    ORCH      -->|runs|   CORE
-    CORE      ==>|every effect routes through| TOLLGATE
-    BA        --> EFFECTS
-    BA        --> BUILDER
-    BA        -.->|reads/writes| MEM
-    BA        -.->|tracks| TRACK
-    BA        -.->|emits| TEL
+    AGENTS -->|builds| ORCH
+    ORCH -->|runs| CORE
+    BA -->|every effect through| TOWER
+    BA --> EFFECTS
+    BA --> BUILDER
+    BA -.->|reads writes| MEM
+    BA -.->|tracks| TRACK
+    BA -.->|emits| TEL
     AGENT_CODE -.->|reads| MANIFEST
     AGENT_CODE -.->|reads| POLICY
     AGENT_CODE -.->|reads| SCHEMAS
-    TOWER     --> POL_EVAL
-    TOWER     --> AUDIT_PIPE
-    TOWER     --> APPROVERS
+    TOWER --> POL_EVAL
+    TOWER --> AUDIT_PIPE
+    TOWER --> APPROVERS
     AUDIT_PIPE -.->|wraps with| REDACT
-    POL_EVAL  -.->|reads| POLICY
-    LIFE      -.->|reads| TRACK
-    LIFE      -.->|reads| REG
+    POL_EVAL -.->|reads| POLICY
+    LIFE -.->|reads| TRACK
+    LIFE -.->|reads| REG
 
-    CORE -->|invokes| CONN
-    GCM  -.->|wraps| BL
+    BA -->|invokes| CONN
+    GCM -.->|wraps| BL
 
     %% ── Numbered email-to-Pega data flow ────────────────────────────
     EMAIL  -.->|① inbound email| OUT
@@ -296,7 +296,7 @@ gated by policy, recorded in audit, and emitted as telemetry.
 Three composition arrows tell the story:
 
 ```
-AGENTS ─builds→ ORCH ─runs→ CORE ─every effect through→ TOLLGATE
+AGENTS ─builds→ ORCH ─runs→ CORE ──BaseAgent.run_effect──→ ControlTower (tollgate)
 ```
 
 What this means in code (`arc-harness/HarnessBuilder`):
